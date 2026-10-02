@@ -1,0 +1,119 @@
+[
+  {
+    "id": "f515da9d-1aa4-40f0-96d0-b99d2b3ecdad",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Make a cool app",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T03:21:02.557519"
+  },
+  {
+    "id": "c04bf8f2-214a-4bf6-a211-2f9798c28a8d",
+    "branch": "invalid",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Make a cool post",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:02.558700"
+  },
+  {
+    "id": "e4f1a08e-2a98-489f-a9c3-b99059d53577",
+    "branch": "app",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Build login system",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:02.562660"
+  },
+  {
+    "id": "712bc3f1-4c7b-457e-8057-0168e3adf872",
+    "branch": "marketing",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Write ads copy",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:02.565324"
+  },
+  {
+    "id": "ca5484c7-0535-432c-bcf9-1ad43e9d2513",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Make a cool app",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T03:21:08.739115"
+  },
+  {
+    "id": "51e2e1ba-cef9-4475-a32a-b23ef80f50e3",
+    "branch": "invalid",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Make a cool post",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:08.740838"
+  },
+  {
+    "id": "56076366-26eb-4c12-a471-73e6b8ca822f",
+    "branch": "app",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Build login system",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:08.743689"
+  },
+  {
+    "id": "d6ab2c96-88ac-445e-9219-aefc514e2f56",
+    "branch": "marketing",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Write ads copy",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:08.745327"
+  },
+  {
+    "id": "af10db61-d230-4797-8812-eecce09f1182",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Make a cool app",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T03:21:20.258948"
+  },
+  {
+    "id": "5b45a645-06ee-4963-8ef7-148d68aea7cd",
+    "branch": "invalid",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Make a cool post",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:20.260015"
+  },
+  {
+    "id": "d3d16bde-378f-4c56-a4ad-6a52c3dd305c",
+    "branch": "app",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Build login system",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:20.271034"
+  },
+  {
+    "id": "82377c8a-bdec-4da9-9baa-38018fd5a232",
+    "branch": "marketing",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Write ads copy",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T03:21:20.274514"
+  },
+  {
+    "id": "54f06759-adb8-42fe-a4e0-0bf897eb91ac",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Xay dung he thong tim kiem san pham",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T03:21:47.857113"
+  }
+]

@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.class
+.pytest_cache/
+.pytest_temp/
+.env*
+*.log
+.DS_Store

@@ -1,0 +1,18 @@
+{
+  "models": {
+    "pro": "Gemini 3.1 Pro",
+    "flash": "Gemini 3.8 Flash"
+  },
+  "roles": {
+    "architect": "pro",
+    "builder_creator": "pro",
+    "qa": "flash",
+    "compliance_critic": "flash"
+  },
+  "limits": {
+    "max_critique_rounds": 2
+  },
+  "logging": {
+    "trace": true
+  }
+}
