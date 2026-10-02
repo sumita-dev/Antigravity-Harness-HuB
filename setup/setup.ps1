@@ -32,36 +32,29 @@ if (Test-Path $targetFile) {
 Write-Host "[3/4] Sao chép file cấu hình (cài đè)..." -ForegroundColor Yellow
 Copy-Item -Path $sourceFile -Destination $targetFile -Force
 
-Write-Host "[4/4] Cài đặt các kỹ năng nhánh Marketing vào thư mục global..." -ForegroundColor Yellow
+Write-Host "[4/4] Cài đặt toàn bộ kỹ năng, quy chuẩn Maker-Checker, agents và rubrics vào global..." -ForegroundColor Yellow
 $skillsTargetDir = Join-Path $targetDir "skills"
 if (-not (Test-Path $skillsTargetDir)) {
     New-Item -ItemType Directory -Force -Path $skillsTargetDir | Out-Null
 }
 
-$marketingSkills = @(
-    "boc-phot-storytelling",
-    "check-youtube-policy",
-    "yt-competitor-analyzer",
-    "alex-hormozi-offer-builder",
-    "alex-hormozi-money-models",
-    "kahneman-creative-ads",
-    "traffic-secrets-playbook",
-    "cong-thuc-viet-content-by-noti-v4",
-    "viet-content-seo-geo-v5",
-    "meta-ads-analyzer-mod-by-noti",
-    "fb-admin"
-)
+$repoRoot = Join-Path $PSScriptRoot ".."
+$repoSkillsDir = Join-Path $repoRoot "skills"
 
-$repoSkillsDir = Join-Path $PSScriptRoot "..\skills"
-foreach ($s in $marketingSkills) {
-    $srcSkill = Join-Path $repoSkillsDir $s
-    $dstSkill = Join-Path $skillsTargetDir $s
-    if (Test-Path $srcSkill) {
-        Copy-Item -Path $srcSkill -Destination $dstSkill -Recurse -Force
-        Write-Host "  + Đã nạp skill: $s" -ForegroundColor DarkGreen
-    }
+Get-ChildItem -Path $repoSkillsDir -Directory | ForEach-Object {
+    $srcSkill = $_.FullName
+    $dstSkill = Join-Path $skillsTargetDir $_.Name
+    Copy-Item -Path $srcSkill -Destination $dstSkill -Recurse -Force
+    Write-Host "  + Đã nạp skill: $($_.Name)" -ForegroundColor DarkGreen
 }
 
-Write-Host "
-Đã cài đặt cấu hình và kỹ năng Marketing thành công!" -ForegroundColor Green
+# Sao chép AGENTS.md, GEMINI.md, agents và rubrics vào global config
+Copy-Item -Path (Join-Path $repoRoot "AGENTS.md") -Destination (Join-Path $targetDir "AGENTS.md") -Force
+Copy-Item -Path (Join-Path $repoRoot "GEMINI.md") -Destination (Join-Path $targetDir "GEMINI.md") -Force
+Copy-Item -Path (Join-Path $repoRoot "agents") -Destination (Join-Path $targetDir "agents") -Recurse -Force
+Copy-Item -Path (Join-Path $repoRoot "rubrics") -Destination (Join-Path $targetDir "rubrics") -Recurse -Force
+Write-Host "  + Đã đồng bộ quy chuẩn Maker-Checker, AGENTS.md, GEMINI.md, agents và rubrics vào global config!" -ForegroundColor DarkGreen
+
+Write-Host "`nĐã cài đặt cấu hình và đồng bộ toàn bộ hệ thống Antigravity 2.0 thành công!" -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Cyan
+
