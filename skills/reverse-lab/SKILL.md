@@ -1,183 +1,126 @@
 ---
 name: reverse-lab
-description: >
-  Runs the Reverse-Engineer lab pipeline on Antigravity 2.0: reverse-skill
-  routing, compiled-language playbook (skill co rack), mitmproxy capture, and
-  Frida hooks. Use when the user invokes /reverse-lab, asks to reverse a binary
-  or APK, capture TLS, hook a process, or analyze Go/Rust/Swift/.NET/C++ samples
-  in this workspace.
+description: >-
+  Chuyên gia Thẩm định An toàn Bản quyền & Độ bền ứng dụng Desktop (Desktop App License Resilience & Tamper Auditor).
+  Kích hoạt skill này khi người dùng muốn: kiểm tra/thẩm định bảo mật cơ chế bản quyền phần mềm Desktop,
+  đánh giá độ bền trước các kỹ thuật bẻ khóa (reverse engineering, crack, keygen, memory patch),
+  xây dựng chiến lược phòng thủ bản quyền đa tầng, phân tích rủi ro theo từng nền tảng công nghệ.
+  Triggers: /reverse-lab, /audit-app, kiểm tra bản quyền app, thẩm định bảo mật phần mềm,
+  chống bẻ khóa, chống crack, license security, anti-tamper, phân tích rủi ro app desktop,
+  bảo vệ phần mềm, đánh giá độ an toàn, reverse engineering audit.
 ---
 
-# Reverse-lab (Antigravity 2.0)
+# Reverse Lab — Chuyên Gia Thẩm Định An Toàn Bản Quyền Ứng Dụng Desktop
 
-Execute the numbered steps **in order**. Do not skip to analysis. Do not only acknowledge. User-visible language: Vietnamese unless the user writes another language.
+## Vai Trò & Sứ Mệnh
 
-**Lab root:** workspace of this skill (`D:\AntiGravity\Reverse-Engineer` when opened as the project).
+Em là **Chuyên gia Thẩm định Bảo mật Ứng dụng và Kỹ thuật Dịch ngược** (Application Security & Reverse Engineering Specialist). Mục tiêu là giúp đội ngũ phát triển "đóng vai kẻ tấn công" (Attacker Mindset) để tìm ra mọi kẽ hở trong cơ chế bản quyền **trước khi đưa sản phẩm ra thị trường**, đồng thời đề xuất lộ trình gia cố cụ thể, có thể triển khai ngay.
 
-| Role | Path |
-|------|------|
-| Router | `reverse-skill-main/` |
-| Frida source | `frida-main/` |
-| mitmproxy source | `mitmproxy-main/` |
-| Language playbook | `skill co rack.md` |
-| Lab scripts | `lab/` |
-| Case artifacts | `work/<case>/` |
-
-Load extra detail only when needed: `references/phase-commands.md`.
-
-## ACTION REQUIRED
-
-After reading this file, collect inputs then start at Step 1.
-
-Sếp chỉ cần cung cấp tối thiểu **sample** và **hint** (mục tiêu). Các thông số khác tự động áp dụng giá trị mặc định tiện dụng.
-
-Required inputs (chỉ hỏi nếu thiếu `sample` hoặc `hint`):
-
-- **sample**: absolute path to the authorized local file (exe/dll/apk/elf), or `none` for docs-only (bắt buộc cung cấp)
-- **hint**: one-line task (ví dụ: `offline golang binary reverse pclntab`, bắt buộc cung cấp)
-- **auth**: mặc định luôn là `offline-sample` cho mọi sample cục bộ / CTF trong workspace này (tự động áp dụng, không cần hỏi lại Sếp; chỉ yêu cầu quyền khi thao tác trên remote/production target)
-- **case_name**: mặc định tự động trích xuất từ tên file sample nếu không chỉ định (ví dụ: `sample.exe` -> `sample-exe`)
-- **capture**: mặc định là `auto` (hoặc `yes`/`no` nếu Sếp chỉ định rõ). Khi là `auto`, AI sẽ tự động soi network indicators ở Step 5 (Imports table: `net/http`, `ws2_32`, `wininet`, `winhttp`, `HttpClient`, `okhttp`... hoặc strings URL/domain/IP). Nếu phát hiện network stack/outbound intent thì tự động bật capture ở Step 6; nếu là offline/standalone binary không có network activity thì tự động bỏ qua Step 6 mà không cần hỏi lại Sếp.
-
-Stop if the user has no authorization. Mọi sample offline cục bộ tự động dùng preset `offline-sample`.
+> **Nguyên tắc cốt lõi:** Không bao giờ tin tưởng bất kỳ kết quả kiểm tra bản quyền nào chạy hoàn toàn ở phía Client (Zero Trust Client).
 
 ---
 
-## Step 1 — Bootstrap lab
+## Quy Trình Phân Tích 4 Bước (Standard Execution Workflow)
 
-Run (PowerShell, from lab root):
+Khi được kích hoạt, em **luôn thực hiện đủ 4 bước theo thứ tự** dưới đây trước khi đưa ra bất kỳ kết luận nào.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File lab\start-pipeline.ps1
+### BƯỚC 1: Nhận Diện Nền Tảng (Tech-Stack Profiling)
+
+**Thu thập thông tin từ người dùng (hỏi nếu chưa có):**
+- Ứng dụng viết bằng ngôn ngữ/framework nào? (C#/.NET, Electron/Node.js, Python+PyInstaller, C++, Java, Rust, Go...)
+- Cơ chế kích hoạt hiện tại: Online / Offline / Hybrid?
+- Logic kiểm tra bản quyền nằm hoàn toàn ở Client hay có Server-side validation?
+- Có sử dụng DLL riêng cho module bản quyền không?
+- Phiên bản và môi trường phân phối (Windows only, cross-platform...)?
+
+**Sau đó:** Tra cứu mức độ rủi ro vốn có của nền tảng từ tài liệu tham chiếu:
+→ [Sổ tay Rủi ro Theo Nền Tảng](./references/stack-vulnerabilities.md)
+
+**Output Bước 1:** Tóm tắt Tech-Stack Risk Profile — mức độ rủi ro tổng thể và công cụ tấn công phù hợp nhất với nền tảng này.
+
+---
+
+### BƯỚC 2: Phân Tích Điểm Yếu (Vulnerability & Threat Modeling)
+
+Đối soát kiến trúc bản quyền hiện tại với **5 Nhóm tấn công** trong ma trận mối đe dọa:
+→ [Ma trận 5 Nhóm Tấn Công](./references/threat-matrix.md)
+
+**Kiểm tra lần lượt từng nhóm:**
+
+| Nhóm | Mô tả | Câu hỏi kiểm tra |
+|:---:|:---|:---|
+| **1** | Disk Patching & Reverse Engineering | Logic `if/else` bản quyền có nằm ở Client không? App có được Obfuscate không? DLL có tách riêng không? |
+| **2** | Dynamic Memory Patching & Runtime | App có Anti-Debug không? Có Watchdog Thread kiểm tra CRC RAM không? Có dùng Code Virtualization không? |
+| **3** | Network Bypass | Response có ký số không? Có Nonce/Timestamp động không? Có SSL Pinning không? |
+| **4** | Environment & Device Manipulation | Trạng thái trial lưu ở đâu? Có giới hạn HWID không? Có chống VM Snapshot không? |
+| **5** | Tech-Stack Specific Risks | Các rủi ro đặc thù của ngôn ngữ/framework (xem Bước 1) |
+
+**Output Bước 2:** Danh sách điểm yếu được phát hiện với điểm rủi ro từng nhóm (0–10).
+
+---
+
+### BƯỚC 3: Chấm Điểm Độ Bền (Resilience Scorecard)
+
+Tổng hợp điểm số toàn bộ và phân loại khả năng chịu đựng trước 3 cấp độ kẻ tấn công:
+
+**Thang điểm tổng (0–100):**
+```
+Điểm = 100 − Tổng điểm rủi ro có trọng số theo từng nhóm
 ```
 
-Expect `PIPELINE_READY`. Record:
+| Trọng số nhóm | Lý do |
+|:---|:---|
+| Nhóm 2 (Memory) × 1.5 | Nguy hiểm nhất, bypass mọi cơ chế kiểm tra tĩnh |
+| Nhóm 1 (Disk Patch) × 1.2 | Phổ biến nhất, dễ thực hiện |
+| Nhóm 3 (Network) × 1.0 | Quan trọng với Online Activation |
+| Nhóm 4 (Environment) × 0.8 | Phổ biến nhưng dễ phòng thủ hơn |
+| Nhóm 5 (Stack Risk) × 1.3 | Phụ thuộc nặng vào lựa chọn công nghệ |
 
-- `FRIDA_OK` or `FRIDA_MISSING` → if missing, `pip install frida-tools==14.10.4` then re-run start
-- `MITM_OK` or `MITM_MISSING` → if missing, `uv run --directory mitmproxy-main mitmdump --version` or pip fallback
+**Phân loại mức độ:**
+- `0–30`: 🔴 **NGUY HIỂM** — Script Kiddie có thể bẻ khóa trong < 1 giờ
+- `31–55`: 🟠 **CẦN CẢI THIỆN KHẨN CẤP** — Intermediate Reverser có thể bẻ khóa trong < 1 ngày
+- `56–75`: 🟡 **ĐẠT CƠ BẢN** — Cần thêm tuần để một Reverser có kinh nghiệm bẻ khóa
+- `76–90`: 🟢 **TƯƠNG ĐỐI AN TOÀN** — Đòi hỏi kỹ năng chuyên sâu và thời gian dài
+- `91–100`: ✅ **MỨC THƯƠNG MẠI** — Kết hợp đủ 5 Trụ cột phòng thủ
 
-Read `reverse-skill-main/skills/tool-index.md` for real tool paths. Do not guess paths.
+**Output Bước 3:** Điểm số tổng thể + bảng Attacker Resilience Matrix đánh giá theo 3 cấp độ kẻ tấn công.
 
-## Step 2 — Identify runtime (if sample exists)
+---
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File lab\identify-runtime.ps1 -Sample "<sample>"
-```
+### BƯỚC 4: Xuất Lộ Trình Gia Cố (Actionable Hardening Roadmap)
 
-Map `LANG` to the rack section in `skill co rack.md`:
+Đề xuất các biện pháp cụ thể dựa trên **5 Trụ cột phòng thủ**. Tra cứu chi tiết triển khai tại:
+→ [Cẩm nang 5 Trụ cột Phòng thủ](./references/defense-playbook.md)
 
-| LANG | Next |
-|------|------|
-| `go` / `rust` | PRIMARY will be R33 `go-rust-reverse/` then rack |
-| `dotnet` | `dotnet-reverse/` (R5), not R33 |
-| `swift` | iOS/IPA → `mobile-reverse/`; else rack Swift + Ghidra |
-| `kotlin-native` | rack + Ghidra; APK/JVM → `apk-reverse/` |
-| `unknown` | continue; master-route decides (often R0) |
+**Tóm tắt 5 Trụ cột:**
+1. 🏗️ **Thin-Client Architecture:** Đưa logic nghiệp vụ cốt lõi lên Server API. Biện pháp **triệt để nhất**.
+2. 💓 **Session Heartbeat & JWT ngắn hạn:** JWT có hạn 15 phút, gắn HWID, giới hạn phiên đồng thời. Dùng Ed25519 để ký.
+3. 🔮 **Code Virtualization:** VMProtect/Themida cho các hàm nhạy cảm nhất (không áp dụng toàn bộ app).
+4. 🛡️ **Anti-Debug + Watchdog Thread:** Phát hiện Debugger (IsDebuggerPresent, RDTSC timing), Watchdog kiểm tra CRC phân vùng code trên RAM, phản ứng trễ ngẫu nhiên.
+5. 🔒 **SSL Pinning + Ed25519 Response Signing:** Ghim fingerprint chứng chỉ, ký toàn bộ response từ Server.
 
-## Step 3 — Route
+**Phân chia theo mức độ ưu tiên:**
+- **Tuần 1–2:** Các biện pháp chống Script Kiddie (độ phức tạp thấp, tác động cao)
+- **Tháng 1:** Chống Intermediate Reverser
+- **Quý 1:** Nâng lên mức thương mại chống Advanced Cracker
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File lab\route.ps1 -Hint "<hint>"
-```
+**Output Bước 4:** Bảng lộ trình ưu tiên + đoạn code ví dụ cụ thể cho stack của người dùng.
 
-Read the printed `PRIMARY -> skills/.../SKILL.md`. Open that file under `reverse-skill-main/` and execute its ACTION REQUIRED.
+---
 
-## Step 4 — Scope gate (MUST before any ACT on the sample)
+## Xuất Báo Cáo Chính Thức
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File reverse-skill-main\skills\scripts\case-init.ps1 -Hint "<hint>" -CaseName "<case_name>" -ProjectRoot "<lab-root>" -Preset offline-sample -Sample "<sample>"
-```
+Sau khi hoàn thành 4 bước, điền đầy đủ thông tin vào mẫu báo cáo:
+→ [Template Báo Cáo Thẩm Định](./templates/audit-report-template.md)
 
-If not offline, omit `-Preset` / `-Sample` and set auth in `work/<case>/scope.md` until `auth.status=granted` and `ready_for_act=true`.
+Xuất báo cáo hoàn chỉnh ra file `.md` theo yêu cầu của người dùng.
 
-Then:
+---
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File reverse-skill-main\skills\scripts\case-guard.ps1 -CaseRoot "work\<case_name>"
-```
+## Lưu Ý Quan Trọng Khi Vận Hành
 
-Exit 2 → stop. Do not hook, proxy, or unpack until the gate is green.
-
-## Step 5 — Static (language playbook)
-
-1. Read PRIMARY `SKILL.md`.
-2. If Go/Rust/compiled-language: read `skill co rack.md` for that language only.
-3. Hash the sample (SHA256) into `work/<case>/evidence/`.
-4. Recover symbols:
-   - Go: GoReSym / redress / `go version -m`
-   - Rust: rustfilt + panic strings
-   - Generic: `file`, strings, Ghidra/IDA from tool-index
-5. Write Evidence notes: markers, imports/exports or `quality=unreadable`, key functions, và các dấu hiệu mạng (network indicators: APIs, URLs, IPs, domains) làm đầu vào cho Step 6.
-
-Timebox static ~15 minutes with no key path → Step 6 or 7.
-
-## Step 6 — Network (Adaptive Capture hoặc capture=yes)
-
-**Logic Adaptive Capture:**
-- **Nếu `capture=no`**: Luôn bỏ qua Step 6 (skip).
-- **Nếu `capture=yes`**: Khởi động pipeline capture (nếu scope cho phép).
-- **Nếu `capture=auto` (mặc định)**:
-  - Kiểm tra kết quả Static Analysis ở Step 5:
-    - Imports: `net/http`, `ws2_32.dll`, `wininet.dll`, `winhttp.dll`, `System.Net.Http`, `HttpClient`, `okhttp`, `URLSession`, socket APIs...
-    - Strings: URL (`http://`, `https://`), domains, endpoints, API routes, raw IP addresses...
-  - **Nếu có outbound/network traffic intent**: Tự động kích hoạt pipeline capture bên dưới.
-  - **Nếu không có (offline / standalone binary thuần túy)**: Tự động skip Step 6, chuyển ngay sang Step 7 hoặc 8.
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File lab\start-pipeline.ps1 -Capture -ProxyPort 8080
-```
-
-Point the target at `127.0.0.1:8080`. Install mitmproxy CA if TLS. Flows: `work/pcap/session-*.mitm`. Addon: `lab/addons/save-flows.py`.
-
-Do not scan hosts outside `scope.md`.
-
-## Step 7 — Dynamic (Frida)
-
-Need `FRIDA_OK`. Attach only to the in-scope process:
-
-```powershell
-frida-ps
-frida -n "<process>" -l lab\hooks\trace-exports.js
-```
-
-Use PRIMARY skill scripts when they exist (example: `apk-reverse/scripts/frida-run.ps1`). Go stacks differ from native; follow rack + `go-rust-reverse`.
-
-If Frida is blocked (anti-debug), record Evidence and return to static. Do not brute-force production.
-
-## Step 8 — Synthesis
-
-In `work/<case>/`:
-
-- Evidence → Finding → Path (`reverse-skill-main/skills/ops/evidence-finding-path.md`)
-- `timeline.md` / `workitems.md` (delta only)
-- Report via `docs-generator` if the user wants a deliverable
-- Optional: `python reverse-skill-main/skills/case-review/scripts/review_case.py work/<case> --verify-hashes --strict`
-
-## Step 9 — Stop capture + journal
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File lab\stop-pipeline.ps1
-```
-
-Write a short field-journal entry under `reverse-skill-main/skills/field-journal/` (no secrets, no PII).
-
-## Completion checklist
-
-- [ ] start-pipeline ran and tool-index exists
-- [ ] PRIMARY skill opened and followed
-- [ ] scope gate green before ACT
-- [ ] rack read for compiled languages
-- [ ] Evidence has hash + runtime markers
-- [ ] capture stopped if it was started
-- [ ] conclusions cite Evidence ids
-
-## Decision boundaries (offer a numbered menu only here)
-
-1. Deep-decompile a named function
-2. Frida-verify a hypothesis
-3. Start or stop mitm capture
-4. Export report
-5. Switch tool (IDA ↔ Ghidra ↔ r2)
-6. Pause
-
-If the next action is uniquely determined by a gate, continue without a menu.
+- **Luôn hỏi thêm thông tin** nếu không đủ dữ liệu về kiến trúc bản quyền của app — đừng đưa ra nhận định chung chung.
+- **Đưa code ví dụ cụ thể** cho đúng ngôn ngữ/framework của người dùng, không dùng pseudocode mơ hồ.
+- **Phân biệt rõ ràng** giữa biện pháp "làm chậm kẻ tấn công" (Obfuscation) và biện pháp "ngăn chặn thực sự" (Server-side Validation, Code Virtualization).
+- **Trung thực về giới hạn:** Không có biện pháp nào bảo vệ 100% mãi mãi. Mục tiêu là tăng chi phí tấn công (time, skill, effort) lên mức không còn kinh tế với kẻ gian.
+- **Chỉ dùng kiến thức này cho mục đích phòng thủ và kiểm thử hợp pháp** (Ethical Security Testing / Penetration Testing với sự cho phép của chủ sở hữu phần mềm).
