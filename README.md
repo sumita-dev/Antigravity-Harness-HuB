@@ -33,6 +33,9 @@ Antigravity-Harness-Hub/
 ├── tests/                                  # Bộ kiểm thử tự động toàn diện
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
 │   └── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
+├── setup/                                  # Cài đặt cấu hình môi trường mới
+│   ├── config.json                         # Cấu hình Antigravity plugins & userSettings chuẩn
+│   └── setup.ps1                           # Script tự động copy đè cấu hình vào %USERPROFILE%\.gemini\config
 ├── run_harness.py                          # Giao diện dòng lệnh CLI chính của hệ thống
 └── README.md                               # Tài liệu hướng dẫn chi tiết
 ```
@@ -122,7 +125,18 @@ flowchart LR
 
 ## 4. Hướng Dẫn Sử Dụng & Kiểm Thử
 
-### 4.1. Chạy Kiểm Thử Tự Động (Automated Testing)
+### 4.1. Cài Đặt Cấu Hình Môi Trường Khi Sang Máy Mới
+
+Để áp dụng toàn bộ cấu hình plugin (`anti-workflows`, `chrome-devtools-plugin`, `gemini-api`, `google-antigravity-sdk`, `modern-web-guidance-plugin`) và `userSettings` chuẩn của hệ thống:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File setup\setup.ps1
+```
+*Script sẽ tự động sao lưu cấu hình cũ (nếu có) và cài đè `config.json` vào `%USERPROFILE%\.gemini\config\config.json`.*
+
+---
+
+### 4.2. Chạy Kiểm Thử Tự Động (Automated Testing)
 
 Toàn bộ logic máy trạng thái, routing và kịch bản ngắt mạch đã được bao phủ bởi pytest. Để thực thi toàn bộ test suite:
 
@@ -146,7 +160,7 @@ tests/test_harness_e2e.py::test_marketing_branch_e2e PASSED
 
 ---
 
-### 4.2. Hướng Dẫn Sử Dụng Lệnh CLI (`run_harness.py`)
+### 4.3. Hướng Dẫn Sử Dụng Lệnh CLI (`run_harness.py`)
 
 Hệ thống cung cấp điểm vào CLI chuẩn xác qua `run_harness.py`:
 

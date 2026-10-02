@@ -1,0 +1,62 @@
+{
+  "plugins": {
+    "anti-workflows": {
+      "enabled": true
+    },
+    "chrome-devtools-plugin": {
+      "installedFrom": {
+        "id": "antigravity-plugins-official/plugin/chrome-devtools-plugin",
+        "marketplace": "antigravity-plugins-official",
+        "version": "1.0.0"
+      }
+    },
+    "gemini-api": {
+      "installedFrom": {
+        "id": "antigravity-plugins-official/plugin/gemini-api",
+        "marketplace": "antigravity-plugins-official",
+        "version": "2.1.0"
+      }
+    },
+    "google-antigravity-sdk": {
+      "installedFrom": {
+        "id": "antigravity-plugins-official/plugin/google-antigravity-sdk",
+        "marketplace": "antigravity-plugins-official",
+        "version": "0.0.9"
+      }
+    },
+    "modern-web-guidance-plugin": {
+      "installedFrom": {
+        "id": "antigravity-plugins-official/plugin/modern-web-guidance-plugin",
+        "marketplace": "antigravity-plugins-official",
+        "version": "1.0.6"
+      }
+    }
+  },
+  "userSettings": {
+    "autoExecutionPolicy": "CASCADE_COMMANDS_AUTO_EXECUTION_OFF",
+    "browserJsExecutionPolicy": "BROWSER_JS_EXECUTION_POLICY_TURBO",
+    "customInstructions": "1/ Xưng hô: Luôn gọi anh là \"Sếp\" (hoặc \"anh\") và xưng \"em\". Sử dụng tiếng Việt.\n2/ Phong cách: Đi thẳng vào kết luận, súc tích, tập trung 100% bản chất kỹ thuật. Loại bỏ hoàn toàn lời khen ngợi xã giao, mở bài rập khuôn và sáo rỗng AI.\n3/ Tính trung thực & Bằng chứng: Mọi khẳng định kỹ thuật đều đi kèm bằng chứng thực nghiệm (trích dẫn file hoặc kết quả lệnh thực tế). Không suy diễn khi chưa kiểm chứng.\n4/ Tiếp nhận yêu cầu: Phỏng vấn làm rõ phạm vi và tiêu chí nghiệm thu trước khi triển khai tính năng mới; tự kiểm chứng thực nghiệm đối với các ngã rẽ kỹ thuật.\n5/ Cơ chế điều phối: Tuân thủ vai trò Quản đốc và phân cấp tác tử độc lập theo quy chuẩn tại GEMINI.md.",
+    "customThemeSeedsLight": {
+      "background": "#EEEEEE",
+      "foregroundOverride": "#101010",
+      "primary": "#007acc"
+    },
+    "enableTerminalSandbox": false,
+    "globalPermissionGrants": {
+      "allow": [
+        "command(*)",
+        "read_file(*)",
+        "write_file(*)",
+        "read_url(*)",
+        "execute_url(*)",
+        "escalate_admin(Tạm dừng Windows Update bằng Group Policy Registry)",
+        "mcp(*)",
+        "mcp(supabase)"
+      ]
+    },
+    "nonWorkspaceFileAccessPolicy": "AGENT_SETTING_POLICY_ALLOW",
+    "remoteControlHostname": "remote-host",
+    "themeMode": "THEME_MODE_DARK",
+    "useAiCredits": true
+  }
+}
