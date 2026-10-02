@@ -1,0 +1,1 @@
+Không có file "platforms/facebook-organic.md" trong skill "cong-thuc-viet-content-by-noti-v4".

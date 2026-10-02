@@ -2,6 +2,7 @@ from harness.state_machine import TaskContext, HarnessState
 from harness.quality_gate import AdversarialQualityGate, Verdict
 from harness.runners.app_runner import AppRunner
 from harness.runners.marketing_runner import MarketingRunner
+from harness.skills.router import SkillRouter, SkillLoader
 
 class ChiefOrchestrator:
     def __init__(self):
@@ -12,15 +13,25 @@ class ChiefOrchestrator:
         self.marketing_runner = MarketingRunner(self.quality_gate)
         self.trajectory_store = TrajectoryStore()
         self.learning_harvester = LearningHarvester()
+        self.skill_router = SkillRouter()
+        self.skill_loader = SkillLoader()
 
-    def process_task(self, task_description: str, branch: str, mock_checker_output: str = "VERDICT: APPROVE"):
+    def process_task(self, task_description: str, branch: str = None, mock_checker_output: str = "VERDICT: APPROVE"):
+        skill = None
+        if branch is None or branch == "auto":
+            skill, routed_branch = self.skill_router.route(task_description)
+            branch = routed_branch
+
         context = TaskContext(task_id="task_1", branch=branch)
+        context.active_skill = skill
+        if skill:
+            context.skill_instructions = self.skill_loader.load_instructions(skill)
         
         relevant_patterns = self.learning_harvester.retrieve_relevant_patterns(task_description, branch)
         context.relevant_patterns = relevant_patterns
 
         context.transition(HarnessState.INTAKE)
-        context.record_step("INTAKE", {"description": task_description})
+        context.record_step("INTAKE", {"description": task_description, "active_skill": context.active_skill})
         context.record_step("DESIGN", {})
         context.record_step("IMPLEMENTATION", {})
         context.record_step("AUDIT", {})

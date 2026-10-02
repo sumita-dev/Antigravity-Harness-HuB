@@ -1,0 +1,1 @@
+Không có file "bai-goc.md" trong skill "viet-content-seo-geo-v5".

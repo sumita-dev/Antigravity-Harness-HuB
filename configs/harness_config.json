@@ -14,5 +14,12 @@
   },
   "logging": {
     "trace": true
+  },
+  "skill_routing": {
+    "boc-phot-storytelling": { "branch": "marketing", "keywords": ["bóc phốt", "boc phot", "storytelling"] },
+    "alex-hormozi-offer-builder": { "branch": "marketing", "keywords": ["offer", "alex hormozi", "hormozi"] },
+    "forensics": { "branch": "app", "keywords": ["bug ngầm", "khảo cổ", "forensics"] },
+    "app": { "branch": "app", "keywords": ["làm app", "mvp", "ứng dụng", "app"] },
+    "test-driven-development": { "branch": "app", "keywords": ["tdd", "test driven", "test-driven-development"] }
   }
 }

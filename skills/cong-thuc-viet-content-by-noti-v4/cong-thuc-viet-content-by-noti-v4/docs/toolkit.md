@@ -1,0 +1,1 @@
+Không có file "docs/toolkit.md" trong skill "cong-thuc-viet-content-by-noti-v4".

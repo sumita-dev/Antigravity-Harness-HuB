@@ -18,6 +18,8 @@ class TaskContext:
         self.critique_rounds = 0
         self.trace_steps: list[dict] = []
         self.relevant_patterns: list[dict] = []
+        self.active_skill = None
+        self.skill_instructions = None
 
     def record_step(self, step_name: str, payload: dict):
         from datetime import datetime

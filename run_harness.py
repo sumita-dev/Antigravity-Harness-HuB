@@ -4,7 +4,7 @@ from harness.orchestrator import ChiefOrchestrator
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", required=True, help="Task description")
-    parser.add_argument("--branch", choices=["app", "marketing"], required=True, help="Branch")
+    parser.add_argument("--branch", choices=["app", "marketing", "auto"], default=None, help="Branch")
     args = parser.parse_args()
     
     orchestrator = ChiefOrchestrator()
