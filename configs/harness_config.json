@@ -16,10 +16,468 @@
     "trace": true
   },
   "skill_routing": {
-    "boc-phot-storytelling": { "branch": "marketing", "keywords": ["bóc phốt", "boc phot", "storytelling"] },
-    "alex-hormozi-offer-builder": { "branch": "marketing", "keywords": ["offer", "alex hormozi", "hormozi"] },
-    "forensics": { "branch": "app", "keywords": ["bug ngầm", "khảo cổ", "forensics"] },
-    "app": { "branch": "app", "keywords": ["làm app", "mvp", "ứng dụng", "app"] },
-    "test-driven-development": { "branch": "app", "keywords": ["tdd", "test driven", "test-driven-development"] }
+    "boc-phot-storytelling": {
+      "branch": "marketing",
+      "keywords": [
+        "bóc phốt",
+        "boc phot",
+        "mổ sổ",
+        "lật tờ rơi",
+        "một đêm",
+        "hai mắt nhìn",
+        "ba ngã",
+        "đếm ngược tháng",
+        "kịch bản bóc phốt",
+        "kịch bản youtube",
+        "tập tiếp theo",
+        "beat kịch bản"
+      ]
+    },
+    "check-youtube-policy": {
+      "branch": "marketing",
+      "keywords": [
+        "chính sách youtube",
+        "vi phạm youtube",
+        "bản quyền youtube",
+        "gậy youtube",
+        "nguyên tắc cộng đồng youtube",
+        "ypp",
+        "youtube policy",
+        "safe script rewrite",
+        "audit script",
+        "kiểm tra vi phạm kịch bản",
+        "kiểm tra chính sách kịch bản",
+        "kiểm tra gậy"
+      ]
+    },
+    "yt-competitor-analyzer": {
+      "branch": "marketing",
+      "keywords": [
+        "phân tích đối thủ youtube",
+        "kênh đối thủ",
+        "quét kênh youtube",
+        "video outlier",
+        "competitor audit",
+        "phân tích kênh youtube",
+        "thống kê kênh youtube",
+        "đối thủ youtube"
+      ]
+    },
+    "alex-hormozi-offer-builder": {
+      "branch": "marketing",
+      "keywords": [
+        "grand slam offer",
+        "value stack",
+        "đóng gói offer",
+        "đảo ngược rủi ro",
+        "risk reversal",
+        "tạo offer",
+        "làm offer",
+        "combo giá trị",
+        "xây dựng offer",
+        "offer builder",
+        "hormozi offer"
+      ]
+    },
+    "alex-hormozi-money-models": {
+      "branch": "marketing",
+      "keywords": [
+        "money models",
+        "mô hình định giá",
+        "thang giá trị",
+        "pricing strategy",
+        "upsell",
+        "downsell",
+        "continuity offer",
+        "revenue system",
+        "kế hoạch doanh thu 90 ngày",
+        "offer ladder",
+        "thang sản phẩm"
+      ]
+    },
+    "kahneman-creative-ads": {
+      "branch": "marketing",
+      "keywords": [
+        "kahneman",
+        "creative strategy",
+        "content angles",
+        "ad territories",
+        "hooks for ads",
+        "chiến lược sáng tạo",
+        "góc nội dung",
+        "canvas quảng cáo",
+        "soft-sell content",
+        "tâm lý học quảng cáo"
+      ]
+    },
+    "traffic-secrets-playbook": {
+      "branch": "marketing",
+      "keywords": [
+        "traffic secrets",
+        "kế hoạch traffic",
+        "tìm khách hàng",
+        "dream 100",
+        "phễu follow-up",
+        "hook story offer",
+        "phân bổ kênh",
+        "earned traffic",
+        "controlled traffic",
+        "owned traffic",
+        "kéo traffic"
+      ]
+    },
+    "cong-thuc-viet-content-by-noti-v4": {
+      "branch": "marketing",
+      "keywords": [
+        "viết content",
+        "viết copy",
+        "viết quảng cáo",
+        "content ads",
+        "công thức aida",
+        "công thức pas",
+        "công thức fab",
+        "công thức 4cs",
+        "công thức slap",
+        "công thức bab",
+        "công thức storytelling",
+        "công thức pppp",
+        "funnel content",
+        "công thức content",
+        "caption ads",
+        "copy ads",
+        "viết bài bán hàng",
+        "content shopee",
+        "content tiktok",
+        "content facebook"
+      ]
+    },
+    "viet-content-seo-geo-v5": {
+      "branch": "marketing",
+      "keywords": [
+        "tối ưu bài viết",
+        "tối ưu seo",
+        "chấm điểm seo",
+        "viết lại chuẩn seo",
+        "content seo",
+        "featured snippet",
+        "aeo",
+        "geo",
+        "answer engine optimization",
+        "generative engine optimization",
+        "schema faq",
+        "meta description",
+        "on-page seo",
+        "audit bài viết",
+        "bài viết seo"
+      ]
+    },
+    "meta-ads-analyzer-mod-by-noti": {
+      "branch": "marketing",
+      "keywords": [
+        "meta ads analysis",
+        "phân tích quảng cáo meta",
+        "phân tích tài khoản quảng cáo",
+        "facebook ads performance",
+        "breakdown effect",
+        "learning phase",
+        "cpa/roas/cpm analysis",
+        "ad auction",
+        "cost per result",
+        "quảng cáo facebook",
+        "tối ưu quảng cáo",
+        "chẩn đoán quảng cáo",
+        "chi phí quảng cáo",
+        "cpm tăng",
+        "tin nhắn đắt",
+        "báo cáo quảng cáo",
+        "quảng cáo meta"
+      ]
+    },
+    "fb-admin": {
+      "branch": "marketing",
+      "keywords": [
+        "fb admin",
+        "quản lý fanpage",
+        "đăng bài fanpage",
+        "đọc comment fanpage",
+        "trả lời tự động",
+        "meta graph api",
+        "fanpage doanh nghiệp",
+        "fanpage chatbot"
+      ]
+    },
+    "app": {
+      "branch": "app",
+      "keywords": [
+        "build app",
+        "làm app",
+        "tạo ứng dụng",
+        "xây dựng web tool",
+        "làm mvp",
+        "phát triển app từ brief",
+        "app loop",
+        "tạo web app",
+        "phát triển ứng dụng",
+        "xây dựng app",
+        "mvp app"
+      ]
+    },
+    "arena": {
+      "branch": "app",
+      "keywords": [
+        "arena",
+        "so sánh phương án",
+        "benchmark phương án",
+        "fan-out candidates",
+        "chấm điểm chéo",
+        "lai ghép giải thuật",
+        "đối đầu giải pháp",
+        "so sánh giải thuật"
+      ]
+    },
+    "hillclimb": {
+      "branch": "app",
+      "keywords": [
+        "hillclimb",
+        "tối ưu hiệu năng thực nghiệm",
+        "đo throughput",
+        "đo latency",
+        "vòng lặp tối ưu hóa",
+        "performance tuning",
+        "benchmark tốc độ",
+        "tối ưu throughput",
+        "tối ưu latency"
+      ]
+    },
+    "forensics": {
+      "branch": "app",
+      "keywords": [
+        "forensics",
+        "khảo cổ bug",
+        "lỗi ngầm",
+        "bug quái",
+        "chẩn đoán chuyên sâu",
+        "race condition",
+        "lỗi khó tái hiện",
+        "truy tìm nguồn gốc lỗi",
+        "khảo cổ lỗi"
+      ]
+    },
+    "why": {
+      "branch": "app",
+      "keywords": [
+        "why",
+        "tại sao đoạn code tồn tại",
+        "nguồn gốc thiết kế kiến trúc",
+        "khảo cổ học kiến trúc",
+        "khung nhận thức epistemics",
+        "lý do đoạn code tồn tại",
+        "lý do thiết kế kiến trúc"
+      ]
+    },
+    "reverse-lab": {
+      "branch": "app",
+      "keywords": [
+        "reverse-lab",
+        "dịch ngược binary",
+        "dịch ngược apk",
+        "phân tích mạng tls",
+        "mitmproxy",
+        "frida hook",
+        "reverse engineer",
+        "dịch ngược",
+        "decompile apk"
+      ]
+    },
+    "gitnexus-plan": {
+      "branch": "app",
+      "keywords": [
+        "gitnexus-plan",
+        "lập kế hoạch kỹ thuật sâu",
+        "plan change knowledge graph",
+        "pdg analysis",
+        "phân tích đồ thị tri thức",
+        "kế hoạch mã nguồn",
+        "lập kế hoạch gitnexus"
+      ]
+    },
+    "gitnexus-work": {
+      "branch": "app",
+      "keywords": [
+        "gitnexus-work",
+        "thực thi kế hoạch gitnexus",
+        "execute the plan",
+        "impact checks before symbol edit",
+        "thi công qua đồ thị",
+        "triển khai kế hoạch gitnexus"
+      ]
+    },
+    "gitnexus-review": {
+      "branch": "app",
+      "keywords": [
+        "gitnexus-review",
+        "review pr gitnexus",
+        "merge-risk assessment",
+        "regression hunt",
+        "đánh giá an toàn pr",
+        "review diff gitnexus"
+      ]
+    },
+    "domain-modeling": {
+      "branch": "app",
+      "keywords": [
+        "domain-modeling",
+        "mô hình hóa nghiệp vụ",
+        "ubiquitous language",
+        "eric evans ddd",
+        "context.md",
+        "thiết kế domain",
+        "tạo domain model",
+        "domain model"
+      ]
+    },
+    "test-driven-development": {
+      "branch": "app",
+      "keywords": [
+        "tdd",
+        "test-driven-development",
+        "red-green-refactor",
+        "viết test trước",
+        "kiểm thử tdd",
+        "unit test first",
+        "quy trình tdd"
+      ]
+    },
+    "systematic-debugging": {
+      "branch": "app",
+      "keywords": [
+        "systematic-debugging",
+        "sửa lỗi tuần tự",
+        "chẩn đoán bug",
+        "test failure",
+        "unexpected behavior",
+        "điều tra lỗi tuần tự",
+        "debug bài bản"
+      ]
+    },
+    "impeccable": {
+      "branch": "app",
+      "keywords": [
+        "impeccable",
+        "polish ui",
+        "thiết kế giao diện",
+        "làm đẹp giao diện",
+        "ux review",
+        "visual hierarchy",
+        "micro-interactions",
+        "typography",
+        "design system frontend",
+        "tối ưu giao diện",
+        "làm mượt ui"
+      ]
+    },
+    "accessibility": {
+      "branch": "app",
+      "keywords": [
+        "accessibility",
+        "a11y",
+        "wcag",
+        "wcag 2.2",
+        "aria label",
+        "keyboard navigation",
+        "độ tương phản màu",
+        "screen reader",
+        "trợ năng web",
+        "chuẩn accessibility"
+      ]
+    },
+    "verify-ui": {
+      "branch": "app",
+      "keywords": [
+        "verify-ui",
+        "kiểm chứng giao diện",
+        "chrome devtools mcp",
+        "core web vitals",
+        "second agent review",
+        "chụp màn hình kiểm tra",
+        "kiểm tra ui"
+      ]
+    },
+    "verification-before-completion": {
+      "branch": "app",
+      "keywords": [
+        "verification-before-completion",
+        "chứng minh trước khi tuyên bố",
+        "evidence before assertions",
+        "chạy test trước khi commit",
+        "xác minh hoàn tất",
+        "bằng chứng nghiệm thu"
+      ]
+    },
+    "ponytail-review": {
+      "branch": "app",
+      "keywords": [
+        "ponytail-review",
+        "over-engineering",
+        "cắt giảm code thừa",
+        "xóa abstraction dư thừa",
+        "simplify review",
+        "what can we delete",
+        "rà soát phình mã",
+        "dọn dẹp code thừa",
+        "review over-engineering"
+      ]
+    },
+    "database-migrations": {
+      "branch": "app",
+      "keywords": [
+        "database-migrations",
+        "migration database",
+        "schema change",
+        "zero-downtime",
+        "rollback migration",
+        "prisma migration",
+        "drizzle migration",
+        "tạo migration",
+        "thay đổi schema"
+      ]
+    },
+    "security-review": {
+      "branch": "app",
+      "keywords": [
+        "security-review",
+        "kiểm tra bảo mật",
+        "owasp",
+        "sql injection",
+        "secrets leak",
+        "authentication security",
+        "rò rỉ api key",
+        "bảo mật endpoint",
+        "lỗ hổng bảo mật"
+      ]
+    },
+    "loop-circuit-breaker": {
+      "branch": "app",
+      "keywords": [
+        "loop-circuit-breaker",
+        "ngắt mạch lặp",
+        "chống cháy token",
+        "stagnation circuit breaker",
+        "kẹt vòng lặp",
+        "quá số lần retry",
+        "ngắt mạch tự động"
+      ]
+    },
+    "advisor": {
+      "branch": "app",
+      "keywords": [
+        "advisor",
+        "cố vấn độc lập",
+        "advisor checkpoint",
+        "tham vấn kiến trúc",
+        "đánh giá rủi ro kiến trúc",
+        "checkpoint cố vấn"
+      ]
+    }
   }
 }

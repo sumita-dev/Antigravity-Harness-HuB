@@ -13,17 +13,23 @@ class SkillRouter:
     def route(self, task_description: str) -> Tuple[Optional[str], str]:
         text = task_description.lower()
         
+        matches = []
         for skill_name, data in self.routing_table.items():
             branch = data.get("branch", "app")
             keywords = data.get("keywords", [])
             for kw in keywords:
                 if kw.lower() in text:
-                    return skill_name, branch
+                    matches.append((len(kw), skill_name, branch))
                     
-        # Default fallback
-        if any(w in text for w in ["marketing", "sale", "content", "story"]):
+        if matches:
+            matches.sort(key=lambda x: x[0], reverse=True)
+            return matches[0][1], matches[0][2]
+                    
+        # Intelligent fallback
+        marketing_keywords = ["marketing", "sale", "content", "story", "ads", "seo", "facebook", "youtube", "quảng cáo", "offer", "kênh", "traffic", "viết bài"]
+        if any(w in text for w in marketing_keywords):
             return None, "marketing"
-        
+            
         return None, "app"
 
 class SkillLoader:

@@ -26,7 +26,7 @@ def test_skill_routing_specific_skills():
     assert skill == "alex-hormozi-offer-builder"
     assert branch == "marketing"
 
-    skill, branch = router.route("giải quyết bug ngầm bằng khảo cổ")
+    skill, branch = router.route("giải quyết lỗi ngầm bằng khảo cổ")
     assert skill == "forensics"
     assert branch == "app"
 
@@ -37,6 +37,29 @@ def test_skill_routing_specific_skills():
     skill, branch = router.route("viết code theo test-driven-development")
     assert skill == "test-driven-development"
     assert branch == "app"
+
+    skill, branch = router.route("phân tích quảng cáo meta bị cpm tăng")
+    assert skill == "meta-ads-analyzer-mod-by-noti"
+    assert branch == "marketing"
+
+    skill, branch = router.route("kiểm tra vi phạm kịch bản cho video")
+    assert skill == "check-youtube-policy"
+    assert branch == "marketing"
+
+    skill, branch = router.route("sử dụng mitmproxy để dịch ngược")
+    assert skill == "reverse-lab"
+    assert branch == "app"
+
+    skill, branch = router.route("so sánh phương án lai ghép giải thuật")
+    assert skill == "arena"
+    assert branch == "app"
+
+    # Test priority (longest match)
+    # If a text has multiple keywords, it should pick the skill with longest matched keyword
+    # Let's say text: "viết bài bóc phốt và làm offer"
+    # "viết bài" -> fallback marketing, "bóc phốt" -> 8 chars, "làm offer" -> 9 chars
+    skill, branch = router.route("bóc phốt offer builder")
+    assert skill == "alex-hormozi-offer-builder" # "offer builder" is 13 chars, "bóc phốt" is 8 chars
 
 def test_skill_loader():
     loader = SkillLoader()
