@@ -115,5 +115,113 @@
     "trigger": "Task matched description",
     "solution_summary": "Derived from successful trajectory steps",
     "timestamp": "2026-10-02T03:21:47.857113"
+  },
+  {
+    "id": "48df68d0-f438-4be9-972a-07d375126714",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Make a cool app",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:48:56.901478"
+  },
+  {
+    "id": "7e18d5c9-d8b9-4399-a34c-f2a7f5b62582",
+    "branch": "invalid",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Make a cool post",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:48:56.902559"
+  },
+  {
+    "id": "6bb2cb0f-96ad-4057-885d-3cedfcc6e2da",
+    "branch": "app",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Build login system",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:48:56.906484"
+  },
+  {
+    "id": "c81b2a2a-5cf1-4b03-bdb5-31766faafe4a",
+    "branch": "marketing",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Write ads copy",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:48:56.908859"
+  },
+  {
+    "id": "44991188-fb88-4a38-bd54-97adf7f5e3ce",
+    "branch": "marketing",
+    "pattern_type": "SUCCESS",
+    "description": "vi\u1ebft b\u00e0i b\u00f3c ph\u1ed1t",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:48:57.782078"
+  },
+  {
+    "id": "32099863-62cf-4784-a73e-41abc45aa77e",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "l\u00e0m app cho \u0111i\u1ec7n tho\u1ea1i",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:48:57.784079"
+  },
+  {
+    "id": "b95284ec-c3c6-414b-bd36-b0d323662413",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "Make a cool app",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.207294"
+  },
+  {
+    "id": "3cb2b53c-ef95-4ad3-b4c1-4e56fcc35716",
+    "branch": "invalid",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Make a cool post",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.208329"
+  },
+  {
+    "id": "c4e7f7ef-2b7c-4856-ab43-591ba9e09762",
+    "branch": "app",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Build login system",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.212671"
+  },
+  {
+    "id": "d62dfb10-d907-4000-8b15-3cc1796a1394",
+    "branch": "marketing",
+    "pattern_type": "ANTI_PATTERN",
+    "description": "Write ads copy",
+    "failure_reason": "Failed quality gate or max critiques reached",
+    "avoidance_advice": "Review failure trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.215306"
+  },
+  {
+    "id": "2aaff9b1-29e5-4b3f-ae96-ced114c9226b",
+    "branch": "marketing",
+    "pattern_type": "SUCCESS",
+    "description": "vi\u1ebft b\u00e0i b\u00f3c ph\u1ed1t",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.256015"
+  },
+  {
+    "id": "47441f12-3747-411d-b3c1-3edfc8f344f4",
+    "branch": "app",
+    "pattern_type": "SUCCESS",
+    "description": "l\u00e0m app cho \u0111i\u1ec7n tho\u1ea1i",
+    "trigger": "Task matched description",
+    "solution_summary": "Derived from successful trajectory steps",
+    "timestamp": "2026-10-02T07:49:05.257070"
   }
 ]
