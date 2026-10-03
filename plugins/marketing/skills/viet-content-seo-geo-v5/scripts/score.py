@@ -25,6 +25,14 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# Console Windows mặc định là cp1252/cp437 -> in tiếng Việt (và ✓ ✗) sẽ UnicodeEncodeError,
+# làm script chết trên cmd/PowerShell/CI Windows. Ép UTF-8 cho stdout/stderr.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 # ---------------------------------------------------------------- tiện ích
 
 VOWEL_MARKS = re.compile(r"[\u0300-\u036f]")
