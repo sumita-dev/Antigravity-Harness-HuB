@@ -6,7 +6,8 @@
 - **Công cụ & Kỹ thuật chủ lực:**
   - `search_web`: Thực hiện các truy vấn Google chuyên sâu, áp dụng Google Dorking nhắm trực diện vào các nền tảng mạng xã hội và báo chí.
   - `read_url_content`: Truy cập trực tiếp các bài viết, bài post, báo cáo, thread thảo luận để bóc tách dữ liệu gốc.
-  - **Cơ chế Lai Đa Tầng (Multi-Tier Fallback):** Kết hợp Dorking không cần key + Meta Graph API có sẵn + Khung kết nối X API (có fallback mượt mà).
+  - `run_command` (Python script `scripts/apify_crawler.py`): Cào dữ liệu mạng xã hội thực địa trực tiếp qua Apify API (Twitter, Facebook, Instagram).
+  - **Cơ chế Lai Đa Tầng (Multi-Tier Fallback):** Kết hợp Dorking không cần key + Meta Graph API có sẵn + Apify Social Intelligence Gateway (với cơ chế tự động fallback về Dorking nếu thiếu token hoặc lỗi mạng).
 
 ---
 
