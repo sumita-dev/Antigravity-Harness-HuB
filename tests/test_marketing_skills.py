@@ -15,7 +15,8 @@ MARKETING_SKILLS = [
     "cong-thuc-viet-content-by-noti-v4",
     "viet-content-seo-geo-v5",
     "meta-ads-analyzer-mod-by-noti",
-    "fb-admin"
+    "fb-admin",
+    "framework-marketing-da-kenh"
 ]
 
 CODE_SKILLS = [

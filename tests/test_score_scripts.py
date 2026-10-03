@@ -21,14 +21,18 @@ MID = REPO / "tests" / "fixtures" / "article-mid.md"
 NODE = shutil.which("node")
 
 
+# encoding="utf-8" là BẮT BUỘC: trên Windows, text=True mặc định dùng locale (cp1252)
+# nên đọc output UTF-8 của tiến trình con sẽ UnicodeDecodeError -> stdout = None.
 def run_py(path, *args):
     return subprocess.run([sys.executable, str(SKILL / "scripts" / "score.py"), str(path), *args],
-                          cwd=str(SKILL), capture_output=True, text=True)
+                          cwd=str(SKILL), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
 
 
 def run_js(path, *args):
     return subprocess.run([NODE, str(SKILL / "scripts" / "score.mjs"), str(path), *args],
-                          cwd=str(SKILL), capture_output=True, text=True)
+                          cwd=str(SKILL), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
 
 
 def test_example_dat_100_100_100():
