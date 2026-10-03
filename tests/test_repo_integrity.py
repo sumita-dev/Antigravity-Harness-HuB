@@ -39,8 +39,6 @@ KNOWN_GAPS = {
     "plugins/code/skills/app -> references/coding-taste.md",
     "plugins/code/skills/app -> references/engineering-standards.md",
     "plugins/code/skills/app -> templates/app-spec.md",
-    "plugins/marketing/skills/viet-content-seo-geo-v5 -> scripts/score.mjs",
-    "plugins/marketing/skills/viet-content-seo-geo-v5 -> scripts/score.py",
 }
 
 

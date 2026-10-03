@@ -269,7 +269,7 @@ python run_harness.py --task "viết content cho facebook" --dump-skill
 - `harness/*.py` là **mô phỏng state machine**: không gọi LLM API. Circuit breaker chỉ hoạt động khi vòng lặp review được gọi qua `submit_for_review`; một lần chạy CLI đơn lẻ không lặp nên không thể escalate.
 - File phụ trợ **chưa từng tồn tại trong repo** (đã tra cả git history lẫn toàn máy):
   - `plugins/code/skills/app`: `AI_CODE_WORKFLOW.md`, `references/coding-taste.md`, `references/engineering-standards.md`, `templates/app-spec.md`
-  - `plugins/marketing/skills/viet-content-seo-geo-v5`: `scripts/score.mjs`, `scripts/score.py` (script chấm điểm — phần lõi của skill)
-  Mỗi SKILL.md tương ứng đã có ghi chú **TRẠNG THÁI SKILL**; `tests/test_repo_integrity.py` giữ danh sách này trong `KNOWN_GAPS` để không phát sinh con trỏ gãy mới. **Cần port 2 script chấm điểm từ dự án gốc** để skill đủ chức năng.
+  - `plugins/marketing/skills/viet-content-seo-geo-v5`: `scripts/score.mjs`, `scripts/score.py` — nay **đã có** trong repo, đã kiểm chứng parity (JSON trùng nhau trên nhiều bài thử)
+  Mỗi SKILL.md tương ứng đã có ghi chú **TRẠNG THÁI SKILL**; `tests/test_repo_integrity.py` giữ danh sách trong `KNOWN_GAPS` để không phát sinh con trỏ gãy mới.
 - `setup.ps1` dùng `Copy-Item -Recurse` — chạy lại nhiều lần lên thư mục đã tồn tại có thể tạo tầng lồng `plugins/<tên>/<tên>`. Kiểm tra sau mỗi lần chạy.
 - `configs/harness_config.json` khai báo model `Gemini 3.1 Pro` / `Gemini 3.8 Flash` — **chưa xác minh** 2 ID này tồn tại, và không code nào resolve chúng. Cần Sếp xác nhận hoặc thay bằng ID thật khi viết adapter LLM.
