@@ -37,7 +37,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File lab\route.ps1 -Hint "offline
 powershell -NoProfile -ExecutionPolicy Bypass -File reverse-skill-main\skills\scripts\case-init.ps1 `
   -Hint "offline golang binary reverse pclntab" `
   -CaseName "sample-go" `
-  -ProjectRoot "D:\AntiGravity\Reverse-Engineer" `
+  -ProjectRoot "D:\\Projects\\Reverse-Engineer" `
   -Preset offline-sample `
   -Sample "C:\path\to\sample.exe"
 

@@ -1,6 +1,8 @@
 ---
 name: arena
-description: Kỹ năng /arena - Fan-out N candidates song song cho cùng 1 bài toán khó, chấm điểm chéo và lai ghép
+description: >
+  Kỹ năng /arena - Fan-out N candidates song song cho cùng 1 bài toán khó, chấm điểm chéo và lai ghép
+  TRIGGERS: 'arena', 'so sánh nhiều phương án', 'thử nghiệm nhiều cách làm', 'fan-out candidates', 'chấm điểm giải pháp', 'thi đấu thuật toán', 'chọn phương án tối ưu'.
 ---
 # Skill: /arena
 

@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const DEFAULT_API_KEY = process.env.YOUTUBE_API_KEY || 'YOUR_YOUTUBE_API_KEY';
+const DEFAULT_API_KEY = process.env.YOUTUBE_API_KEY || '';
 
 // Helper to make HTTPS GET requests
 function getRequest(url) {
@@ -1154,6 +1154,12 @@ async function main() {
     } else if (args[i] === '--maxPerChannel') {
       maxVideosPerChannel = parseInt(args[++i], 10);
     }
+  }
+
+  if (!apiKey) {
+    console.error('[LỖI XÁC THỰC] Chưa có YouTube Data API key.\n' +
+      'Thiết lập biến môi trường YOUTUBE_API_KEY, file .env ở gốc repo, hoặc truyền --apiKey <KEY>.');
+    process.exit(1);
   }
 
   let content = '';

@@ -52,47 +52,47 @@ Viết content bán hàng/quảng cáo theo 14 công thức (AIDA, PAS, 4Cs, FAB
 
 5. **`references/industries/[ngành].md`**: load khi user nói rõ ngành nghề. Detect keyword:
 
-   - "cà phê", "quán ăn", "nhà hàng", "đồ uống" → `industries/fnb.md`
+   - "cà phê", "quán ăn", "nhà hàng", "đồ uống" → `references/industries/fnb.md`
 
-   - "mỹ phẩm", "skincare", "chăm sóc da", "kem", "serum", "toner" → `industries/beauty.md`
+   - "mỹ phẩm", "skincare", "chăm sóc da", "kem", "serum", "toner" → `references/industries/beauty.md`
 
-   - "quần áo", "đầm", "thời trang", "phụ kiện" → `industries/fashion.md`
+   - "quần áo", "đầm", "thời trang", "phụ kiện" → `references/industries/fashion.md`
 
-   - "shop online", "TMĐT", "ecommerce" → `industries/ecommerce.md`
+   - "shop online", "TMĐT", "ecommerce" → `references/industries/ecommerce.md`
 
-   - "khóa học", "đào tạo", "sách", "giáo dục" → `industries/education.md`
+   - "khóa học", "đào tạo", "sách", "giáo dục" → `references/industries/education.md`
 
-   - "phần mềm", "SaaS", "B2B", "doanh nghiệp" → `industries/b2b-saas.md`
+   - "phần mềm", "SaaS", "B2B", "doanh nghiệp" → `references/industries/b2b-saas.md`
 
-   - "TPCN", "thực phẩm chức năng", "y tế", "sức khỏe", "khám bệnh" → `industries/healthcare.md`
+   - "TPCN", "thực phẩm chức năng", "y tế", "sức khỏe", "khám bệnh" → `references/industries/healthcare.md`
 
-   - "bất động sản", "căn hộ", "đất nền", "dự án" → `industries/real-estate.md`
+   - "bất động sản", "căn hộ", "đất nền", "dự án" → `references/industries/real-estate.md`
 
-   - "bảo hiểm", "đầu tư", "tài chính cá nhân" → `industries/financial.md`
+   - "bảo hiểm", "đầu tư", "tài chính cá nhân" → `references/industries/financial.md`
 
 
 
 6. **`references/platforms/[platform].md`**: load khi user nói rõ platform. Detect keyword:
 
-   - "Shopee", "shopee mall" → `platforms/shopee.md`
+   - "Shopee", "shopee mall" → `references/platforms/shopee.md`
 
-   - "Lazada", "lazmall" → `platforms/lazada.md`
+   - "Lazada", "lazmall" → `references/platforms/lazada.md`
 
-   - "TikTok Shop", "TikTok shop", "video tiktok bán hàng" → `platforms/tiktok-shop.md`
+   - "TikTok Shop", "TikTok shop", "video tiktok bán hàng" → `references/platforms/tiktok-shop.md`
 
-   - "Facebook Ads", "FB ads", "chạy ads", "quảng cáo Facebook" → `platforms/facebook-ads.md`
+   - "Facebook Ads", "FB ads", "chạy ads", "quảng cáo Facebook" → `references/platforms/facebook-ads.md`
 
-   - "post Facebook", "đăng FB", "bài Facebook" (không nói ads) → `platforms/facebook-organic.md`
+   - "post Facebook", "đăng FB", "bài Facebook" (không nói ads) → `references/platforms/facebook-organic.md`
 
-   - "Instagram", "Reels", "IG" → `platforms/instagram-reels.md`
+   - "Instagram", "Reels", "IG" → `references/platforms/instagram-reels.md`
 
-   - "LinkedIn" → `platforms/linkedin.md`
+   - "LinkedIn" → `references/platforms/linkedin.md`
 
-   - "email", "newsletter", "mail marketing" → `platforms/email.md`
+   - "email", "newsletter", "mail marketing" → `references/platforms/email.md`
 
-   - "landing page", "trang đích", "LP" → `platforms/landing-page.md`
+   - "landing page", "trang đích", "LP" → `references/platforms/landing-page.md`
 
-   - "Google Ads", "GG ads", "search ads" → `platforms/google-ads.md`
+   - "Google Ads", "GG ads", "search ads" → `references/platforms/google-ads.md`
 
 
 
@@ -112,13 +112,13 @@ Viết content bán hàng/quảng cáo theo 14 công thức (AIDA, PAS, 4Cs, FAB
 
 |----------|-----------|
 
-| User hỏi "AIDA là gì?" | SKILL + glossary + aida.md core |
+| User hỏi "AIDA là gì?" | SKILL + glossary + references/aida.md core |
 
-| User yêu cầu "viết AIDA cho khóa học" | SKILL + glossary + aida.md + examples/aida.md + industries/education.md |
+| User yêu cầu "viết AIDA cho khóa học" | SKILL + glossary + references/aida.md + examples/aida.md + references/industries/education.md |
 
-| User yêu cầu "viết caption Shopee cho mỹ phẩm" | SKILL + glossary + (INDEX nếu chưa biết công thức) + 4cs.md + industries/beauty.md + platforms/shopee.md |
+| User yêu cầu "viết caption Shopee cho mỹ phẩm" | SKILL + glossary + (INDEX nếu chưa biết công thức) + references/4cs.md + references/industries/beauty.md + references/platforms/shopee.md |
 
-| User yêu cầu "đưa 5 hook variations" | SKILL + glossary + hooks-trending.md |
+| User yêu cầu "đưa 5 hook variations" | SKILL + glossary + references/hooks-trending.md |
 
 
 
@@ -282,7 +282,7 @@ Mỗi bài content tích hợp:
 
 4. **Cụ thể thắng chung chung**: "Giảm 70% đau lưng sau 30 ngày" > "giảm đau hiệu quả".
 
-5. **Mở bài quyết định 80%**: Câu đầu phải khiến KH dừng lướt. Tham khảo `hooks-trending.md` nếu cần.
+5. **Mở bài quyết định 80%**: Câu đầu phải khiến KH dừng lướt. Tham khảo `references/hooks-trending.md` nếu cần.
 
 6. **CTA luôn cụ thể + có động từ hành động**: "Comment EPIONE nhận báo giá" > "Liên hệ ngay".
 

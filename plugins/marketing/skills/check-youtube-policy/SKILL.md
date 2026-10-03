@@ -18,8 +18,8 @@ Kỹ năng chuyên sâu dành cho **Trọng tài Kiểm định Chính sách You
 
 ## 1. NGUỒN TRI THỨC NỀN TẢNG (KNOWLEDGE BASE)
 
-Toàn bộ logic kiểm định được xây dựng dựa trên kho dữ liệu quy chuẩn gồm **50 tài liệu chính sách chính thức** thu thập tại thư mục:
-`D:\AntiGravity\crawl4ai-main\youtube_policies_crawled\`
+Toàn bộ logic kiểm định được xây dựng dựa trên kho dữ liệu quy chuẩn gồm **50 tài liệu chính sách chính thức**, đóng gói trong skill tại:
+`skills/marketing/check-youtube-policy/references/`
 
 ### 8 Cụm Chính sách cốt lõi được đối soát:
 1. **`01_Kiem_Tien_Va_YPP`**: Chính sách kiếm tiền kênh (`1311392`), Nguyên tắc nội dung phù hợp với nhà quảng cáo (`6162278`), Kiếm tiền Shorts (`12504220`), Tắt kiếm tiền (`1727191`), Biểu tượng kiếm tiền (`9208564`).
@@ -56,7 +56,7 @@ flowchart TD
 ### BƯỚC 2: QUÉT ĐỐI SOÁT MA TRẬN CHÍNH SÁCH
 - Sử dụng script phân tích tích hợp sẵn để trích xuất tự động:
   ```bash
-  python "C:\Users\Trong\.gemini\config\skills\check-youtube-policy\scripts\audit_policy.py" --text "<nội_dung_kịch_bản>"
+  python skills/marketing/check-youtube-policy/scripts/audit_policy.py --text "<nội_dung_kịch_bản>"
   ```
 - Đối soát chéo với các tài liệu tham khảo trong thư mục `references/`:
   * `references/policy_rules_matrix.md`: Đối soát toàn bộ 50 chính sách.
@@ -138,13 +138,13 @@ Kỹ năng đi kèm bộ script tự động hóa viết bằng Python. Bạn c�
 
 ```bash
 # Quét kịch bản từ file text:
-python "C:\Users\Trong\.gemini\config\skills\check-youtube-policy\scripts\audit_policy.py" --file "path/to/script.txt"
+python skills/marketing/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt
 
 # Quét kịch bản trực tiếp từ chuỗi ký tự:
-python "C:\Users\Trong\.gemini\config\skills\check-youtube-policy\scripts\audit_policy.py" --text "Nội dung kịch bản cần check..."
+python skills/marketing/check-youtube-policy/scripts/audit_policy.py --text "Nội dung kịch bản cần check..."
 
 # Xuất dữ liệu cấu trúc dạng JSON phục vụ phân tích chuyên sâu:
-python "C:\Users\Trong\.gemini\config\skills\check-youtube-policy\scripts\audit_policy.py" --file "path/to/script.txt" --json
+python skills/marketing/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt --json
 ```
 
 ---

@@ -1,1 +1,0 @@
-Không có file "hooks-trending.md" trong skill "cong-thuc-viet-content-by-noti-v4".

@@ -1,1 +1,0 @@
-Không có file "industries/b2b-saas.md" trong skill "cong-thuc-viet-content-by-noti-v4".

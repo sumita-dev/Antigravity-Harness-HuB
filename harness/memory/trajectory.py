@@ -2,8 +2,11 @@ import json
 import os
 from pathlib import Path
 
+BRAIN_DIR = Path(os.environ.get("HARNESS_BRAIN_DIR", ".brain"))
+
+
 class TrajectoryStore:
-    DEFAULT_PATH = Path(".brain/trajectories/trajectories.jsonl")
+    DEFAULT_PATH = BRAIN_DIR / "trajectories" / "trajectories.jsonl"
 
     def __init__(self, path=None):
         self.path = Path(path) if path else self.DEFAULT_PATH

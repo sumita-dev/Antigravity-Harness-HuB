@@ -3,7 +3,7 @@ name: boc-phot-storytelling
 description: >
   Viết hoặc chỉnh kịch bản YouTube cho kênh Bóc Phốt Tài Chính theo một khung kể cố định và lịch sáu format (Mổ sổ, Lật tờ rơi, Một đêm, Hai mắt nhìn, Ba ngã, Đếm ngược tháng).
   Use when the user asks for a kịch bản, script, storytelling, tập tiếp theo, beat, hoặc chạy /boc-phot-storytelling cho kênh này.
-  Triggers: bóc phốt, Mổ sổ, Lật tờ rơi, Một đêm, Hai mắt nhìn, Ba ngã, Đếm ngược tháng.
+  TRIGGERS: 'boc-phot-storytelling', 'kịch bản bóc phốt', 'Mổ sổ', 'Lật tờ rơi', 'Một đêm', 'Hai mắt nhìn', 'Ba ngã', 'Đếm ngược tháng', 'kịch bản tài chính'.
 when-to-use: >
   Viết kịch bản mới, viết lại bài giặt sấy hoặc bài cùng kênh, chọn format tập tới, soát thoại trước khi thu.
 argument-hint: ngành, ảo tưởng cần giết, số liệu đang có

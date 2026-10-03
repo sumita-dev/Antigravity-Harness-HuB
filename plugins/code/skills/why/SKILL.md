@@ -1,6 +1,8 @@
 ---
 name: why
-description: Kỹ năng /why - Khảo cổ học kiến trúc mã nguồn & Khung nhận thức Epistemics
+description: >
+  Kỹ năng /why - Khảo cổ học kiến trúc mã nguồn & Khung nhận thức Epistemics
+  TRIGGERS: 'why', 'tại sao lại code thế này', 'nguồn gốc kiến trúc', 'lý do thiết kế này', 'khảo cứu kiến trúc', 'tại sao hệ thống lại làm vậy', 'code archaeology'.
 ---
 # Skill: /why
 

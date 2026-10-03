@@ -77,13 +77,14 @@ Khi bấm **"Xuất Video (CSV)"**, hệ thống cung cấp 3 tùy chọn:
 ## 4. Kịch bản Thực thi Tự động (Execution Script)
 
 Bộ script chuẩn Node.js tại:
-`C:\Users\Trong\.gemini\config\skills\yt-competitor-analyzer\scripts\analyze.js`
+`plugins/marketing/skills/yt-competitor-analyzer/scripts/analyze.js`
+
 
 ### Cách chạy:
 ```bash
-# Phân tích và quét toàn bộ video các kênh từ tệp:
-node "C:\Users\Trong\.gemini\config\skills\yt-competitor-analyzer\scripts\analyze.js" --input "C:\Users\Trong\Desktop\YouTube_Saved_Videos.txt" --output "C:\Users\Trong\Desktop\youtube_competitor_dashboard.html"
+# Phân tích và quét toàn bộ video các kênh từ tệp (đường dẫn input/output do Sếp chỉ định):
+node plugins/marketing/skills/yt-competitor-analyzer/scripts/analyze.js --input path/to/urls.txt --output path/to/dashboard.html
 
 # Hoặc truyền trực tiếp chuỗi URL:
-node "C:\Users\Trong\.gemini\config\skills\yt-competitor-analyzer\scripts\analyze.js" --urls "https://youtu.be/cW4IAoiWIls,https://youtu.be/gfq3O_2GjU0"
+node plugins/marketing/skills/yt-competitor-analyzer/scripts/analyze.js --urls "https://youtu.be/cW4IAoiWIls,https://youtu.be/gfq3O_2GjU0"
 ```

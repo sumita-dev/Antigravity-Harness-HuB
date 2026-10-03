@@ -49,7 +49,7 @@
 ---
 
 ### Tầng 2: Meta Graph API Integration (Dữ Liệu Nội Bộ & Fanpage)
-- **Nguồn kết nối:** Tận dụng kỹ năng `skills/fb-admin/SKILL.md` và token trang Meta Graph API đã có sẵn.
+- **Nguồn kết nối:** Tận dụng kỹ năng `plugins/marketing/skills/fb-admin/SKILL.md` và token trang Meta Graph API đã có sẵn.
 - **Tác vụ:** Trích xuất danh sách bài viết nhiều tương tác nhất, đọc trực tiếp comment của khách hàng mục tiêu để lọc ra các câu hỏi, phản đối mua hàng (objections) và thắc mắc thực tế.
 
 ---

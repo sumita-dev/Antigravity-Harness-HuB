@@ -40,7 +40,7 @@ def get_default_repo_dir() -> str:
 def path_to_workspace_uri(path: str) -> str:
     """
     Chuyển đổi đường dẫn thư mục sang chuẩn URI của Antigravity.
-    Ví dụ: D:\\AntiGravity\\Harness -> file:///d%3A/AntiGravity/Harness
+    Ví dụ: D:\\Projects\\Harness -> file:///d%3A/AntiGravity/Harness
     """
     clean_path = os.path.abspath(path).replace("\\", "/")
     if len(clean_path) >= 2 and clean_path[1] == ":":

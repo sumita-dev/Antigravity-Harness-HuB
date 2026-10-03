@@ -1,1 +1,0 @@
-Không có file "references/hooks.md" trong skill "cong-thuc-viet-content-by-noti-v4".

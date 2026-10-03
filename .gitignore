@@ -7,3 +7,8 @@ __pycache__/
 *.log
 .DS_Store
 .sessions/
+
+# Dữ liệu runtime của harness (chỉ sinh khi chạy, không commit)
+.brain/learnings/*.json
+.brain/trajectories/*.jsonl
+.brain/trajectories/*.json

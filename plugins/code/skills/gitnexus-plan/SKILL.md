@@ -1,6 +1,8 @@
 ---
 name: gitnexus-plan
-description: 'Use when you need a deep, implementation-ready engineering plan for a code change — built from GitNexus graph intelligence, statement-level PDG analysis, and targeted source verification, compact enough that an implementation agent can start without re-investigating. Also strengthens existing plans via Deepen mode. Examples: "/gitnexus-plan Add retry support to the ingestion pipeline", "/gitnexus-plan deepen docs/plans/<plan>.md", "plan this change using the knowledge graph".'
+description: >
+  Use when you need a deep, implementation-ready engineering plan for a code change — built from GitNexus graph intelligence, statement-level PDG analysis, and targeted source verification, compact enough that an implementation agent can start without re-investigating. Also strengthens existing plans via Deepen mode. Examples: "/gitnexus-plan Add retry support to the ingestion pipeline", "/gitnexus-plan deepen docs/plans/<plan>.md", "plan this change using the knowledge graph".
+  TRIGGERS: 'gitnexus-plan', 'lập kế hoạch bằng gitnexus', 'kế hoạch kỹ thuật sâu', 'phân tích blast radius bằng graph', 'plan using knowledge graph'.
 ---
 
 # gitnexus-plan — implementation-ready engineering plans

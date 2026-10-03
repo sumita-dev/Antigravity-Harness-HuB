@@ -1,1 +1,0 @@
-Không có file "platforms/lazada.md" trong skill "cong-thuc-viet-content-by-noti-v4".

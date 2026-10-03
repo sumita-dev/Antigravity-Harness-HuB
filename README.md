@@ -1,7 +1,17 @@
 # Antigravity-Harness-Hub
 > **Bộ Harness Đa Nhiệm & Phản Biện Tự Hành 2.0**
 
-`Antigravity-Harness-Hub` là khung điều phối (harness framework) tự hành chuẩn hóa quy trình phát triển đa lĩnh vực (Phần mềm & Tiếp thị/Nội dung). Hệ thống kết hợp cơ chế phân vai tác tử chuyên môn hóa, cỗ máy trạng thái nghiêm ngặt (State Machine), và rào chắn kiểm định chất lượng đối nghịch (Adversarial Quality Gate) tích hợp cầu dao ngắt mạch (Circuit Breaker) chống kẹt vòng lặp sau tối đa 2 lượt phản biện.
+`Antigravity-Harness-Hub` là khung điều phối (harness framework) tự hành chuẩn hóa quy trình phát triển đa lĩnh vực (Phần mềm & Tiếp thị/Nội dung). Hệ thống kết hợp cơ chế phân vai tác tử chuyên môn hóa, cỗ máy trạng thái (State Machine), và rào chắn kiểm định chất lượng đối nghịch (Adversarial Quality Gate) tích hợp cầu dao ngắt mạch (Circuit Breaker) chống kẹt vòng lặp sau tối đa 2 lượt phản biện.
+
+> ### ⚠️ Ranh giới thực tế giữa 2 tầng (đọc trước khi dùng)
+>
+> | Tầng | Vai trò thật | Ai chạy |
+> | :--- | :--- | :--- |
+> | `GEMINI.md` / `AGENTS.md` + `agents/` + `rubrics/` + `plugins/*/skills/` | **Bộ luật vận hành thật** — quy định Quản đốc phân vai, gọi subagent, gọi skill theo slash command | Antigravity 2.0 (đọc trực tiếp trong IDE) |
+> | `harness/*.py` + `run_harness.py` | **Mô phỏng state machine** để kiểm thử luồng/quy tắc và trích xuất nội dung skill. **Không gọi LLM API**, không tự sinh nội dung | `python run_harness.py …` (dev/CI) |
+>
+> Muốn agent *viết nội dung thật*, nó phải chạy trong Antigravity theo `GEMINI.md`. `harness/` không thay thế được bước đó.
+
 
 ---
 
@@ -18,8 +28,14 @@ Antigravity-Harness-Hub/
 │       ├── researcher.md                   # Market Researcher (Nghiên cứu thị trường & insight)
 │       ├── creator.md                      # Content Creator (Soạn kịch bản & copy chuyển đổi cao)
 │       └── compliance_critic.md            # Policy Reviewer (Rà soát chính sách, lọc AI slop)
+├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
+│   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
+│   └── marketing/skills/                   # 11 skill marketing / nội dung
+├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
+├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
+├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Cấu hình LLM tier (Pro/Flash), roles, max_rounds
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (32 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
 │   ├── quality_gate.py                     # AdversarialQualityGate & Verdict logic
@@ -30,9 +46,14 @@ Antigravity-Harness-Hub/
 ├── rubrics/                                # Bộ tiêu chí đánh giá nghiệm thu chuẩn hóa
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động toàn diện
+├── tests/                                  # Bộ kiểm thử tự động
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
-│   └── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
+│   ├── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
+│   ├── test_harness_learning.py            # Trajectory + Learning Harvester
+│   ├── test_marketing_skills.py            # Frontmatter & loader của skill
+│   ├── test_session_manager.py             # Portable session sync
+│   ├── test_skill_router.py                # Keyword routing
+│   └── test_repo_integrity.py              # Chặn lỗi: thư mục lồng, file rác, secret, path cá nhân, ref gãy
 ├── setup/                                  # Cài đặt cấu hình môi trường mới
 │   ├── config.json                         # Cấu hình Antigravity plugins & userSettings chuẩn
 │   └── setup.ps1                           # Script tự động copy đè cấu hình vào %USERPROFILE%\.gemini\config
@@ -48,7 +69,7 @@ Antigravity-Harness-Hub/
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
 | `harness/runners/` | Đóng gói chu trình 3 bước cụ thể cho từng loại hình tác vụ: `app_runner.py` (Kỹ thuật) và `marketing_runner.py` (Tiếp thị). |
-| `configs/harness_config.json` | Cấu hình phân tầng model thông minh: Dùng `Gemini 3.1 Pro` cho vai trò cần tư duy sâu (Architect, Builder, Creator) và `Gemini 3.8 Flash` cho vai trò rà soát nhanh (QA Auditor, Compliance Critic). |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (32 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá. |
 
 ---
@@ -163,17 +184,21 @@ Toàn bộ logic máy trạng thái, routing và kịch bản ngắt mạch đã
 pytest -v
 ```
 
-Kết quả mong đợi:
+Kết quả hiện tại: toàn bộ test PASS.
+
+Bộ test gồm 6 file:
+- `test_harness_core.py` — state machine, quality gate, circuit breaker
+- `test_harness_e2e.py` — luồng 2 nhánh, escalate sau 2 vòng REJECT
+- `test_harness_learning.py` — trajectory store + learning harvester
+- `test_skill_router.py` — keyword routing (32 skill)
+- `test_marketing_skills.py` — frontmatter + loader của skill
+- `test_session_manager.py` — portable session sync
+- `test_repo_integrity.py` — chặn hồi quy cấu trúc/secret/path cá nhân
+
 ```text
-tests/test_harness_core.py::test_state_machine_valid_transitions PASSED
-tests/test_harness_core.py::test_state_machine_invalid_transition PASSED
-tests/test_harness_core.py::test_quality_gate_approve PASSED
-tests/test_harness_core.py::test_quality_gate_reject_retry PASSED
-tests/test_harness_core.py::test_quality_gate_circuit_breaker PASSED
-tests/test_harness_core.py::test_orchestrator_routing PASSED
-tests/test_harness_e2e.py::test_app_branch_e2e PASSED
-tests/test_harness_e2e.py::test_marketing_branch_e2e PASSED
-8 passed in 0.15s
+$ pytest -q
+44 passed
+```
 ```
 
 ---
@@ -209,3 +234,25 @@ Task processing finished. Status: HarnessState.APPROVED, Verdict: APPROVE
 #### Tham Số Dòng Lệnh
 - `--task` *(bắt buộc)*: Chuỗi văn bản mô tả chi tiết nhiệm vụ cần thực hiện.
 - `--branch` *(bắt buộc)*: Chọn nhánh xử lý chuyên biệt (`app` hoặc `marketing`).
+
+---
+
+## 5. Bảo Mật & Vận Hành An Toàn
+
+- **Không hardcode secret.** Page token / API key chỉ đọc từ biến môi trường hoặc `.env` (đã gitignore). Mẫu: `.env.example`.
+- **⚠️ Cảnh báo lịch sử:** repo từng commit **Page Access Token Facebook thật** (`fb-admin/scripts/fb_api.py`) và **YouTube API key** (`yt-competitor-analyzer/scripts/analyze.js`) ở nhiều commit trước bản vá. Nếu các token đó từng được dùng: **thu hồi và cấp lại token mới** (Meta Business Suite / Google Cloud Console). Xoá file ở HEAD **không** xoá secret khỏi lịch sử git.
+- Script cần cấu hình: `fb-admin` → `FB_PAGE_ID` + `FB_PAGE_ACCESS_TOKEN`; `yt-competitor-analyzer` → `YOUTUBE_API_KEY`; `scripts/apify_crawler.py` → `APIFY_API_TOKEN`.
+- Trước khi bật `setup/config.json` cho agent: rà lại `globalPermissionGrants` (bản mặc định cấp quyền rộng: `command(*)`, `write_file(*)`, `mcp(*)`, `escalate_admin(...)`) và `enableTerminalSandbox: false`. Chỉ cấp quyền tối thiểu cần dùng.
+- Scrape dữ liệu mạng xã hội phải tuân thủ điều khoản nền tảng và quy định về dữ liệu cá nhân.
+
+---
+
+## 6. Ghi Chú Trạng Thái (đã kiểm chứng, không phải suy đoán)
+
+- `harness/*.py` là **mô phỏng state machine**: không gọi LLM API. Circuit breaker chỉ hoạt động khi vòng lặp review được gọi qua `submit_for_review`; một lần chạy CLI đơn lẻ không lặp nên không thể escalate.
+- File phụ trợ **chưa từng tồn tại trong repo** (đã tra cả git history lẫn toàn máy):
+  - `plugins/code/skills/app`: `AI_CODE_WORKFLOW.md`, `references/coding-taste.md`, `references/engineering-standards.md`, `templates/app-spec.md`
+  - `plugins/marketing/skills/viet-content-seo-geo-v5`: `scripts/score.mjs`, `scripts/score.py` (script chấm điểm — phần lõi của skill)
+  Mỗi SKILL.md tương ứng đã có ghi chú **TRẠNG THÁI SKILL**; `tests/test_repo_integrity.py` giữ danh sách này trong `KNOWN_GAPS` để không phát sinh con trỏ gãy mới. **Cần port 2 script chấm điểm từ dự án gốc** để skill đủ chức năng.
+- `setup.ps1` dùng `Copy-Item -Recurse` — chạy lại nhiều lần lên thư mục đã tồn tại có thể tạo tầng lồng `plugins/<tên>/<tên>`. Kiểm tra sau mỗi lần chạy.
+- `configs/harness_config.json` khai báo model `Gemini 3.1 Pro` / `Gemini 3.8 Flash` — **chưa xác minh** 2 ID này tồn tại, và không code nào resolve chúng. Cần Sếp xác nhận hoặc thay bằng ID thật khi viết adapter LLM.

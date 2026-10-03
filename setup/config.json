@@ -55,7 +55,6 @@
       ]
     },
     "nonWorkspaceFileAccessPolicy": "AGENT_SETTING_POLICY_ALLOW",
-    "remoteControlHostname": "remote-host",
     "themeMode": "THEME_MODE_DARK",
     "useAiCredits": true
   }

@@ -1,10 +1,14 @@
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 
+BRAIN_DIR = Path(os.environ.get("HARNESS_BRAIN_DIR", ".brain"))
+
+
 class LearningHarvester:
-    DEFAULT_PATH = Path(".brain/learnings/patterns.json")
+    DEFAULT_PATH = BRAIN_DIR / "learnings" / "patterns.json"
 
     def __init__(self, path=None):
         self.path = Path(path) if path else self.DEFAULT_PATH

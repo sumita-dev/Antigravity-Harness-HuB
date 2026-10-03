@@ -4,6 +4,11 @@ description: >
   🏭 Unified App Loop: Từ ý tưởng sơ bộ hoặc brief chi tiết tới bản MVP chạy thử. Phỏng vấn/thẩm định đặc tả, duyệt 1 lần duy nhất, sau đó tự động code và kiểm thử tới khi có preview URL.
   TRIGGERS: 'build app', 'làm app', 'tạo ứng dụng', 'xây dựng web tool', 'làm MVP', 'phát triển app từ brief', 'app loop'.
 ---
+> ⚠️ **TRẠNG THÁI SKILL (đã kiểm chứng):** các tài liệu tham chiếu dưới đây
+> (`AI_CODE_WORKFLOW.md`, `references/coding-taste.md`, `references/engineering-standards.md`,
+> `templates/app-spec.md`, `docs/superpowers/specs/...`) **KHÔNG có trong repo này**.
+> Agent phải bám theo nội dung ngay trong SKILL.md và không được viện dẫn các file không tồn tại.
+
 
 # WORKFLOW: /app - Unified App Loop (v1.28.0)
 

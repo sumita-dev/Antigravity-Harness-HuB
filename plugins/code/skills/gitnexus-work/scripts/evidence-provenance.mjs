@@ -876,7 +876,7 @@ export function serializeDirtyRecords(entries) {
 
 function assertRepository(repoInput) {
   // realpathSync.native, not realpathSync: the JS resolver preserves a Windows
-  // 8.3 short component (C:\Users\RUNNER~1\...) while git always reports the long
+  // 8.3 short component (C:\Users\<user>~1\...) while git always reports the long
   // form, so the two would never compare equal and every caller would be told the
   // worktree root is not the worktree root it just named.
   const repo = fs.realpathSync.native(requireString(repoInput, 'repo'));
