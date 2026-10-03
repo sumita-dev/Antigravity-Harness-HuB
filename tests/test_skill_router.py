@@ -79,9 +79,12 @@ def test_skill_loader():
 
     # Test path resolution
     app_path = loader.find_skill_path("app")
-    assert app_path == os.path.join("plugins", "code", "skills", "app", "SKILL.md")
+    assert app_path is not None and os.path.isabs(app_path)
+    assert app_path.replace("\\", "/").endswith("plugins/code/skills/app/SKILL.md")
     mkt_path = loader.find_skill_path("boc-phot-storytelling")
-    assert mkt_path == os.path.join("plugins", "marketing", "skills", "boc-phot-storytelling", "SKILL.md")
+    assert mkt_path is not None and os.path.isabs(mkt_path)
+    assert mkt_path.replace("\\", "/").endswith(
+        "plugins/marketing/skills/boc-phot-storytelling/SKILL.md")
 
 def test_orchestrator_auto_routing():
     orchestrator = ChiefOrchestrator()

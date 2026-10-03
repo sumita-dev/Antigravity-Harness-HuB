@@ -68,7 +68,7 @@ Antigravity-Harness-Hub/
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
-| `harness/runners/` | Đóng gói chu trình 3 bước cụ thể cho từng loại hình tác vụ: `app_runner.py` (Kỹ thuật) và `marketing_runner.py` (Tiếp thị). |
+| `harness/runners/` | Đóng gói chu trình 3 bước cho từng nhánh: `app_runner.py` (Architect → Builder → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Compliance Critic). Runner là nơi ghi trace từng bước. |
 | `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (32 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá. |
 
@@ -232,8 +232,25 @@ Task processing finished. Status: HarnessState.APPROVED, Verdict: APPROVE
 ```
 
 #### Tham Số Dòng Lệnh
-- `--task` *(bắt buộc)*: Chuỗi văn bản mô tả chi tiết nhiệm vụ cần thực hiện.
-- `--branch` *(bắt buộc)*: Chọn nhánh xử lý chuyên biệt (`app` hoặc `marketing`).
+- `--task` *(bắt buộc)*: Mô tả nhiệm vụ.
+- `--branch {app,marketing,auto}`: Chọn nhánh. Mặc định `auto` = tự định tuyến theo `skill_routing`.
+- `--checker-output "VERDICT: ..."`: Phán quyết Checker đưa vào (mặc định `VERDICT: APPROVE`). Dùng để kiểm thử luồng REJECT/ESCALATE.
+- `--review-rounds N`: Mô phỏng N vòng review. **Đây là cách duy nhất kích hoạt circuit breaker từ CLI** (`--review-rounds 3 --checker-output "VERDICT: REJECT"` → ESCALATED).
+- `--task-id`: ID tùy chọn (mặc định sinh UUID mới cho mỗi task).
+- `--dump-skill`: In nội dung SKILL.md đã nạp ra stdout (để pipeline bên ngoài dùng).
+- `--json`: Xuất kết quả dạng JSON (task_id, branch, state, verdict, critique_rounds, active_skill, skill_path).
+
+**Ví dụ kiểm chứng circuit breaker:**
+```bash
+python run_harness.py --task "Build login" --branch app \
+  --review-rounds 3 --checker-output "VERDICT: REJECT"
+# -> Task processing finished. Status: HarnessState.ESCALATED, Verdict: ESCALATE
+```
+
+**Ví dụ lấy nội dung skill cho pipeline ngoài:**
+```bash
+python run_harness.py --task "viết content cho facebook" --dump-skill
+```
 
 ---
 
