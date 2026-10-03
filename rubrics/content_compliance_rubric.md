@@ -30,6 +30,7 @@ Bộ tiêu chí này áp dụng độc lập cho tác tử **Compliance Critic**
 
 ### Trụ cột 3: Kiểm Chứng Dữ Liệu & Logic Xác Thực (Fact-Check & Data Grounding)
 - **Đối soát với Research Dossier:** Mọi số liệu, tỷ lệ %, sự kiện, nhân vật và câu trích dẫn trong bài viết bắt buộc phải khớp đúng với `Research Dossier` do Web Researcher cung cấp. Tuyệt đối không chấp nhận số liệu "chém gió" hoặc tự phóng đại không có nguồn.
+- **Xác thực dữ liệu Mạng xã hội (Social Media Accuracy):** Đảm bảo các dẫn chứng về phản ứng dư luận, top bình luận, nỗi bức xúc từ Facebook, Instagram, X (Twitter) phải bám sát dữ liệu thực địa trong Dossier; không bịa đặt cuộc trò chuyện ảo hay gán ghép quan điểm cực đoan vô căn cứ.
 - **Kiểm tra tính ngụy biện:** Không dùng ngụy biện khái quát hóa vội vã (hasty generalization), ngụy biện người rơm, hoặc đánh tráo khái niệm.
 - **Tính khả thi và minh bạch:** Giải pháp đưa ra cho khách hàng phải thực tế, không vẽ vời ảo tưởng, dẫn nguồn minh bạch nếu đưa ra số liệu nhạy cảm.
 

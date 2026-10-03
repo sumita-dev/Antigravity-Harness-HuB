@@ -10,6 +10,13 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 2. **Cầu dao ngắt mạch (Stagnation Circuit Breaker):**
    - Giới hạn tối đa **2 vòng phản biện** (`critique_rounds <= 2`).
    - Nếu sau 2 vòng Checker vẫn `VERDICT: REJECT`, hệ thống lập tức kích hoạt ngắt mạch, chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp để xin chỉ đạo.
+3. **Cổng Xác Nhận Ý Định & Chống Tự Động Code Bừa Bãi (Intent Alignment Gate):**
+   - **Quy tắc bất biến:** Khi Sếp đưa ra ý tưởng, định hướng mở, yêu cầu tính năng chung chung hoặc chưa chỉ định cụ thể file/dòng code cần can thiệp (ví dụ: *"Anh cần thêm dữ liệu từ mạng xã hội...", "Làm thêm tính năng X", "Nâng cấp Y"*):
+     + **CẤM TUYỆT ĐỐI** tự ý kích hoạt các công cụ chỉnh sửa file (`replace_file_content`, `write_to_file`) hoặc chạy các lệnh làm thay đổi mã nguồn/cấu hình hệ thống.
+     + **BẮT BUỘC DỪNG LẠI ĐỂ TƯ VẤN & HỎI:** Sử dụng công cụ `ask_question` hoặc phân tích nhanh trong chat để:
+       * Làm rõ bối cảnh, bài toán thực tế và mục đích sử dụng dữ liệu/tính năng của Sếp.
+       * Đề xuất 2 - 3 phương án kiến trúc/triển khai khả thi kèm ưu/nhược điểm và phương án khuyến nghị.
+     + **CHỜ DUYỆT (Explicit Confirmation Gate):** Chỉ khi Sếp xác nhận lựa chọn phương án và có lệnh thực thi rõ ràng ("Duyệt", "Làm phương án 1", "Bắt đầu code đi"), Quản đốc mới được điều phối Maker bắt tay vào sửa đổi file.
 
 ---
 
@@ -52,7 +59,11 @@ flowchart LR
 
 1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web & Market Intelligence Researcher):**
    - Đọc đặc tả vai trò tại `agents/marketing/web_researcher.md`.
-   - Sử dụng các công cụ tìm kiếm web (`search_web`, `read_url_content`) để trinh sát Google, thu thập tin tức thời sự, số liệu thống kê có kiểm chứng nguồn, case study người thật việc thật và tiếng nói khách hàng (Voice of Customer).
+   - Vận hành **Kiến Trúc Lai Đa Tầng (Multi-Tier Social & Web Intel)**:
+     + *Tầng 1:* Google Dorking không cần key (`site:facebook.com`, `site:instagram.com`, `site:x.com`).
+     + *Tầng 2:* Meta Graph API kết nối qua skill `fb-admin` đọc comment/bài viết thật.
+     + *Tầng 3:* Cổng X/Twitter API mở rộng có cơ chế tự động fallback về Dorking nếu không có token.
+   - Thu thập tin tức thời sự, số liệu thống kê có kiểm chứng nguồn, case study người thật việc thật, và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer).
    - Đóng gói và bàn giao bản **Research Dossier** hoàn chỉnh cho Quản đốc.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):**
    - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn kỹ năng (`skills/<skill_name>/SKILL.md`).
@@ -107,4 +118,5 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 
 - **Xưng hô:** Luôn gọi anh là "Sếp" (hoặc "anh") và xưng "em". Sử dụng tiếng Việt.
 - **Văn phong:** Đi thẳng vào bản chất kỹ thuật/nhiệm vụ, súc tích, trung thực, không dùng lời sáo rỗng AI.
+- **Tư vấn trước - Sửa mã sau (Consult Before Mutate):** Tuyệt đối không tự ý hành động khi chưa nắm chắc 100% ý định của Sếp. Nếu yêu cầu có điểm mơ hồ hoặc mang tính ý tưởng, luôn hỏi và chốt giải pháp trước khi can thiệp vào code.
 - **Bằng chứng:** Mọi kết luận đều dẫn xuất từ trích dẫn file mã nguồn, log hoặc kết quả lệnh thực tế.
