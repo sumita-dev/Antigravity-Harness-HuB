@@ -1,4 +1,5 @@
 # Antigravity Harness Hub - Cai dat cau hinh moi truong moi
+# Chay lai nhieu lan duoc (idempotent): khong tao tang long, khong nhan ban thu muc.
 $ErrorActionPreference = "Stop"
 
 Write-Host "=================================================" -ForegroundColor Cyan
@@ -13,72 +14,97 @@ if (-not (Test-Path $sourceFile)) {
 
 $targetDir = Join-Path $env:USERPROFILE ".gemini\config"
 $targetFile = Join-Path $targetDir "config.json"
+$repoRoot = Join-Path $PSScriptRoot ".."
 
 if (-not (Test-Path $targetDir)) {
-    Write-Host "[1/5] Tao thu muc dich: $targetDir" -ForegroundColor Yellow
+    Write-Host "[1/6] Tao thu muc dich: $targetDir" -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
 } else {
-    Write-Host "[1/5] Thu muc dich da ton tai: $targetDir" -ForegroundColor Green
+    Write-Host "[1/6] Thu muc dich da ton tai: $targetDir" -ForegroundColor Green
 }
 
 if (Test-Path $targetFile) {
     $backupFile = Join-Path $targetDir "config.json.bak_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    Write-Host "[2/5] Sao luu file config cu sang: $backupFile" -ForegroundColor Yellow
+    Write-Host "[2/6] Sao luu file config cu sang: $backupFile" -ForegroundColor Yellow
     Copy-Item -Path $targetFile -Destination $backupFile -Force
 } else {
-    Write-Host "[2/5] Chua co file config cu, tien hanh tao moi" -ForegroundColor Green
+    Write-Host "[2/6] Chua co file config cu, tien hanh tao moi" -ForegroundColor Green
 }
 
-Write-Host "[3/5] Sao chep file cau hinh (cai de)..." -ForegroundColor Yellow
+Write-Host "[3/6] Sao chep file cau hinh (cai de)..." -ForegroundColor Yellow
 Copy-Item -Path $sourceFile -Destination $targetFile -Force
 
-Write-Host "[4/5] Cai dat toan bo plugins (code, marketing), quy chuan Maker-Checker, agents va rubrics vao global..." -ForegroundColor Yellow
+# --- [4/6] Plugins: xoa dich truoc khi copy de TRANH tao tang long plugins/<ten>/<ten>
+Write-Host "[4/6] Cai dat plugins (code, marketing) vao global..." -ForegroundColor Yellow
 $pluginsTargetDir = Join-Path $targetDir "plugins"
 if (-not (Test-Path $pluginsTargetDir)) {
     New-Item -ItemType Directory -Force -Path $pluginsTargetDir | Out-Null
 }
-
-$repoRoot = Join-Path $PSScriptRoot ".."
 $repoPluginsDir = Join-Path $repoRoot "plugins"
-
 if (Test-Path $repoPluginsDir) {
     Get-ChildItem -Path $repoPluginsDir -Directory | ForEach-Object {
         $srcPlugin = $_.FullName
         $dstPlugin = Join-Path $pluginsTargetDir $_.Name
+        if (Test-Path $dstPlugin) {
+            Remove-Item -Path $dstPlugin -Recurse -Force
+        }
         Copy-Item -Path $srcPlugin -Destination $dstPlugin -Recurse -Force
         Write-Host "  + Da nap plugin: $($_.Name)" -ForegroundColor DarkGreen
     }
 }
 
-# Sao chep AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config
-Copy-Item -Path (Join-Path $repoRoot "AGENTS.md") -Destination (Join-Path $targetDir "AGENTS.md") -Force
-Copy-Item -Path (Join-Path $repoRoot "GEMINI.md") -Destination (Join-Path $targetDir "GEMINI.md") -Force
-Copy-Item -Path (Join-Path $repoRoot "agents\*") -Destination (Join-Path $targetDir "agents") -Recurse -Force
-Copy-Item -Path (Join-Path $repoRoot "rubrics\*") -Destination (Join-Path $targetDir "rubrics") -Recurse -Force
-$scriptsTargetDir = Join-Path $targetDir "scripts"
-if (-not (Test-Path $scriptsTargetDir)) {
-    New-Item -ItemType Directory -Force -Path $scriptsTargetDir | Out-Null
+# --- [5/6] Loi harness (de CLI chay duoc ngay tai global config) + quy chuan
+Write-Host "[5/6] Dong bo harness, configs, agents, rubrics, scripts..." -ForegroundColor Yellow
+$copyMap = @{
+    "harness"          = "harness"
+    "configs"          = "configs"
+    "agents"           = "agents"
+    "rubrics"          = "rubrics"
+    "scripts"          = "scripts"
 }
-Copy-Item -Path (Join-Path $repoRoot "scripts\*") -Destination $scriptsTargetDir -Recurse -Force
-Write-Host "  + Da dong bo quy chuan Maker-Checker, AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config!" -ForegroundColor DarkGreen
+foreach ($pair in $copyMap.GetEnumerator()) {
+    $src = Join-Path $repoRoot $pair.Key
+    if (-not (Test-Path $src)) { continue }
+    $dst = Join-Path $targetDir $pair.Value
+    if (Test-Path $dst) { Remove-Item -Path $dst -Recurse -Force }
+    Copy-Item -Path $src -Destination $dst -Recurse -Force
+    Write-Host "  + Da dong bo: $($pair.Key)" -ForegroundColor DarkGreen
+}
+foreach ($f in @("AGENTS.md", "GEMINI.md", "requirements.txt", ".env.example")) {
+    $src = Join-Path $repoRoot $f
+    if (Test-Path $src) {
+        Copy-Item -Path $src -Destination (Join-Path $targetDir $f) -Force
+        Write-Host "  + Da dong bo: $f" -ForegroundColor DarkGreen
+    }
+}
 
-# 5. Tu dong nap phien lam viec neu co thu muc .sessions (Zero-Friction Portable Session Sync)
+# --- Kiem tra hau kiem: khong duoc co thu muc skill long chinh no
+$nested = Get-ChildItem -Path $pluginsTargetDir -Directory -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq $_.Parent.Name -and $_.Parent.Parent.Name -eq "skills" }
+if ($nested) {
+    Write-Warning "Phat hien thu muc long (can kiem tra): $($nested.FullName -join ', ')"
+} else {
+    Write-Host "  + Kiem tra: khong co thu muc skill long chinh no." -ForegroundColor Green
+}
+
+# --- [6/6] Tu dong nap phien lam viec neu co .sessions
 $sessionsDir = Join-Path $repoRoot ".sessions"
 if (Test-Path $sessionsDir) {
-    Write-Host "[5/5] Phat hien thu muc .sessions, dang tu dong nap phien lam viec (Portable Session Sync)..." -ForegroundColor Yellow
+    Write-Host "[6/6] Phat hien .sessions, dang nap phien lam viec (Portable Session Sync)..." -ForegroundColor Yellow
     $sessionScript = Join-Path $repoRoot "scripts\session_manager.py"
     if (Test-Path $sessionScript) {
         python $sessionScript --action import --repo-dir $repoRoot
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  + Da khoi phuc va nap cac phien lam viec thanh cong vao Antigravity!" -ForegroundColor DarkGreen
+            Write-Host "  + Da khoi phuc phien lam viec thanh cong!" -ForegroundColor DarkGreen
         } else {
             Write-Warning "Co loi khi nap phien lam viec tu .sessions"
         }
     }
 } else {
-    Write-Host "[5/5] Khong phat hien thu muc .sessions, bo qua buoc nap phien." -ForegroundColor Gray
+    Write-Host "[6/6] Khong co .sessions, bo qua buoc nap phien." -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host "Da cai dat cau hinh va dong bo toan bo he thong Antigravity 2.0 thanh cong!" -ForegroundColor Green
+Write-Host "Da cai dat cau hinh va dong bo he thong Antigravity 2.0 thanh cong!" -ForegroundColor Green
+Write-Host "Chay lai script nay bat cu luc nao de dong bo lai (an toan, khong nhan ban)." -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Cyan

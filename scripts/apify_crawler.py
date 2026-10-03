@@ -169,9 +169,12 @@ def build_actor_payload(platform: str, query: str, limit: int, custom_actor: str
 def run_apify_actor(actor_id: str, payload: dict, token: str, timeout: int = 180) -> list | dict:
     """
     Run Apify actor synchronously and return dataset items.
-    Endpoint: https://api.apify.com/v2/acts/{actorId}/run-sync-get-dataset-items?token={token}&timeout={timeout}
+
+    Token được gửi qua header `Authorization: Bearer ...` (KHÔNG nhúng vào URL query)
+    để không lộ token trong log của server/proxy.
+    Endpoint: https://api.apify.com/v2/acts/{actorId}/run-sync-get-dataset-items?timeout={timeout}
     """
-    url = f"https://api.apify.com/v2/acts/{actor_id}/run-sync-get-dataset-items?token={token}&timeout={timeout}"
+    url = f"https://api.apify.com/v2/acts/{actor_id}/run-sync-get-dataset-items?timeout={timeout}"
     data_bytes = json.dumps(payload).encode("utf-8")
 
     req = urllib.request.Request(
@@ -180,6 +183,7 @@ def run_apify_actor(actor_id: str, payload: dict, token: str, timeout: int = 180
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "Antigravity-Harness-Hub/1.0",
+            "Authorization": f"Bearer {token}",
         },
         method="POST"
     )

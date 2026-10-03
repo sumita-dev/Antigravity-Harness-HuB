@@ -49,8 +49,6 @@
         "write_file(*)",
         "read_url(*)",
         "execute_url(*)",
-        "escalate_admin(Tạm dừng Windows Update bằng Group Policy Registry)",
-        "mcp(*)",
         "mcp(supabase)"
       ]
     },

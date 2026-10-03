@@ -110,6 +110,10 @@ def test_gemini_md_documents_all_marketing_skills():
         slash_cmd = f"/{skill_name}"
         assert slash_cmd in content, f"Slash command {slash_cmd} not documented in GEMINI.md"
 
+@pytest.mark.skipif(
+    not os.path.exists(os.path.expanduser("~/.gemini/config")),
+    reason="Chỉ chạy trên máy dev đã cài global config (không chạy được trên CI)",
+)
 def test_global_config_skills_deployed():
     global_plugin_skills_dir = os.path.expanduser("~/.gemini/config/plugins/marketing/skills")
     assert os.path.exists(global_plugin_skills_dir), f"Global marketing plugin skills directory {global_plugin_skills_dir} missing"

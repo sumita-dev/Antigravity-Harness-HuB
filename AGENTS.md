@@ -133,3 +133,33 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 - **Bảo toàn độ chính xác kỹ thuật:** Dù văn phong súc tích nhưng giữ đầy đủ mã lệnh, đường dẫn file, log lỗi thực tế và thông số kỹ thuật.
 - **Tư vấn trước - Sửa mã sau (Consult Before Mutate):** Tuyệt đối không tự ý hành động khi chưa nắm chắc 100% ý định của Sếp. Nếu yêu cầu có điểm mơ hồ hoặc mang tính ý tưởng, luôn hỏi và chốt giải pháp trước khi can thiệp vào code.
 - **Bằng chứng thực chứng:** Mọi kết luận đều dẫn xuất từ trích dẫn file mã nguồn, log hoặc kết quả lệnh thực tế.
+
+---
+
+## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
+
+Bộ luật trong file này là lớp điều phối **thật** khi chạy trong Antigravity. Song song đó,
+repo có lớp code `harness/` để **kiểm thử luồng và trích xuất nội dung skill**:
+
+- `harness/*.py` là **mô phỏng state machine** (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`).
+  Nó **không gọi LLM API** và không tự sinh nội dung — **không thay thế** bước gọi SubAgent.
+- CLI:
+  ```bash
+  python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]
+  ```
+  - `--review-rounds N` + `--checker-output "VERDICT: REJECT"`: mô phỏng nhiều vòng review để kiểm chứng
+    **Stagnation Circuit Breaker** (quá 2 vòng REJECT → `ESCALATED`).
+  - `--dump-skill`: in nội dung `SKILL.md` mà router đã chọn (cho pipeline bên ngoài dùng).
+  - `--json`: xuất kết quả dạng JSON.
+- Định tuyến skill: `configs/harness_config.json → skill_routing` (32 skill → keyword).
+  Router ưu tiên **keyword dài hơn** vì tín hiệu cụ thể hơn.
+- Nạp skill: `harness/skills/router.py` tìm `plugins/<nhánh>/skills/<tên>/SKILL.md`, neo theo gốc repo
+  nên chạy được từ bất kỳ thư mục nào.
+
+**Quy tắc bất biến cho lớp code:**
+1. Không hardcode secret — đọc từ biến môi trường hoặc `.env` (xem `.env.example`).
+2. Không commit dữ liệu runtime `.brain/` (đã gitignore).
+3. Mọi thay đổi phải giữ `pytest -q` xanh; `tests/test_repo_integrity.py` chặn hồi quy về
+   cấu trúc, secret, path cá nhân và con trỏ file gãy.
+4. Cài phụ thuộc trước khi chạy: `pip install -r requirements.txt`.
+
