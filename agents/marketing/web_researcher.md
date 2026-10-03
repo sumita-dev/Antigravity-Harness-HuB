@@ -54,9 +54,27 @@
 
 ---
 
-### Tầng 3: X/Twitter API & RSS Gateway (Khung Kết Nối Mở Rộng)
-- **Cơ chế:** Khi có cấu hình biến môi trường `TWITTER_BEARER_TOKEN`, tác tử có thể truy vấn trực tiếp Twitter API v2 endpoints (`/2/tweets/search/recent`).
-- **Cơ chế Fallback Tự Động:** Nếu không có token hoặc gặp lỗi rate-limit, tác tử **ngay lập tức tự động fallback về Tầng 1 (Social Dorking)** qua Google Search để đảm bảo quy trình không bao giờ bị nghẽn hay báo lỗi.
+### Tầng 3: Apify Social Intelligence Gateway (Cào Dữ Liệu Thực Địa Đa Kênh)
+- **Cơ chế:** Khi có cấu hình biến môi trường `APIFY_API_TOKEN` (hoặc khai báo trong `.env`), tác tử kích hoạt script cào dữ liệu chuẩn hóa tại `scripts/apify_crawler.py` để trích xuất bài viết, bình luận, và chỉ số tương tác thực tế từ Twitter/X, Facebook, và Instagram.
+- **Cú pháp thực thi qua terminal (`run_command`):**
+  - **Twitter / X:**
+    ```bash
+    python scripts/apify_crawler.py twitter --query "<từ_khóa_hoặc_url>" --limit 10 --output out_twitter.json
+    ```
+    *(Mặc định gọi actor `apidojo/tweet-scraper`; có thể đổi actor qua cờ `--actor vdrmmr/twitter-scraper`)*
+  - **Facebook:**
+    ```bash
+    python scripts/apify_crawler.py facebook --query "<từ_khóa_hoặc_url_fanpage>" --limit 10 --output out_fb.json
+    ```
+    *(Gọi actor `apify/facebook-posts-scraper` để lấy nội dung bài viết, lượt like/share/comment và video transcript)*
+  - **Instagram:**
+    ```bash
+    python scripts/apify_crawler.py instagram --query "<#hashtag_hoặc_@user>" --limit 10 --output out_ig.json
+    ```
+    *(Gọi actor `apify/instagram-scraper` để lấy bài post, reels, carousel, caption và số liệu tương tác)*
+- **Xử lý kết quả:**
+  - Kết quả trả về file JSON chuẩn hóa. Tác tử đọc file qua `view_file` để trích xuất các trích dẫn đời thực (Voice of Customer), nỗi đau, phản biện đưa vào mục 4 của `Research Dossier`.
+- **Cơ chế Fallback Tự Động:** Nếu không có token `APIFY_API_TOKEN`, hết quota hoặc gặp sự cố mạng, tác tử **ngay lập tức tự động fallback về Tầng 1 (Social Dorking qua Google Search)** để đảm bảo quy trình trinh sát không bao giờ bị nghẽn hay gián đoạn.
 
 ---
 
