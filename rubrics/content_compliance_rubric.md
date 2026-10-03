@@ -28,10 +28,10 @@ Bộ tiêu chí này áp dụng độc lập cho tác tử **Compliance Critic**
   - Giọng văn phải mang chất liệu đời thực, ngôn ngữ nói tự nhiên, có nhịp điệu (câu ngắn xen câu dài), giàu hình ảnh giác quan.
   - Loại bỏ các tính từ chung chung vô thưởng vô phạt.
 
-### Trụ cột 3: Logic, Bằng Chứng & Tính Xác Thực (Authenticity & Sound Logic)
+### Trụ cột 3: Kiểm Chứng Dữ Liệu & Logic Xác Thực (Fact-Check & Data Grounding)
+- **Đối soát với Research Dossier:** Mọi số liệu, tỷ lệ %, sự kiện, nhân vật và câu trích dẫn trong bài viết bắt buộc phải khớp đúng với `Research Dossier` do Web Researcher cung cấp. Tuyệt đối không chấp nhận số liệu "chém gió" hoặc tự phóng đại không có nguồn.
 - **Kiểm tra tính ngụy biện:** Không dùng ngụy biện khái quát hóa vội vã (hasty generalization), ngụy biện người rơm, hoặc đánh tráo khái niệm.
-- **Bằng chứng và số liệu:** Mọi con số thống kê hoặc case study phải có ngữ cảnh rõ ràng, tránh số liệu "ảo" không có cơ sở xác thực.
-- **Tính khả thi:** Giải pháp đưa ra cho khách hàng phải thực tế, không vẽ vời ảo tưởng.
+- **Tính khả thi và minh bạch:** Giải pháp đưa ra cho khách hàng phải thực tế, không vẽ vời ảo tưởng, dẫn nguồn minh bạch nếu đưa ra số liệu nhạy cảm.
 
 ### Trụ cột 4: Cấu Trúc Chuyển Đổi & Sức Hút (Conversion Architecture & Engagement)
 - **Độ bén của Hook (3 giây đầu / 2 dòng đầu):** Phải tạo được cú dừng ngón tay (pattern interrupt), chạm đúng nỗi đau (pain point) hoặc kích thích sự tò mò mạnh mẽ.
@@ -50,7 +50,7 @@ Mọi đánh giá từ Checker phải tuân thủ nghiêm ngặt cấu trúc bá
 #### 1. Đánh giá theo 4 Trụ Cột:
 - **Chính sách nền tảng:** [ĐẠT / CÓ RỦI RO] - {Chi tiết điều khoản vi phạm nếu có}
 - **Bộ lọc AI Slop:** [ĐẠT / CHƯA ĐẠT] - {Trích dẫn các câu từ sáo rỗng cần gọt giũa}
-- **Logic & Bằng chứng:** [ĐẠT / CHƯA ĐẠT] - {Chỉ rõ lỗi logic hoặc claim quá đà}
+- **Kiểm chứng dữ liệu & Logic (Fact-Check):** [ĐẠT / CHƯA ĐẠT] - {Đối soát số liệu/claim với Research Dossier, chỉ rõ sai lệch nếu có}
 - **Cấu trúc chuyển đổi & Hook/CTA:** [ĐẠT / CHƯA ĐẠT] - {Nhận xét về độ bén của Hook, Body, CTA}
 
 #### 2. Danh sách chỉnh sửa yêu cầu (Actionable Feedback):

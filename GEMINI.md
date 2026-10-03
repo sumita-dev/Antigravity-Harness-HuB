@@ -35,33 +35,41 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 
 ## 3. Quy Trình Vận Hành Nhánh Marketing Trong Ô Chat
 
-Khi nhận được yêu cầu thuộc nhánh Marketing (hoặc lệnh slash tương ứng), Quản đốc **bắt buộc phân tách việc cho 2 SubAgent độc lập** nhằm triệt tiêu thiên kiến xác nhận (Confirmation Bias) và ngăn chặn AI Slop:
+Nhánh Marketing hỗ trợ 2 chế độ vận hành độc lập: **Chế độ Nghiên Cứu Độc Lập (Standalone Research)** và **Quy Trình Khép Kín Maker-Checker Tích Hợp Dữ Liệu Thực Địa (Pipeline Closed-Loop)**:
+
+### Chế độ A: Quy Trình Khép Kín Sản Xuất Nội Dung (Pipeline Closed-Loop)
+Áp dụng khi người dùng yêu cầu viết kịch bản, bài viết quảng cáo, offer stack hoặc gọi lệnh slash marketing:
 
 ```mermaid
 flowchart LR
-    A["Yêu Cầu / Slash Command"] --> B["BƯỚC 1: DESIGN<br/>(SubAgent: Market Researcher)"]
-    B --> C["BƯỚC 2: IMPLEMENTATION<br/>(SubAgent: Content Creator / Maker)"]
-    C --> D["BƯỚC 3: AUDIT<br/>(SubAgent: Compliance Critic / Checker)"]
+    A["Yêu Cầu / Topic"] --> B["BƯỚC 1: INTEL & RESEARCH<br/>(SubAgent: Web Researcher)<br/><i>Cào Google, số liệu, case study</i>"]
+    B -->|"Research Dossier"| C["BƯỚC 2: IMPLEMENTATION<br/>(SubAgent: Content Creator / Maker)<br/><i>Cấy số liệu thật vào Hook/Story/Body</i>"]
+    C -->|"Bản thảo hoàn chỉnh"| D["BƯỚC 3: FACT-CHECK & AUDIT<br/>(SubAgent: Compliance Critic / Checker)<br/><i>Đối soát bài viết với Dossier + Chính sách</i>"]
     D -->|"VERDICT: APPROVE"| E["Nghiệm Thu Thành Công"]
     D -->|"VERDICT: REJECT (vòng <= 2)"| C
     D -->|"VERDICT: REJECT (vòng > 2)"| F["Kích Hoạt Circuit Breaker<br/>(Báo Cáo Sếp)"]
 ```
 
-1. **Bước 1 - DESIGN (SubAgent: Market Researcher):**
-   - Đọc đặc tả vai trò tại `agents/marketing/researcher.md`.
-   - Nghiên cứu chân dung đối tượng mục tiêu, tìm insight sắc bén, bóc tách góc nhìn đối thủ, lập Creative Brief.
+1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web & Market Intelligence Researcher):**
+   - Đọc đặc tả vai trò tại `agents/marketing/web_researcher.md`.
+   - Sử dụng các công cụ tìm kiếm web (`search_web`, `read_url_content`) để trinh sát Google, thu thập tin tức thời sự, số liệu thống kê có kiểm chứng nguồn, case study người thật việc thật và tiếng nói khách hàng (Voice of Customer).
+   - Đóng gói và bàn giao bản **Research Dossier** hoàn chỉnh cho Quản đốc.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):**
-   - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn của kỹ năng được kích hoạt (`skills/<skill_name>/SKILL.md`).
-   - Khởi chạy một SubAgent Maker riêng biệt. Maker soạn thảo sản phẩm hoàn chỉnh: Kịch bản video, bài viết quảng cáo, offer stack...
-   - Maker tuyệt đối **không tự phê duyệt**, bàn giao bản thảo lại cho Quản đốc.
-3. **Bước 3 - AUDIT (SubAgent: Compliance Critic - Checker):**
+   - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn kỹ năng (`skills/<skill_name>/SKILL.md`).
+   - Khởi chạy một SubAgent Maker riêng biệt. Maker tiếp nhận `Research Dossier` từ Bước 1, cấy trực tiếp các số liệu và câu chuyện thực tế vào cấu trúc bài viết (Hook, Body, Story, CTA) theo đúng framework (AIDA, PAS, Hormozi, Kahneman...).
+   - Maker tuyệt đối **không tự phê duyệt**, bàn giao bản thảo hoàn chỉnh cho Quản đốc.
+3. **Bước 3 - AUDIT & FACT-CHECK (SubAgent: Compliance Critic - Checker):**
    - Đọc đặc tả vai trò tại `agents/marketing/compliance_critic.md` và bộ tiêu chí kiểm định `rubrics/content_compliance_rubric.md`.
    - Khởi chạy một SubAgent Checker độc lập (không chia sẻ context sáng tạo của Maker).
-   - Thẩm định độc lập 4 trụ cột: Chính sách nền tảng (Meta Ads / YouTube Guidelines), Quét sạch AI Slop (danh sách đen từ ngữ sáo rỗng), Logic & Tính xác thực, Độ sắc chuyển đổi (Hook/CTA).
+   - Thẩm định 4 trụ cột khắt khe: Chính sách nền tảng (Meta Ads / YouTube Guidelines), Quét sạch AI Slop (danh sách đen từ ngữ sáo rỗng), **Kiểm chứng dữ liệu (Fact-check đối soát trực tiếp giữa bài viết và Research Dossier)**, Độ sắc chuyển đổi (Hook/CTA).
    - Trả về phán quyết chuẩn: `VERDICT: APPROVE` hoặc `VERDICT: REJECT` kèm danh sách lỗi cụ thể.
 4. **Vòng lặp & Cầu dao ngắt mạch:**
    - Nếu `VERDICT: REJECT` và `critique_rounds <= 2`: Quản đốc chuyển yêu cầu sửa cho SubAgent Maker làm lại.
    - Nếu sau 2 vòng vẫn `VERDICT: REJECT`: Kích hoạt Stagnation Circuit Breaker, dừng vòng lặp, chuyển trạng thái `ESCALATED` và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp.
+
+### Chế độ B: Chế Độ Nghiên Cứu Độc Lập (Standalone Research Mode)
+- Áp dụng khi Sếp chỉ yêu cầu nghiên cứu thị trường, tìm số liệu ngành, điều tra xu hướng đối thủ hoặc tìm hiểu một chủ đề chuyên sâu mà chưa cần viết bài ngay.
+- Quản đốc trực tiếp điều phối **SubAgent Web Researcher** trinh sát Google, kiểm chứng đa nguồn và xuất thẳng bản **Research Dossier** chi tiết bàn giao cho Sếp.
 
 ---
 
