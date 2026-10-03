@@ -48,12 +48,17 @@ Get-ChildItem -Path $repoSkillsDir -Directory | ForEach-Object {
     Write-Host "  + Da nap skill: $($_.Name)" -ForegroundColor DarkGreen
 }
 
-# Sao chep AGENTS.md, GEMINI.md, agents va rubrics vao global config
+# Sao chep AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config
 Copy-Item -Path (Join-Path $repoRoot "AGENTS.md") -Destination (Join-Path $targetDir "AGENTS.md") -Force
 Copy-Item -Path (Join-Path $repoRoot "GEMINI.md") -Destination (Join-Path $targetDir "GEMINI.md") -Force
 Copy-Item -Path (Join-Path $repoRoot "agents\*") -Destination (Join-Path $targetDir "agents") -Recurse -Force
 Copy-Item -Path (Join-Path $repoRoot "rubrics\*") -Destination (Join-Path $targetDir "rubrics") -Recurse -Force
-Write-Host "  + Da dong bo quy chuan Maker-Checker, AGENTS.md, GEMINI.md, agents va rubrics vao global config!" -ForegroundColor DarkGreen
+$scriptsTargetDir = Join-Path $targetDir "scripts"
+if (-not (Test-Path $scriptsTargetDir)) {
+    New-Item -ItemType Directory -Force -Path $scriptsTargetDir | Out-Null
+}
+Copy-Item -Path (Join-Path $repoRoot "scripts\*") -Destination $scriptsTargetDir -Recurse -Force
+Write-Host "  + Da dong bo quy chuan Maker-Checker, AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config!" -ForegroundColor DarkGreen
 
 Write-Host ""
 Write-Host "Da cai dat cau hinh va dong bo toan bo he thong Antigravity 2.0 thanh cong!" -ForegroundColor Green
