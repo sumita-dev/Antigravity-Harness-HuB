@@ -28,23 +28,33 @@ from scripts.session_manager import (
 
 
 def test_path_to_workspace_uri():
-    # Test đường dẫn Windows có ổ đĩa
-    uri_win = path_to_workspace_uri("D:\\AntiGravity\\MyProject")
-    assert uri_win == "file:///d%3A/AntiGravity/MyProject"
+    """Hợp đồng: hàm thuần chuỗi -> kết quả GIỐNG NHAU trên mọi hệ điều hành."""
+    # Đường dẫn Windows có ổ đĩa (hoa/thường đều được, ổ đĩa luôn viết thường)
+    assert path_to_workspace_uri("D:\\AntiGravity\\MyProject") == "file:///d%3A/AntiGravity/MyProject"
+    assert path_to_workspace_uri("c:/work/test") == "file:///c%3A/work/test"
 
-    # Test lowercase drive normalization
-    uri_c = path_to_workspace_uri("c:/work/test")
-    assert uri_c == "file:///c%3A/work/test"
+    # Đường dẫn POSIX (máy CI Linux chạy vào nhánh này)
+    assert path_to_workspace_uri("/home/runner/work/x") == "file:///home/runner/work/x"
+    assert path_to_workspace_uri("/tmp/Test-Repo") == "file:///tmp/Test-Repo"
 
 
 def test_normalize_uri_or_path():
-    uri = "file:///d%3A/AntiGravity/MyProject"
-    norm = normalize_uri_or_path(uri)
-    expected = os.path.normcase(os.path.normpath("d:/AntiGravity/MyProject"))
-    assert norm == expected
+    """Hợp đồng: URI và path thô của CÙNG một thư mục phải về cùng một khoá.
 
-    plain_path = "D:\\AntiGravity\\MyProject"
-    assert normalize_uri_or_path(plain_path) == expected
+    Khoá này độc lập nền tảng để so khớp workspace giữa Windows <-> Linux/WSL.
+    """
+    expected_win = "d:/antigravity/myproject"
+    assert normalize_uri_or_path("file:///d%3A/AntiGravity/MyProject") == expected_win
+    assert normalize_uri_or_path("D:\\AntiGravity\\MyProject") == expected_win
+    assert normalize_uri_or_path("d:/AntiGravity/MyProject") == expected_win
+    # URI có %3A viết hoa/thường khác nhau vẫn phải về cùng khoá
+    assert normalize_uri_or_path("file:///D%3a/AntiGravity/MyProject") == expected_win
+
+    # POSIX: lỗi cũ cắt "file:///" thành path tương đối ("tmp/...") nên không khớp
+    expected_posix = "/home/runner/work/x"
+    assert normalize_uri_or_path("file:///home/runner/work/x") == expected_posix
+    assert normalize_uri_or_path("/home/runner/work/x") == expected_posix
+    assert not normalize_uri_or_path("file:///home/runner/work/x").startswith("home/")
 
 
 def setup_mock_antigravity_env(base_dir, repo_name="Project-Alpha"):

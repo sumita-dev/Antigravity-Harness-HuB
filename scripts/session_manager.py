@@ -15,6 +15,8 @@ import argparse
 import base64
 import json
 import os
+import posixpath
+import re
 import shutil
 import sqlite3
 import sys
@@ -38,36 +40,70 @@ def get_default_repo_dir() -> str:
 
 
 def path_to_workspace_uri(path: str) -> str:
+    """Chuyển đường dẫn thư mục sang URI workspace của Antigravity.
+
+    Hàm thuần chuỗi nên cho KẾT QUẢ GIỐNG NHAU trên mọi hệ điều hành:
+      D:\\AntiGravity\\MyProject -> file:///d%3A/AntiGravity/MyProject
+      c:/work/test              -> file:///c%3A/work/test
+      /home/runner/work/x       -> file:///home/runner/work/x
+
+    Chỉ đường dẫn TƯƠNG ĐỐI mới phải quy về tuyệt đối (phụ thuộc OS hiện tại).
     """
-    Chuyển đổi đường dẫn thư mục sang chuẩn URI của Antigravity.
-    Ví dụ: D:\\Projects\\Harness -> file:///d%3A/AntiGravity/Harness
-    """
-    clean_path = os.path.abspath(path).replace("\\", "/")
-    if len(clean_path) >= 2 and clean_path[1] == ":":
-        drive = clean_path[0].lower()
-        rest = clean_path[2:]
+    raw = str(path).replace("\\", "/")
+
+    drive_match = re.match(r"^([A-Za-z]):(.*)$", raw)
+    if drive_match:
+        drive = drive_match.group(1).lower()
+        rest = drive_match.group(2) or "/"
+        if not rest.startswith("/"):
+            rest = "/" + rest
+        rest = posixpath.normpath(rest)
         return f"file:///{drive}%3A{rest}"
-    elif not clean_path.startswith("/"):
-        clean_path = "/" + clean_path
-    return f"file://{clean_path}"
+
+    if not raw.startswith("/"):
+        raw = os.path.abspath(raw).replace("\\", "/")
+    return "file://" + posixpath.normpath(raw)
 
 
 def normalize_uri_or_path(uri_or_path: str) -> str:
-    """Chuẩn hóa URI hoặc đường dẫn về dạng path filesystem thông thường để so sánh."""
+    """Chuẩn hoá URI/path về khoá so sánh, ĐỘC LẬP NỀN TẢNG.
+
+    Dùng làm khoá đối chiếu workspace giữa các máy (Windows <-> Linux/WSL):
+      file:///d%3A/AntiGravity/MyProject -> d:/antigravity/myproject
+      D:\\AntiGravity\\MyProject          -> d:/antigravity/myproject
+      file:///home/runner/work/x         -> /home/runner/work/x
+      /home/runner/work/x                -> /home/runner/work/x
+
+    Quy ước: đường dẫn Windows hạ hết về chữ thường (Windows không phân biệt
+    hoa/thường); đường dẫn POSIX giữ nguyên hoa/thường (POSIX phân biệt hoa/thường).
+    """
     if not uri_or_path:
         return ""
-    decoded = urllib.parse.unquote(uri_or_path)
+
+    decoded = urllib.parse.unquote(str(uri_or_path))
+
     if decoded.startswith("file:///"):
+        # URI tuyệt đối: giữ lại dấu "/" gốc (lỗi cũ: cắt 8 ký tự làm mất root,
+        # biến "/tmp/x" thành "tmp/x" -> không bao giờ khớp trên POSIX).
         decoded = decoded[8:]
     elif decoded.startswith("file://"):
-        decoded = decoded[7:]
-    
-    # Chuẩn hóa ổ đĩa Windows nếu có
-    if len(decoded) >= 2 and decoded[1] == ":":
-        pass
-    elif len(decoded) >= 3 and decoded[1] == "%" and decoded[2].lower() == "3a":
-        decoded = decoded[0] + ":" + decoded[3:]
-    return os.path.normcase(os.path.normpath(decoded))
+        decoded = decoded[7:]          # dạng file://host/path (hiếm)
+    elif decoded.startswith("file:"):
+        decoded = decoded[5:]
+
+    decoded = decoded.replace("\\", "/")
+
+    drive_match = re.match(r"^/?([A-Za-z]):(.*)$", decoded)
+    if drive_match:
+        # Windows không phân biệt hoa/thường -> hạ hết về chữ thường để so khớp
+        # ổn định giữa các máy (giữ nguyên hành vi os.path.normcase trước đây).
+        drive = drive_match.group(1).lower()
+        rest = posixpath.normpath("/" + (drive_match.group(2) or "/").lstrip("/"))
+        return f"{drive}:{rest}".lower()
+
+    if not decoded.startswith("/"):
+        decoded = "/" + decoded
+    return posixpath.normpath(decoded)
 
 
 def safe_copy_sqlite(src_path: str, dst_path: str) -> bool:
@@ -197,8 +233,8 @@ def export_sessions(
                 if norm_u == target_norm_repo:
                     matches = True
                     break
-                # Fallback: kiểm tra tên thư mục cuối
-                if repo_basename and (norm_u.endswith(f"\\{repo_basename}") or norm_u.endswith(f"/{repo_basename}")):
+                # Fallback: so tên thư mục cuối (đã chuẩn hoá, không phân biệt hoa/thường)
+                if repo_basename and norm_u.rstrip("/").split("/")[-1].lower() == repo_basename:
                     matches = True
                     break
 
