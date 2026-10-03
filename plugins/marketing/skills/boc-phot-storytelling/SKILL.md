@@ -81,7 +81,21 @@ Ghi đạt hoặc hỏng cho từng mục. Hỏng thì sửa thoại rồi soát
 - Ba tiêu đề và thumbnail đúng packaging của guideline.
 - `bay_comment` trong thoại đúng slug trên thẻ.
 
+## Route trước khi viết — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Soát kịch bản có **vi phạm chính sách YouTube** / nguy cơ gậy | `check-youtube-policy` |
+| Phân tích **kênh đối thủ** (số liệu, outlier) | `yt-competitor-analyzer` |
+| Content bán hàng cho kênh/trang khác, không theo format bóc phốt | `cong-thuc-viet-content-by-noti-v4` |
+| Cần nghĩ góc chiến lược mới cho kênh | `kahneman-creative-ads` |
+
 ## Sau khi anh chốt
 
 Chỉ khi anh nói chốt, dùng bài này, hoặc đăng: thêm một mục vào `references/ledger.md` theo đúng các khóa của thẻ. `trang_thai: da-chot`. Ghi `slot_den_han_ke_tiep` theo `references/schedule.md`. Không ghi bài đang nháp.
 
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

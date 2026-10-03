@@ -162,3 +162,9 @@ Trong quá trình kiểm định kịch bản phức tạp, bạn hãy dùng `vi
 - `references/advertiser_guidelines.md`: Quy chuẩn kiếm tiền Đô la Xanh, quy tắc 7 giây đầu, phân loại bạo lực & thô tục.
 - `references/edsa_framing_guide.md`: 3 trụ cột EDSA và 5 mẫu Disclaimer cứu cánh kịch bản gai góc.
 - `references/safe_vocabulary_dictionary.md`: Từ điển hoán đổi từ ngữ "tử thần" sang từ ngữ an toàn.
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

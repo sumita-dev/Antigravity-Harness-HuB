@@ -147,6 +147,21 @@ Hooks phải **nghe được trên ads** (thoại/caption), khớp ràng buộc 
 - Spec đúng: % vải, chứng nhận, variant.  
 - Với case body sơ sinh mẫu: xem `references/example-baby-body.md` (tham chiếu, **không** copy nguyên nếu product khác).  
 
+## Route trước khi làm — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Đã chốt 1 góc, cần **viết bài/caption hoàn chỉnh** | `cong-thuc-viet-content-by-noti-v4` |
+| Chấm điểm / tối ưu SEO bài viết | `viet-content-seo-geo-v5` |
+| Đọc **số liệu ads đang chạy** để tìm nguyên nhân | `meta-ads-analyzer-mod-by-noti` |
+| Lập kế hoạch kênh traffic (không phải góc sáng tạo) | `traffic-secrets-playbook` |
+
 ## Slash
 
 `/kahneman-creative-ads`
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

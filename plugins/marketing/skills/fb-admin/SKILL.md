@@ -39,3 +39,30 @@ Khi User gọi `/fb-admin` kèm theo yêu cầu (ví dụ: "Kiểm tra bài mớ
 - Tuyệt đối không tự động đăng bài lên Fanpage nếu chưa có sự đồng ý (Approve) từ User, trừ khi User yêu cầu rõ ràng "Đăng thẳng lên luôn".
 - Không để lộ Access Token trong phản hồi chat và không in ra log.
 - Token chỉ đọc từ biến môi trường / `.env`; nếu nghi ngờ lộ, thu hồi và cấp lại token mới.
+
+## 6. Hợp đồng đầu ra (Output Contract)
+
+Mỗi lệnh phải trả về đúng cấu trúc sau, không mô tả chung chung:
+
+| Lệnh | Trả về bắt buộc |
+|---|---|
+| Đăng bài | `post_id` + link bài thật + trạng thái thời gian đăng. **Không có `post_id` do API trả về thì KHÔNG được báo "đã đăng thành công".** |
+| List posts | Bảng: `post_id` · thời gian · đoạn mở đầu · số comment · link |
+| List comments | Bảng: `comment_id` · người gửi · nội dung · thời gian · đã trả lời chưa |
+| Reply comment | `comment_id` đã trả lời + nội dung thật đã gửi + link |
+
+**Quy tắc:** chỉ báo cáo kết quả mà API thực sự trả về. Sai/không có dữ liệu → nói thẳng là không lấy được, không suy diễn.
+
+## 7. Xử lý lỗi Graph API (theo mã lỗi thật)
+
+| Mã lỗi | Nghĩa | Phải làm |
+|---|---|---|
+| `190`, `463` | Access token hết hạn / không hợp lệ | Báo Sếp cấp lại token. **Không thử lại vòng lặp.** |
+| `200`, `10` | Thiếu quyền (vd `pages_manage_posts`, `pages_read_engagement`) | Nêu rõ quyền còn thiếu + cách bật trong App Review/token. |
+| `4`, `17`, `32`, `613` | Vượt giới hạn tần suất | Báo rõ, đề xuất chờ rồi thử lại sau; không spam lại liên tục. |
+| `100` | Tham số sai / ID không tồn tại | Kiểm lại `POST_ID`/`comment_id`, báo nguyên văn lỗi. |
+
+**Chống đăng trùng (bắt buộc):** khi lỗi mạng/timeout ở bước đăng bài, **không** đăng lại ngay.
+Gọi `list_posts` để kiểm tra bài đã lên chưa; chỉ đăng lại khi chắc chắn chưa có.
+
+**Luôn dán nguyên văn `message` + `code` mà Graph API trả về** khi báo lỗi — không diễn giải thay.

@@ -117,3 +117,62 @@ def test_khong_con_duong_dan_cu_skills_marketing():
             if "skills/marketing/" in line:
                 bad.append(f"{path.relative_to(REPO)}:{i}")
     assert bad == [], f"Còn đường dẫn cũ: {bad}"
+
+
+# ================= Phase B: tích hợp & hiệu quả áp dụng =================
+
+def test_traffic_da_tach_reference_va_khong_tro_treo():
+    """Skill lớn phải tách sang references/ (progressive disclosure) và con trỏ phải sống."""
+    sk = MK / "traffic-secrets-playbook"
+    text = (sk / "SKILL.md").read_text(encoding="utf-8")
+    assert len(text) < 16000, f"SKILL.md còn quá lớn: {len(text)} ký tự"
+    for name in ["frameworks.md", "templates.md", "channel-lookup.md"]:
+        ref = sk / "references" / name
+        assert ref.exists(), f"Thiếu references/{name}"
+        assert name in text, f"SKILL.md không trỏ tới references/{name} (con trỏ treo)"
+    # mọi file trong references/ phải được SKILL.md nhắc tới
+    for ref in (sk / "references").iterdir():
+        assert ref.name in text, f"references/{ref.name} không được SKILL.md tham chiếu"
+
+
+CONTENT_SKILLS_RUBRIC = [
+    "cong-thuc-viet-content-by-noti-v4",
+    "kahneman-creative-ads",
+    "viet-content-seo-geo-v5",
+    "boc-phot-storytelling",
+    "traffic-secrets-playbook",
+    "check-youtube-policy",
+]
+
+
+@pytest.mark.parametrize("skill", CONTENT_SKILLS_RUBRIC)
+def test_skill_noi_dung_noi_voi_rubric_tuan_thu(skill):
+    """Skill sinh nội dung phải tự đối chiếu rubric compliance trước khi trả bản final."""
+    text = (MK / skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "content_compliance_rubric" in text, f"{skill} chưa nối với rubric tuân thủ"
+
+
+SKILL_SIBLINGS = {
+    "cong-thuc-viet-content-by-noti-v4": ["viet-content-seo-geo-v5", "kahneman-creative-ads"],
+    "kahneman-creative-ads": ["cong-thuc-viet-content-by-noti-v4", "meta-ads-analyzer-mod-by-noti"],
+    "viet-content-seo-geo-v5": ["cong-thuc-viet-content-by-noti-v4", "traffic-secrets-playbook"],
+    "boc-phot-storytelling": ["check-youtube-policy", "yt-competitor-analyzer"],
+}
+
+
+@pytest.mark.parametrize("skill,siblings", SKILL_SIBLINGS.items())
+def test_skill_co_muc_route_truoc(skill, siblings):
+    """Skill chồng chéo chức năng phải nói rõ khi nào dùng skill khác thay thế."""
+    text = (MK / skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "## Route trước" in text, f"{skill} thiếu mục Route trước"
+    for sib in siblings:
+        assert sib in text, f"{skill} không nhắc tới skill thay thế {sib}"
+
+
+def test_fb_admin_co_hop_dong_output_va_xu_ly_loi():
+    text = (MK / "fb-admin" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Output Contract" in text, "fb-admin thiếu hợp đồng đầu ra"
+    assert "post_id" in text, "fb-admin thiếu yêu cầu chứng cứ post_id"
+    for code in ["190", "200", "613"]:
+        assert code in text, f"fb-admin thiếu mã lỗi Graph API {code}"
+    assert "đăng lại" in text, "fb-admin thiếu quy tắc chống đăng trùng"
