@@ -1,6 +1,6 @@
 # MA TRẬN 50 CHÍNH SÁCH YOUTUBE & NGUYÊN TẮC CỘNG ĐỒNG (FULL AUDIT MATRIX)
 
-> **Cơ sở dữ liệu gốc**: 50 tệp quy chuẩn đóng gói tại `skills/marketing/check-youtube-policy/references/`  
+> **Cơ sở dữ liệu gốc**: 50 tệp quy chuẩn đóng gói tại `plugins/marketing/skills/check-youtube-policy/references/`  
 > **Phạm vi áp dụng**: Kiểm định toàn diện kịch bản Video dài, YouTube Shorts, Livestream, Tiêu đề (Title), Mô tả (Description), Thẻ từ khóa (Tags) và Ý tưởng Hình thu nhỏ (Thumbnail Concept).
 
 ---

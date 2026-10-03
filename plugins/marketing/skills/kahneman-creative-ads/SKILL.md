@@ -129,6 +129,16 @@ Hooks phải **nghe được trên ads** (thoại/caption), khớp ràng buộc 
 4. **Gợi ý 7–14 ngày content** (map T1…T8, optional nhưng nên có)  
 5. **Câu hỏi mở** nếu cần truth thêm (ảnh, chứng chỉ logo, size chart…)  
 
+## Quy tắc SỰ THẬT (BẮT BUỘC)
+
+- Không tự nghĩ ra rồi dùng như thật: số liệu, phần trăm, số follower/view, doanh thu, review/testimonial,
+  tên khách hàng, chứng nhận, deadline.
+- Thiếu dữ liệu thật → giữ placeholder để user điền: `[SỐ LIỆU THẬT]` · `[TESTIMONIAL THẬT]` ·
+  `[TÊN KHÁCH HÀNG]` · `[CHỨNG NHẬN THẬT]` · `[DEADLINE THẬT]`.
+- Ước tính/giả định được phép **chỉ khi** ghi rõ nhãn `(giả định)` hoặc `(ước tính mô phỏng)`; không trình bày như số liệu đã kiểm chứng.
+- Ví dụ trong `references/` là mẫu cấu trúc: **không copy con số/tên** từ ví dụ vào bài thật.
+- Trước khi trả kết quả: tự rà mọi con số/tên riêng — không có trong input của user thì phải là placeholder.
+
 ## Chất lượng
 
 - Không giảng lại cả cuốn sách.  

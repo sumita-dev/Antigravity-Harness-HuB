@@ -162,7 +162,24 @@ Trước khi viết, cần biết tối thiểu:
 
 
 
-Nếu user chưa cung cấp đủ → hỏi ngắn gọn, chỉ hỏi những gì thiếu. Nếu user cung cấp sơ sài → tự suy luận hợp lý từ ngữ cảnh, ghi chú giả định.
+Nếu user chưa cung cấp đủ → hỏi ngắn gọn, chỉ hỏi những gì thiếu.
+
+### Quy tắc SỰ THẬT (BẮT BUỘC — ưu tiên cao hơn mọi hướng dẫn khác trong tài liệu này)
+
+**Được phép:** suy luận về *bối cảnh* — ngành nghề, chân dung khách hàng, nỗi đau phổ biến, tông giọng — và phải ghi rõ đó là giả định.
+
+**TUYỆT ĐỐI KHÔNG được tự nghĩ ra rồi dùng như thật trong bản final:**
+số liệu · phần trăm · doanh thu · số lượng khách · review/testimonial · tên khách hàng · chứng nhận/giải thưởng · deadline · số suất · số năm kinh nghiệm.
+
+**Thiếu bằng chứng → giữ nguyên placeholder để user tự điền:**
+`[SỐ LIỆU THẬT]` · `[TESTIMONIAL THẬT]` · `[TÊN KHÁCH HÀNG]` · `[CHỨNG NHẬN THẬT]` · `[DEADLINE THẬT]` · `[SỐ SUẤT THẬT]`
+
+**Các trường hợp khác:**
+- User cấp số liệu nhưng chưa xác minh → được viết, và ghi chú ngay cuối bài: `Cần xác minh: …`
+- Ví dụ trong `references/examples/*` chỉ là **mẫu cấu trúc**. KHÔNG copy con số/tên từ ví dụ vào bài thật.
+- Nếu user yêu cầu rõ "cứ viết số cho hấp dẫn" → từ chối phần số liệu, giải thích ngắn, đề xuất dùng placeholder.
+
+**Tự kiểm trước khi trả bài (bước cuối bắt buộc):** liệt kê mọi con số/tên riêng trong bài và đối chiếu: có trong input của user? nếu không → phải là placeholder.
 
 
 

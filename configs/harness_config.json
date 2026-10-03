@@ -76,7 +76,12 @@
         "combo giá trị",
         "xây dựng offer",
         "offer builder",
-        "hormozi offer"
+        "hormozi offer",
+        "thiết kế offer",
+        "xây offer",
+        "offer bán hàng",
+        "offer khóa học",
+        "thiết kế ưu đãi"
       ]
     },
     "alex-hormozi-money-models": {
@@ -92,7 +97,10 @@
         "revenue system",
         "kế hoạch doanh thu 90 ngày",
         "offer ladder",
-        "thang sản phẩm"
+        "thang sản phẩm",
+        "mô hình doanh thu",
+        "bán thêm",
+        "giá sản phẩm"
       ]
     },
     "kahneman-creative-ads": {
@@ -107,7 +115,12 @@
         "góc nội dung",
         "canvas quảng cáo",
         "soft-sell content",
-        "tâm lý học quảng cáo"
+        "tâm lý học quảng cáo",
+        "góc creative",
+        "ý tưởng quảng cáo",
+        "góc tiếp cận",
+        "nghĩ góc",
+        "territory quảng cáo"
       ]
     },
     "traffic-secrets-playbook": {
@@ -123,7 +136,10 @@
         "earned traffic",
         "controlled traffic",
         "owned traffic",
-        "kéo traffic"
+        "kéo traffic",
+        "lên kế hoạch traffic",
+        "nguồn traffic",
+        "phễu traffic"
       ]
     },
     "cong-thuc-viet-content-by-noti-v4": {
@@ -148,7 +164,16 @@
         "viết bài bán hàng",
         "content shopee",
         "content tiktok",
-        "content facebook"
+        "content facebook",
+        "viết caption facebook",
+        "caption facebook",
+        "viết caption",
+        "viết content facebook",
+        "viết nội dung facebook",
+        "viết bài quảng cáo",
+        "viết content bán hàng",
+        "viết content cho",
+        "viết caption bán hàng"
       ]
     },
     "viet-content-seo-geo-v5": {
@@ -203,7 +228,9 @@
         "trả lời tự động",
         "meta graph api",
         "fanpage doanh nghiệp",
-        "fanpage chatbot"
+        "fanpage chatbot",
+        "trả lời comment",
+        "đăng bài lên fanpage"
       ]
     },
     "app": {

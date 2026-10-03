@@ -18,8 +18,15 @@ Kỹ năng chuyên sâu dành cho **Trọng tài Kiểm định Chính sách You
 
 ## 1. NGUỒN TRI THỨC NỀN TẢNG (KNOWLEDGE BASE)
 
-Toàn bộ logic kiểm định được xây dựng dựa trên kho dữ liệu quy chuẩn gồm **50 tài liệu chính sách chính thức**, đóng gói trong skill tại:
-`skills/marketing/check-youtube-policy/references/`
+Toàn bộ logic kiểm định dựa trên **ma trận 8 cụm / 50 chính sách chính thức** đã được hệ thống hoá trong:
+`plugins/marketing/skills/check-youtube-policy/references/policy_rules_matrix.md`
+
+Skill ship kèm **4 tài liệu tham chiếu** (ma trận chính sách, quy chuẩn nhà quảng cáo, hướng dẫn EDSA, từ điển từ ngữ an toàn).
+> ⚠️ **Bản crawl thô 50 tệp chính sách KHÔNG được đóng gói trong repo này.** Ma trận là bản hệ thống hoá 8 cụm từ 50 tài liệu gốc.
+> Vì vậy mọi kết luận phải dựa trên nội dung ma trận, không được giả định có bản gốc để tra cứu thêm.
+
+> **Ràng buộc trích dẫn (BẮT BUỘC):** chỉ được viện dẫn mã chính sách / đường dẫn trợ giúp **có thật trong `references/policy_rules_matrix.md`**.
+> Nếu kịch bản chạm chủ đề không có trong ma trận → ghi rõ *"chủ đề này ngoài phạm vi dữ liệu của skill, cần kiểm tra thủ công trên Trung tâm trợ giúp YouTube"*, **KHÔNG tự sinh mã chính sách**.
 
 ### 8 Cụm Chính sách cốt lõi được đối soát:
 1. **`01_Kiem_Tien_Va_YPP`**: Chính sách kiếm tiền kênh (`1311392`), Nguyên tắc nội dung phù hợp với nhà quảng cáo (`6162278`), Kiếm tiền Shorts (`12504220`), Tắt kiếm tiền (`1727191`), Biểu tượng kiếm tiền (`9208564`).
@@ -56,7 +63,7 @@ flowchart TD
 ### BƯỚC 2: QUÉT ĐỐI SOÁT MA TRẬN CHÍNH SÁCH
 - Sử dụng script phân tích tích hợp sẵn để trích xuất tự động:
   ```bash
-  python skills/marketing/check-youtube-policy/scripts/audit_policy.py --text "<nội_dung_kịch_bản>"
+  python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --text "<nội_dung_kịch_bản>"
   ```
 - Đối soát chéo với các tài liệu tham khảo trong thư mục `references/`:
   * `references/policy_rules_matrix.md`: Đối soát toàn bộ 50 chính sách.
@@ -138,13 +145,13 @@ Kỹ năng đi kèm bộ script tự động hóa viết bằng Python. Bạn c�
 
 ```bash
 # Quét kịch bản từ file text:
-python skills/marketing/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt
+python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt
 
 # Quét kịch bản trực tiếp từ chuỗi ký tự:
-python skills/marketing/check-youtube-policy/scripts/audit_policy.py --text "Nội dung kịch bản cần check..."
+python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --text "Nội dung kịch bản cần check..."
 
 # Xuất dữ liệu cấu trúc dạng JSON phục vụ phân tích chuyên sâu:
-python skills/marketing/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt --json
+python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --file path/to/script.txt --json
 ```
 
 ---

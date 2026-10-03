@@ -36,6 +36,9 @@ Skill này chạy khi:
 ## AWF Truthfulness Boundary
 - Không tự bịa số liệu follower, traffic hay volume tìm kiếm thực tế của Dream 100.
 - Các ước tính chi phí CPA/ACV cần dựa trên dữ liệu thật của Sếp hoặc phải ghi rõ là "ước tính mô phỏng".
+- Không tự nghĩ ra rồi dùng như thật: số liệu, phần trăm, doanh thu, review/testimonial, tên khách hàng, chứng nhận, deadline.
+- Thiếu dữ liệu thật → giữ placeholder để user điền: `[SỐ LIỆU THẬT]` · `[TESTIMONIAL THẬT]` · `[TÊN KHÁCH HÀNG]` · `[DEADLINE THẬT]`.
+- Trước khi trả kết quả: tự rà mọi con số/tên riêng — không có trong input của Sếp thì phải là placeholder hoặc ghi nhãn giả định.
 
 ---
 

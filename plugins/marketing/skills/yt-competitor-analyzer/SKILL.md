@@ -30,6 +30,22 @@ graph TD
 
 ---
 
+### Quy tắc BẮT BUỘC khi lỗi / thiếu dữ liệu
+
+Skill này xuất ra SỐ LIỆU, nên tuyệt đối không được mô tả thứ mình không có.
+
+1. **Script báo lỗi** (HTTP error, quota vượt hạn mức, thiếu `YOUTUBE_API_KEY`, kênh ẩn/bị xoá):
+   báo **nguyên văn lỗi** cho Sếp + nguyên nhân khả dĩ. KHÔNG tạo dashboard, KHÔNG bịa bảng số liệu,
+   KHÔNG ước lượng kiểu "khoảng X view".
+2. **Lấy được một phần** (kênh này OK, kênh khác lỗi): ghi rõ **phạm vi thật** — quét được bao nhiêu kênh/video
+   trên tổng bao nhiêu; ô nào thiếu ghi `N/A`, không điền số suy diễn.
+3. **Không suy đoán** chỉ số không được trả về: Subscribers (kênh ẩn số sub → ghi "ẩn"), Views, ngày đăng,
+   hashtag, description.
+4. **Outlier** chỉ tính khi có đủ `Views` **và** `Subscribers` thật. Thiếu một trong hai → không kết luận outlier.
+5. **Tự kiểm trước khi gửi:** mọi con số trong báo cáo phải truy được về output thật của script.
+
+---
+
 ## 2. Quy chuẩn Dữ liệu 2 Bảng Thông tin
 
 ### Bảng 1: Thông tin chung các Kênh (Channel Overview Table)
