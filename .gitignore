@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .pytest_temp/
 .env*
+# Ngoại lệ: file MẪU không chứa secret thật, cần commit để người khác biết cần biến nào
+!.env.example
 *.log
 .DS_Store
 .sessions/

@@ -209,3 +209,21 @@ def test_agents_and_gemini_md_in_sync():
     a = (REPO / "AGENTS.md").read_bytes()
     b = (REPO / "GEMINI.md").read_bytes()
     assert a == b, "AGENTS.md và GEMINI.md đã lệch nhau — đồng bộ lại"
+
+
+def test_env_example_duoc_commit():
+    """File mẫu .env.example phải tồn tại VÀ được git theo dõi.
+
+    Bẫy đã từng xảy ra: mẫu '.env*' trong .gitignore chặn luôn .env.example.
+    """
+    example = REPO / ".env.example"
+    assert example.exists(), "Thiếu .env.example"
+    tracked = subprocess.run(["git", "ls-files", ".env.example"], cwd=REPO,
+                             capture_output=True, text=True).stdout.strip()
+    assert tracked, ".env.example bị gitignore — thêm '!.env.example' vào .gitignore"
+    # Không được chứa giá trị thật (chỉ để trống sau dấu =)
+    for line in example.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, val = line.partition("=")
+            assert val.strip() in ("", "<điền-giá-trị-thật>"), f"{key} phải để trống trong file mẫu"
