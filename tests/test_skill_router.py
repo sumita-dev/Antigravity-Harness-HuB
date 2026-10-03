@@ -63,15 +63,25 @@ def test_skill_routing_specific_skills():
 
 def test_skill_loader():
     loader = SkillLoader()
-    # Assuming tests run from project root, and "app" skill exists
-    # we can mock or just check if it returns None for non-existent
+    # Check if it returns None for non-existent
     content = loader.load_instructions("non_existent_skill_123")
     assert content is None
 
-    # If the real file exists, let's test that it actually loads something
+    # Test loading code skill from plugins/code/skills
     content_app = loader.load_instructions("app")
-    if os.path.exists("skills/app/SKILL.md"):
-        assert content_app is not None
+    assert content_app is not None
+    assert "name: app" in content_app
+
+    # Test loading marketing skill from plugins/marketing/skills
+    content_boc_phot = loader.load_instructions("boc-phot-storytelling")
+    assert content_boc_phot is not None
+    assert "name: boc-phot-storytelling" in content_boc_phot
+
+    # Test path resolution
+    app_path = loader.find_skill_path("app")
+    assert app_path == os.path.join("plugins", "code", "skills", "app", "SKILL.md")
+    mkt_path = loader.find_skill_path("boc-phot-storytelling")
+    assert mkt_path == os.path.join("plugins", "marketing", "skills", "boc-phot-storytelling", "SKILL.md")
 
 def test_orchestrator_auto_routing():
     orchestrator = ChiefOrchestrator()

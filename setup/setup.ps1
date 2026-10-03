@@ -15,37 +15,39 @@ $targetDir = Join-Path $env:USERPROFILE ".gemini\config"
 $targetFile = Join-Path $targetDir "config.json"
 
 if (-not (Test-Path $targetDir)) {
-    Write-Host "[1/4] Tao thu muc dich: $targetDir" -ForegroundColor Yellow
+    Write-Host "[1/5] Tao thu muc dich: $targetDir" -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
 } else {
-    Write-Host "[1/4] Thu muc dich da ton tai: $targetDir" -ForegroundColor Green
+    Write-Host "[1/5] Thu muc dich da ton tai: $targetDir" -ForegroundColor Green
 }
 
 if (Test-Path $targetFile) {
     $backupFile = Join-Path $targetDir "config.json.bak_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    Write-Host "[2/4] Sao luu file config cu sang: $backupFile" -ForegroundColor Yellow
+    Write-Host "[2/5] Sao luu file config cu sang: $backupFile" -ForegroundColor Yellow
     Copy-Item -Path $targetFile -Destination $backupFile -Force
 } else {
-    Write-Host "[2/4] Chua co file config cu, tien hanh tao moi" -ForegroundColor Green
+    Write-Host "[2/5] Chua co file config cu, tien hanh tao moi" -ForegroundColor Green
 }
 
-Write-Host "[3/4] Sao chep file cau hinh (cai de)..." -ForegroundColor Yellow
+Write-Host "[3/5] Sao chep file cau hinh (cai de)..." -ForegroundColor Yellow
 Copy-Item -Path $sourceFile -Destination $targetFile -Force
 
-Write-Host "[4/4] Cai dat toan bo ky nang, quy chuan Maker-Checker, agents va rubrics vao global..." -ForegroundColor Yellow
-$skillsTargetDir = Join-Path $targetDir "skills"
-if (-not (Test-Path $skillsTargetDir)) {
-    New-Item -ItemType Directory -Force -Path $skillsTargetDir | Out-Null
+Write-Host "[4/5] Cai dat toan bo plugins (code, marketing), quy chuan Maker-Checker, agents va rubrics vao global..." -ForegroundColor Yellow
+$pluginsTargetDir = Join-Path $targetDir "plugins"
+if (-not (Test-Path $pluginsTargetDir)) {
+    New-Item -ItemType Directory -Force -Path $pluginsTargetDir | Out-Null
 }
 
 $repoRoot = Join-Path $PSScriptRoot ".."
-$repoSkillsDir = Join-Path $repoRoot "skills"
+$repoPluginsDir = Join-Path $repoRoot "plugins"
 
-Get-ChildItem -Path $repoSkillsDir -Directory | ForEach-Object {
-    $srcSkill = $_.FullName
-    $dstSkill = Join-Path $skillsTargetDir $_.Name
-    Copy-Item -Path $srcSkill -Destination $dstSkill -Recurse -Force
-    Write-Host "  + Da nap skill: $($_.Name)" -ForegroundColor DarkGreen
+if (Test-Path $repoPluginsDir) {
+    Get-ChildItem -Path $repoPluginsDir -Directory | ForEach-Object {
+        $srcPlugin = $_.FullName
+        $dstPlugin = Join-Path $pluginsTargetDir $_.Name
+        Copy-Item -Path $srcPlugin -Destination $dstPlugin -Recurse -Force
+        Write-Host "  + Da nap plugin: $($_.Name)" -ForegroundColor DarkGreen
+    }
 }
 
 # Sao chep AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config
@@ -59,6 +61,23 @@ if (-not (Test-Path $scriptsTargetDir)) {
 }
 Copy-Item -Path (Join-Path $repoRoot "scripts\*") -Destination $scriptsTargetDir -Recurse -Force
 Write-Host "  + Da dong bo quy chuan Maker-Checker, AGENTS.md, GEMINI.md, agents, rubrics va scripts vao global config!" -ForegroundColor DarkGreen
+
+# 5. Tu dong nap phien lam viec neu co thu muc .sessions (Zero-Friction Portable Session Sync)
+$sessionsDir = Join-Path $repoRoot ".sessions"
+if (Test-Path $sessionsDir) {
+    Write-Host "[5/5] Phat hien thu muc .sessions, dang tu dong nap phien lam viec (Portable Session Sync)..." -ForegroundColor Yellow
+    $sessionScript = Join-Path $repoRoot "scripts\session_manager.py"
+    if (Test-Path $sessionScript) {
+        python $sessionScript --action import --repo-dir $repoRoot
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  + Da khoi phuc va nap cac phien lam viec thanh cong vao Antigravity!" -ForegroundColor DarkGreen
+        } else {
+            Write-Warning "Co loi khi nap phien lam viec tu .sessions"
+        }
+    }
+} else {
+    Write-Host "[5/5] Khong phat hien thu muc .sessions, bo qua buoc nap phien." -ForegroundColor Gray
+}
 
 Write-Host ""
 Write-Host "Da cai dat cau hinh va dong bo toan bo he thong Antigravity 2.0 thanh cong!" -ForegroundColor Green

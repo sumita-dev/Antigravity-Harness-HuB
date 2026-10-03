@@ -33,14 +33,26 @@ class SkillRouter:
         return None, "app"
 
 class SkillLoader:
-    def __init__(self, skills_dir: str = "skills"):
+    def __init__(self, skills_dir: str = "skills", search_dirs: Optional[list] = None):
         self.skills_dir = skills_dir
+        self.search_dirs = search_dirs or [
+            os.path.join("plugins", "code", "skills"),
+            os.path.join("plugins", "marketing", "skills"),
+            skills_dir
+        ]
 
-    def load_instructions(self, skill_name: str) -> Optional[str]:
+    def find_skill_path(self, skill_name: str) -> Optional[str]:
         if not skill_name:
             return None
-        skill_path = os.path.join(self.skills_dir, skill_name, "SKILL.md")
-        if os.path.exists(skill_path):
+        for base_dir in self.search_dirs:
+            candidate = os.path.join(base_dir, skill_name, "SKILL.md")
+            if os.path.exists(candidate):
+                return candidate
+        return None
+
+    def load_instructions(self, skill_name: str) -> Optional[str]:
+        skill_path = self.find_skill_path(skill_name)
+        if skill_path and os.path.exists(skill_path):
             with open(skill_path, "r", encoding="utf-8") as f:
                 return f.read()
         return None

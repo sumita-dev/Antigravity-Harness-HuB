@@ -1,6 +1,12 @@
 {
   "entries": [
     {
+      "path": "plugins/code/skills"
+    },
+    {
+      "path": "plugins/marketing/skills"
+    },
+    {
       "path": "skills"
     }
   ]

@@ -33,21 +33,21 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 
 ## 2. Kỹ Năng Nhánh Marketing — Lệnh Slash & Gọi Trực Tiếp Trong Ô Chat
 
-Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liên quan, Quản đốc lập tức kích hoạt kỹ năng tương ứng bằng cách đọc file hướng dẫn `skills/<tên_skill>/SKILL.md` và triển khai quy trình điều phối.
+Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liên quan, Quản đốc lập tức kích hoạt kỹ năng tương ứng bằng cách đọc file hướng dẫn `plugins/marketing/skills/<tên_skill>/SKILL.md` (hoặc `plugins/code/skills/<tên_skill>/SKILL.md`) và triển khai quy trình điều phối.
 
 | Lệnh Slash trong Chat | Tên Kỹ Năng | Mô Tả & Nhiệm Vụ Cụ Thể | Tệp Chỉ Dẫn |
 | :--- | :--- | :--- | :--- |
-| `/boc-phot-storytelling` | Kịch bản Bóc Phốt Tài Chính | Soạn và chỉnh sửa kịch bản YouTube theo 6 format kể chuyện (Mổ sổ, Lật tờ rơi, Một đêm, Hai mắt nhìn, Ba ngã, Đếm ngược tháng). | `skills/boc-phot-storytelling/SKILL.md` |
-| `/check-youtube-policy` | YouTube Policy Auditor | Trọng tài kiểm định chính sách YouTube, đối soát 50 tài liệu chính sách, quét vi phạm YPP/bản quyền, viết lại Safe Script Rewrite sạch bóng vi phạm. | `skills/check-youtube-policy/SKILL.md` |
-| `/yt-competitor-analyzer` | YouTube Competitor Analyzer | Quét toàn bộ video kênh đối thủ từ URL, thu thập số liệu chi tiết, phát hiện video outlier, xuất Dashboard HTML trực quan và file CSV. | `skills/yt-competitor-analyzer/SKILL.md` |
-| `/alex-hormozi-offer-builder` | Grand Slam Offer Builder | Xây dựng bộ Offer chuyển đổi cao theo framework $100M Offers của Alex Hormozi (Value Equation, Dream Outcome, Risk Reversal, Bonuses). | `skills/alex-hormozi-offer-builder/SKILL.md` |
-| `/alex-hormozi-money-models` | $100M Money Models | Thiết kế chuỗi thang sản phẩm hoàn chỉnh, hệ thống dòng tiền, chiến lược định giá, Upsell, Downsell, Continuity Offer và kế hoạch 90 ngày. | `skills/alex-hormozi-money-models/SKILL.md` |
-| `/kahneman-creative-ads` | Kahneman Creative Strategy | Xây dựng Creative Strategy Canvas 1 trang kết hợp 8 vùng sáng tạo nội dung dựa trên cơ chế nhận thức tâm lý học của Daniel Kahneman (Hệ thống 1 & Hệ thống 2). | `skills/kahneman-creative-ads/SKILL.md` |
-| `/traffic-secrets-playbook` | Traffic Secrets Playbook | Lên kế hoạch kéo và tối ưu traffic toàn diện theo playbook 14 bước của Russell Brunson (Dream 100, Earned/Controlled/Owned traffic, Follow-up Funnel). | `skills/traffic-secrets-playbook/SKILL.md` |
-| `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 | Soạn thảo content bán hàng và quảng cáo chuyển đổi cao theo 14 công thức kinh điển (AIDA, PAS, 4Cs, FAB, ACC, SLAP, BAB, Storytelling, SSS, PPPP...) tích hợp NLP. | `skills/cong-thuc-viet-content-by-noti-v4/SKILL.md` |
-| `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 | Nhận bài viết có sẵn, chấm điểm và tối ưu lại đạt chuẩn SEO (Search Engine), AEO (Answer Engine / Snippet) và GEO (Generative Engine Optimization / AI trích dẫn). | `skills/viet-content-seo-geo-v5/SKILL.md` |
-| `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất tài khoản quảng cáo Meta (Facebook/Instagram), phân tích CPA/ROAS/CPM, Breakdown Effect, đề xuất phương án scale/pause. | `skills/meta-ads-analyzer-mod-by-noti/SKILL.md` |
-| `/fb-admin` | Facebook Fanpage Manager | Trợ lý quản lý Fanpage Doanh Nghiệp thông qua Meta Graph API (đăng bài mới, đọc danh sách bài viết, đọc và trả lời bình luận tự động). | `skills/fb-admin/SKILL.md` |
+| `/boc-phot-storytelling` | Kịch bản Bóc Phốt Tài Chính | Soạn và chỉnh sửa kịch bản YouTube theo 6 format kể chuyện (Mổ sổ, Lật tờ rơi, Một đêm, Hai mắt nhìn, Ba ngã, Đếm ngược tháng). | `plugins/marketing/skills/boc-phot-storytelling/SKILL.md` |
+| `/check-youtube-policy` | YouTube Policy Auditor | Trọng tài kiểm định chính sách YouTube, đối soát 50 tài liệu chính sách, quét vi phạm YPP/bản quyền, viết lại Safe Script Rewrite sạch bóng vi phạm. | `plugins/marketing/skills/check-youtube-policy/SKILL.md` |
+| `/yt-competitor-analyzer` | YouTube Competitor Analyzer | Quét toàn bộ video kênh đối thủ từ URL, thu thập số liệu chi tiết, phát hiện video outlier, xuất Dashboard HTML trực quan và file CSV. | `plugins/marketing/skills/yt-competitor-analyzer/SKILL.md` |
+| `/alex-hormozi-offer-builder` | Grand Slam Offer Builder | Xây dựng bộ Offer chuyển đổi cao theo framework $100M Offers của Alex Hormozi (Value Equation, Dream Outcome, Risk Reversal, Bonuses). | `plugins/marketing/skills/alex-hormozi-offer-builder/SKILL.md` |
+| `/alex-hormozi-money-models` | $100M Money Models | Thiết kế chuỗi thang sản phẩm hoàn chỉnh, hệ thống dòng tiền, chiến lược định giá, Upsell, Downsell, Continuity Offer và kế hoạch 90 ngày. | `plugins/marketing/skills/alex-hormozi-money-models/SKILL.md` |
+| `/kahneman-creative-ads` | Kahneman Creative Strategy | Xây dựng Creative Strategy Canvas 1 trang kết hợp 8 vùng sáng tạo nội dung dựa trên cơ chế nhận thức tâm lý học của Daniel Kahneman (Hệ thống 1 & Hệ thống 2). | `plugins/marketing/skills/kahneman-creative-ads/SKILL.md` |
+| `/traffic-secrets-playbook` | Traffic Secrets Playbook | Lên kế hoạch kéo và tối ưu traffic toàn diện theo playbook 14 bước của Russell Brunson (Dream 100, Earned/Controlled/Owned traffic, Follow-up Funnel). | `plugins/marketing/skills/traffic-secrets-playbook/SKILL.md` |
+| `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 | Soạn thảo content bán hàng và quảng cáo chuyển đổi cao theo 14 công thức kinh điển (AIDA, PAS, 4Cs, FAB, ACC, SLAP, BAB, Storytelling, SSS, PPPP...) tích hợp NLP. | `plugins/marketing/skills/cong-thuc-viet-content-by-noti-v4/SKILL.md` |
+| `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 | Nhận bài viết có sẵn, chấm điểm và tối ưu lại đạt chuẩn SEO (Search Engine), AEO (Answer Engine / Snippet) và GEO (Generative Engine Optimization / AI trích dẫn). | `plugins/marketing/skills/viet-content-seo-geo-v5/SKILL.md` |
+| `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất tài khoản quảng cáo Meta (Facebook/Instagram), phân tích CPA/ROAS/CPM, Breakdown Effect, đề xuất phương án scale/pause. | `plugins/marketing/skills/meta-ads-analyzer-mod-by-noti/SKILL.md` |
+| `/fb-admin` | Facebook Fanpage Manager | Trợ lý quản lý Fanpage Doanh Nghiệp thông qua Meta Graph API (đăng bài mới, đọc danh sách bài viết, đọc và trả lời bình luận tự động). | `plugins/marketing/skills/fb-admin/SKILL.md` |
 
 ---
 
@@ -77,7 +77,7 @@ flowchart LR
    - Thu thập tin tức thời sự, số liệu thống kê có kiểm chứng nguồn, case study người thật việc thật, và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer).
    - Đóng gói và bàn giao bản **Research Dossier** hoàn chỉnh cho Quản đốc.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):**
-   - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn kỹ năng (`skills/<skill_name>/SKILL.md`).
+   - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn kỹ năng (`plugins/marketing/skills/<skill_name>/SKILL.md`).
    - Khởi chạy một SubAgent Maker riêng biệt. Maker tiếp nhận `Research Dossier` từ Bước 1, cấy trực tiếp các số liệu và câu chuyện thực tế vào cấu trúc bài viết (Hook, Body, Story, CTA) theo đúng framework (AIDA, PAS, Hormozi, Kahneman...).
    - Maker tuyệt đối **không tự phê duyệt**, bàn giao bản thảo hoàn chỉnh cho Quản đốc.
 3. **Bước 3 - AUDIT & FACT-CHECK (SubAgent: Compliance Critic - Checker):**
