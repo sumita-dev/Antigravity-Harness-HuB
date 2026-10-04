@@ -14,3 +14,6 @@ __pycache__/
 .brain/learnings/*.json
 .brain/trajectories/*.jsonl
 .brain/trajectories/*.json
+
+# GitNexus local index cache
+.gitnexus/

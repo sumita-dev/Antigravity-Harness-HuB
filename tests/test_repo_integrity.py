@@ -48,7 +48,7 @@ def _skill_dirs():
 
 def _doc_files():
     for p in REPO.rglob("*"):
-        if not p.is_file() or ".git" in p.parts or ".venv" in p.parts:
+        if not p.is_file() or ".git" in p.parts or ".venv" in p.parts or ".gitnexus" in p.parts:
             continue
         if ".pytest" in str(p):
             continue

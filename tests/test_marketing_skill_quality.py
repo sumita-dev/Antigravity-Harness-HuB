@@ -109,7 +109,7 @@ def test_khong_con_duong_dan_cu_skills_marketing():
     """Đường dẫn cũ `skills/marketing/...` phải được sửa hết (repo đã chuyển sang plugins/)."""
     bad = []
     for path in REPO.rglob("*"):
-        if not path.is_file() or ".git" in path.parts or path.name == Path(__file__).name:
+        if not path.is_file() or ".git" in path.parts or ".venv" in path.parts or ".gitnexus" in path.parts or path.name == Path(__file__).name:
             continue
         if path.suffix not in {".md", ".py", ".js", ".json", ".mjs"}:
             continue

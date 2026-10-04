@@ -1,0 +1,11 @@
+{
+  "auto-code-harvester": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python scripts/auto_harvest_global.py",
+        "timeout": 30
+      }
+    ]
+  }
+}

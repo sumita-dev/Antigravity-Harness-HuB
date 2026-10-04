@@ -54,13 +54,15 @@ if (Test-Path $repoPluginsDir) {
 }
 
 # --- [5/6] Loi harness (de CLI chay duoc ngay tai global config) + quy chuan
-Write-Host "[5/6] Dong bo harness, configs, agents, rubrics, scripts..." -ForegroundColor Yellow
+Write-Host "[5/6] Dong bo harness, configs, agents, rubrics, scripts, hooks..." -ForegroundColor Yellow
 $copyMap = @{
     "harness"          = "harness"
     "configs"          = "configs"
     "agents"           = "agents"
     "rubrics"          = "rubrics"
     "scripts"          = "scripts"
+    ".agent"           = ".agent"
+    ".agents"          = ".agents"
 }
 foreach ($pair in $copyMap.GetEnumerator()) {
     $src = Join-Path $repoRoot $pair.Key
@@ -76,6 +78,11 @@ foreach ($f in @("AGENTS.md", "GEMINI.md", "requirements.txt", ".env.example")) 
         Copy-Item -Path $src -Destination (Join-Path $targetDir $f) -Force
         Write-Host "  + Da dong bo: $f" -ForegroundColor DarkGreen
     }
+}
+$hooksSrc = Join-Path $repoRoot ".agent\hooks.json"
+if (Test-Path $hooksSrc) {
+    Copy-Item -Path $hooksSrc -Destination (Join-Path $targetDir "hooks.json") -Force
+    Write-Host "  + Da dong bo: hooks.json (global)" -ForegroundColor DarkGreen
 }
 
 # --- Kiem tra hau kiem: khong duoc co thu muc skill long chinh no
