@@ -9,6 +9,7 @@ Bộ test này chặn hồi quy cho đợt audit logic/hiệu quả áp dụng:
 """
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -39,6 +40,9 @@ REAL_REQUESTS = [
     ("quét kênh đối thủ trên YouTube", "yt-competitor-analyzer"),
     ("đăng bài lên fanpage Doanh Nghiệp", "fb-admin"),
     ("trả lời comment fanpage giúp tôi", "fb-admin"),
+    ("kênh nào đang làm rớt phễu chuyển đổi", "framework-marketing-da-kenh"),
+    ("phễu marketing của tôi đang tắc ở đâu", "framework-marketing-da-kenh"),
+    ("ma trận kênh marketing", "framework-marketing-da-kenh"),
 ]
 
 
@@ -142,6 +146,7 @@ CONTENT_SKILLS_RUBRIC = [
     "boc-phot-storytelling",
     "traffic-secrets-playbook",
     "check-youtube-policy",
+    "framework-marketing-da-kenh",
 ]
 
 
@@ -176,3 +181,61 @@ def test_fb_admin_co_hop_dong_output_va_xu_ly_loi():
     for code in ["190", "200", "613"]:
         assert code in text, f"fb-admin thiếu mã lỗi Graph API {code}"
     assert "đăng lại" in text, "fb-admin thiếu quy tắc chống đăng trùng"
+
+
+# ================= Skill MCP (framework-marketing-da-kenh) =================
+
+MCP_SKILL = "framework-marketing-da-kenh"
+MCP_SCHEMA = MK / MCP_SKILL / "references" / "mcp-tools-schema.json"
+
+
+def test_mcp_schema_da_duoc_chup_va_du_8_tool():
+    """Schema phải là bản chụp thật từ server: đủ 8 tool + có bằng chứng gọi thử."""
+    assert MCP_SCHEMA.exists(), "Thiếu references/mcp-tools-schema.json"
+    d = json.loads(MCP_SCHEMA.read_text(encoding="utf-8"))
+    names = [x["name"] for x in d["tools"]]
+    assert len(names) == 8, f"Schema ghi {len(names)} tool, mong đợi 8"
+    assert all(n.startswith("framework_") for n in names)
+    assert d["_da_goi_that"] and all(v["ok"] for v in d["_da_goi_that"].values()), "Chưa gọi thử thành công đủ tool"
+
+
+def test_tai_lieu_mcp_khop_schema_that():
+    """SKILL.md phải mô tả đúng tên tham số của server — sai tên là gọi lỗi ngay."""
+    text = (MK / MCP_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    d = json.loads(MCP_SCHEMA.read_text(encoding="utf-8"))
+    # mọi tool trong schema phải được tài liệu nhắc tới
+    for tool in d["tools"]:
+        assert tool["name"] in text, f"SKILL.md thiếu tool {tool['name']}"
+    # Tên tham số sai đã gặp thực tế (server trả "Tham số không hợp lệ") -> không được quay lại.
+    # Cho phép duy nhất một ngoại lệ: câu cảnh báo phủ định ("không có tham số X") để người đọc
+    # biết mà tránh; mọi chỗ khác đều là lỗi.
+    for wrong in ["phase_id", "channel_id", "channel_name", "block_id", "from_block", "to_block", "business_type"]:
+        for m in re.finditer(re.escape(wrong), text):
+            ctx = text[max(0, m.start() - 45):m.end() + 5].lower()
+            assert ("không có" in ctx) or ("không dùng" in ctx), (
+                f"SKILL.md dùng tham số sai {wrong!r} ngoài ngữ cảnh cảnh báo: …{ctx.strip()[-60:]}")
+    # tên đúng + tham số tuỳ chọn phải có
+    for right in ["`phase`", "`channel`", "`block`", "`limit`", "`maxSteps`", "`topic`"]:
+        assert right in text, f"SKILL.md thiếu tham số đúng {right}"
+
+
+def test_mcp_skill_co_quy_tac_loi_va_du_phong():
+    text = (MK / MCP_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    assert "Không mô phỏng kết quả tool" in text, "Thiếu lệnh cấm mô phỏng kết quả khi chưa có MCP"
+    assert "khung tĩnh" in text, "Thiếu mô tả chế độ dự phòng bằng khung tĩnh"
+    assert "nguyên văn" in text.lower(), "Thiếu yêu cầu dán nguyên văn lỗi"
+
+
+def test_mcp_skill_co_hop_dong_output_va_cam_ghep_url():
+    text = (MK / MCP_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    assert "cấm tự ghép URL" in text, "Thiếu lệnh cấm tự ghép URL sơ đồ"
+    assert "Hợp Đồng Đầu Ra" in text
+    assert "`counts`" in text, "Thiếu yêu cầu lấy số liệu từ counts của server"
+
+
+def test_mcp_skill_co_route_va_rubric():
+    text = (MK / MCP_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    assert "## 8. Route Trước Khi Làm" in text
+    for sib in ["traffic-secrets-playbook", "kahneman-creative-ads", "meta-ads-analyzer-mod-by-noti"]:
+        assert sib in text, f"Thiếu skill anh em {sib} trong mục Route"
+    assert "content_compliance_rubric" in text

@@ -54,38 +54,40 @@ Hệ thống MCP cung cấp 8 công cụ chuyên dụng để tra cứu dữ li�
 
 ### 2. `framework_phase`
 - **Mục đích:** Tra cứu chi tiết một pha cụ thể (từ P0 đến P5), liệt kê tất cả các khối công việc thuộc pha đó và các liên kết đẩy luồng sang các pha tiếp theo.
-- **Tham số:** `phase_id` (ví dụ: `P0`, `P1`, `P2`, `P3`, `P4`, `P5`).
+- **Tham số:** `phase` — nhận `0`–`5`, `'P0'`–`'P5'` hoặc tên pha (ví dụ `P1`, `so sánh`).
 - **Khi nào gọi:** Khi người dùng muốn tối ưu sâu một khâu (ví dụ: "Tối ưu pha P1 Nhận biết", "Pha P4 Mua đang bị tắc").
 
 ### 3. `framework_channel`
 - **Mục đích:** Tra cứu chi tiết một kênh hoặc nền tảng cụ thể (Meta, TikTok, Zalo, Google, Offline, Tìm kiếm & AI).
-- **Tham số:** `channel_id` hoặc `channel_name` (ví dụ: `meta`, `tiktok`, `zalo`, `google`, `offline`, `search_ai`).
+- **Tham số:** `channel` — mã kênh, tên kênh hoặc tên nền tảng (ví dụ `Zalo`, `Meta`, `Offline`, `Google`, `Tìm kiếm và AI`).
 - **Khi nào gọi:** Khi cần phân tích vai trò của kênh trong toàn bộ hệ thống hoặc khi khách hàng hỏi "Kênh TikTok đóng góp gì vào phễu chuyển đổi?".
 
 ### 4. `framework_block`
 - **Mục đích:** Lấy thông tin chi tiết của một khối việc cụ thể: đầu vào (Input), đầu ra (Output), chiến thuật thực thi (Tactics), các liên kết vào/ra và lý do kết nối (Link Rationale).
-- **Tham số:** `block_id` (ví dụ: `P1_TIKTOK_VIRAL`, `P4_LANDING_PAGE_SALE`, `P2_GOOGLE_SEO`).
+- **Tham số:** `block` — id khối hoặc **tên khối** (ví dụ `Meta CPAS`). Lấy tên khối từ kết quả tool (`framework_overview` / `framework_search`), **không tự chế id**.
 - **Khi nào gọi:** Khi cần hướng dẫn chi tiết triển khai một đầu việc kỹ thuật cụ thể.
 
 ### 5. `framework_search`
 - **Mục đích:** Tìm kiếm các khối việc, kênh truyền thông hoặc liên kết thông qua từ khóa tự do.
-- **Tham số:** `query` (ví dụ: "chốt đơn", "retargeting", "Zalo OA", "KOL review", "bảo hành").
+- **Tham số:** `query` (ví dụ: "chốt đơn", "retargeting", "Zalo OA", "KOL review", "bảo hành") và `limit` (số kết quả, mặc định 12).
 - **Khi nào gọi:** Khi người dùng nêu một vấn đề nghiệp vụ cụ thể nhưng chưa biết nó nằm ở pha hay khối việc nào.
 
 ### 6. `framework_path`
 - **Mục đích:** Tìm chuỗi liên kết ngắn nhất kết nối giữa 2 điểm chạm bất kỳ trong sơ đồ (ví dụ: Từ video TikTok P1 đến Đơn hàng trên Website P4).
-- **Tham số:** `from_block` (điểm bắt đầu), `to_block` (điểm đích).
+- **Tham số:** `from` (điểm bắt đầu), `to` (điểm đích), `maxSteps` (số bước tối đa, mặc định 4).
 - **Khi nào gọi:** Khi người dùng hỏi đường đi chuyển đổi, cách dẫn dắt khách từ kênh A sang chuyển đổi tại kênh B mà không bị rơi rụng phễu.
 
 ### 7. `framework_plan`
 - **Mục đích:** Lập khung ma trận kế hoạch cho một tập hợp kênh cụ thể mà doanh nghiệp đang sở hữu hoặc dự định triển khai.
-- **Tham số:** `channels` (danh sách các kênh, ví dụ: `["meta", "tiktok", "zalo"]`), `business_type` (B2B, B2C, D2C, Local Store).
+- **Tham số:** `channels` — danh sách tên kênh/nền tảng (ví dụ `["TikTok", "Zalo", "Website, email"]`). *Server không có tham số `business_type`.*
 - **Khi nào gọi:** Khi người dùng yêu cầu lập kế hoạch marketing đa kênh thực tế dựa trên nguồn lực hiện có.
 
 ### 8. `framework_notes`
 - **Mục đích:** Truy xuất ghi chú chuyên sâu và cẩm nang kiến thức liên kênh: SEO/AEO/GEO, quảng cáo trả phí (Paid Ads), kênh sở hữu (Owned Media), chiến thuật Offline, chính sách pháp lý quảng cáo.
-- **Tham số:** `topic` (ví dụ: `seo_aeo_geo`, `paid_ads`, `owned_media`, `offline`, `compliance`).
+- **Tham số:** `topic` (không bắt buộc; server không khai enum — các giá trị gợi ý: `seo_aeo_geo`, `paid_ads`, `owned_media`, `offline`, `compliance`).
 - **Khi nào gọi:** Khi cần tham chiếu quy tắc chính sách, chiến thuật tối ưu kỹ thuật chuyên sâu hoặc đảm bảo an toàn tài khoản.
+
+> ✅ **Schema gốc đã kiểm chứng:** `references/mcp-tools-schema.json` — chụp trực tiếp từ server bằng `tools/list` và gọi thử **8/8 tool thành công** (ngày 2026-10-04). Khi Noti đổi server, chạy lại `tools/list` rồi cập nhật file này trước khi sửa skill.
 
 ---
 
@@ -110,6 +112,60 @@ Khi tiếp nhận yêu cầu lập kế hoạch marketing hoặc tư vấn kênh
 ```
 
 ### Nguyên Tắc Bắt Buộc Khi Trả Lời:
-1. **Luôn cung cấp Link Sơ Đồ Trực Quan:** Dẫn link URL trực quan từ kết quả truy vấn MCP để người dùng bấm vào xem sơ đồ thực tế trên web `noti.vn`.
-2. **Dữ liệu thực chứng:** Không tự suy đoán các khối liên kết nếu chưa đối soát với dữ liệu từ MCP server.
+1. **Luôn cung cấp Link Sơ Đồ Trực Quan:** Dẫn link URL trực quan **lấy nguyên văn từ kết quả truy vấn MCP** (xem §7 về hợp đồng đầu ra và lệnh cấm tự ghép URL).
+2. **Dữ liệu thực chứng:** Không tự suy đoán khối, liên kết, kênh hay chiến thuật nếu chưa đối soát với dữ liệu từ MCP server (xem §5 và §6).
 3. **Phân tích đa chiều:** Chỉ ra rõ điểm nghẽn (Drop-off point) giữa các pha (ví dụ: Kéo nhiều traffic ở P1 nhưng thiếu P2 Tìm hiểu dẫn đến tỷ lệ chuyển đổi P4 thấp).
+
+---
+
+## 5. Quy Tắc SỰ THẬT (BẮT BUỘC)
+
+- Chỉ dùng dữ liệu **trả về từ MCP server**. Không suy đoán khối việc, liên kết, chiến thuật hay kênh.
+- **Không tự chế id/khối/kênh.** Tên khối và tên kênh phải lấy nguyên văn từ kết quả tool; chưa chắc thì tra `framework_search` trước.
+- Không tự nghĩ ra số liệu: số kênh/khối/liên kết, benchmark chuyển đổi, ngân sách, tỷ lệ rơi rụng. Thiếu dữ liệu thật → giữ placeholder `[SỐ LIỆU THẬT]`.
+- Không trình bày đặc điểm của framework như "số liệu đã kiểm chứng"; ví dụ minh hoạ phải ghi rõ là ví dụ.
+- Trước khi trả kết quả: rà lại mọi khối/kênh/số trong bài xem có thật trong kết quả tool hay không.
+
+## 6. Khi MCP lỗi hoặc chưa được cấu hình (BẮT BUỘC)
+
+1. **Chưa có MCP** (không thấy 8 tool `framework_*`): nói rõ chưa cấu hình, hướng dẫn dán URL
+   `https://go.noti.vn/cong-cu/framework-marketing-da-kenh/mcp` vào phần thêm MCP server của ứng dụng AI,
+   rồi hỏi lại. **Không mô phỏng kết quả tool.**
+2. **Tool trả lỗi:** dán **nguyên văn** thông báo lỗi (ví dụ `Tham số không hợp lệ - phase: Invalid input`)
+   kèm tham số đã dùng; nghi tên tham số trước tiên — đối chiếu `references/mcp-tools-schema.json`.
+3. **Server không phản hồi / timeout:** báo rõ, đề xuất thử lại; không suy diễn dữ liệu.
+4. **Kết quả rỗng** (không có khối/kênh khớp): báo "không có trong framework", đề xuất `framework_search`
+   với từ khoá khác; **không tự bịa mục tương tự**.
+5. **Chế độ dự phòng:** chỉ khi không có MCP, được tư vấn bằng **nội dung tĩnh §2.1–2.3** (6 pha / nhóm kênh /
+   6 loại liên kết) và phải ghi rõ *"đang tư vấn bằng khung tĩnh, chưa truy vấn được server"*. Chế độ này
+   **không có** khối việc chi tiết, link sơ đồ và luồng liên kết — phải nói rõ phần bị thiếu.
+
+## 7. Hợp Đồng Đầu Ra (BẮT BUỘC)
+
+Mọi câu trả lời dựa trên MCP phải có:
+
+1. **Link sơ đồ — lấy nguyên văn field `url` trong kết quả tool.** Nếu kết quả không có `url` → ghi
+   "server không trả về link", **cấm tự ghép URL** (kể cả dạng `https://go.noti.vn/...`).
+2. **Số liệu tổng quan** lấy từ `counts` mà server trả về (ví dụ `framework_overview` trả `phases`, `channels`,
+   `blocks`, `links`) — không làm tròn, không ước lượng.
+3. **Bảng ma trận kênh × 6 pha** dựng từ dữ liệu thật (`blocksByPhase`, `blocksByChannel`, `chosenChannels`,
+   `emptyPhases`…). Pha/kênh nào trống thì **ghi là trống**, không lấp cho đủ.
+4. **Tên tool + tham số đã gọi** ở cuối câu trả lời để người dùng truy vết.
+
+## 8. Route Trước Khi Làm — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Kế hoạch kênh & nguồn traffic (Dream 100, earned/owned/controlled) | `traffic-secrets-playbook` |
+| Nghĩ góc / territory sáng tạo cho quảng cáo | `kahneman-creative-ads` |
+| Đọc số liệu tài khoản quảng cáo đang chạy (CPM/CPA/ROAS) | `meta-ads-analyzer-mod-by-noti` |
+| Viết nội dung/caption cho từng kênh | `cong-thuc-viet-content-by-noti-v4` |
+| Tối ưu SEO/AEO/GEO cho một bài viết cụ thể | `viet-content-seo-geo-v5` |
+
+Skill này là **bản đồ hành trình đa kênh** (pha × kênh × khối × liên kết) — không phải nơi viết nội dung,
+không phải nơi đọc số liệu quảng cáo.
+
+## 9. Đối chiếu tuân thủ trước khi trả bản final
+
+Tự rà theo `rubrics/content_compliance_rubric.md`, trọng tâm trụ cột **(3) Kiểm chứng dữ liệu & logic**:
+mọi khối/kênh/số liệu trong câu trả lời phải truy được về kết quả MCP.
