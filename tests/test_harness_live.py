@@ -56,10 +56,13 @@ def test_evaluate_execution_circuit_breaker():
 def test_dispatch_subagents_schema():
     script_path = Path(__file__).parent.parent / "scripts" / "dispatch_subagents.py"
     
+    import os
     result = subprocess.run(
         [sys.executable, str(script_path), "--export-all"],
         capture_output=True,
-        text=True
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"}
     )
     
     assert result.returncode == 0
@@ -74,7 +77,9 @@ def test_dispatch_subagents_schema():
     result_architect = subprocess.run(
         [sys.executable, str(script_path), "--export-schema", "architect"],
         capture_output=True,
-        text=True
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"}
     )
     assert result_architect.returncode == 0
     architect_data = json.loads(result_architect.stdout)

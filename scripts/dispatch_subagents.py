@@ -3,7 +3,13 @@ import json
 import os
 import glob
 import yaml
+import sys
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 def parse_agent_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
