@@ -71,6 +71,7 @@ flowchart LR
 
 1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web & Market Intelligence Researcher):**
    - Đọc đặc tả vai trò tại `agents/marketing/web_researcher.md`.
+   - **Tool Whitelist:** Read tools (`view_file`, tìm kiếm), Web search (`search_web`, `read_url_content`), Terminal (`run_command` chỉ để chạy script crawler `scripts/apify_crawler.py` nếu có token). CẤM write tools sửa code hệ thống.
    - Vận hành **Kiến Trúc Lai Đa Tầng (Multi-Tier Social & Web Intel)**:
      + *Tầng 1:* Google Dorking không cần key (`site:facebook.com`, `site:instagram.com`, `site:x.com`).
      + *Tầng 2:* Meta Graph API kết nối qua skill `fb-admin` đọc comment/bài viết thật.
@@ -79,11 +80,13 @@ flowchart LR
    - Đóng gói và bàn giao bản **Research Dossier** hoàn chỉnh cho Quản đốc.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):**
    - Đọc đặc tả vai trò tại `agents/marketing/creator.md` và file chỉ dẫn kỹ năng (`plugins/marketing/skills/<skill_name>/SKILL.md`).
+   - **Tool Whitelist:** Read tools (`view_file`), Write tools (`write_to_file`, `replace_file_content` CHỈ dùng để tạo/sửa bản thảo nội dung/artifact bài viết hoặc kịch bản, CẤM can thiệp vào mã nguồn repo hệ thống).
    - Khởi chạy một SubAgent Maker riêng biệt. Maker tiếp nhận `Research Dossier` từ Bước 1, cấy trực tiếp các số liệu và câu chuyện thực tế vào cấu trúc bài viết (Hook, Body, Story, CTA) theo đúng framework (AIDA, PAS, Hormozi, Kahneman...).
    - Maker tuyệt đối **không tự phê duyệt**, bàn giao bản thảo hoàn chỉnh cho Quản đốc.
 3. **Bước 3 - AUDIT & FACT-CHECK (SubAgent: Compliance Critic - Checker):**
    - Đọc đặc tả vai trò tại `agents/marketing/compliance_critic.md` và bộ tiêu chí kiểm định `rubrics/content_compliance_rubric.md`.
    - Khởi chạy một SubAgent Checker độc lập (không chia sẻ context sáng tạo của Maker).
+   - **Tool Whitelist:** Read-only (`view_file`). CẤM TUYỆT ĐỐI write tools — Checker chỉ thẩm định đối soát, không tự ý viết lại bài.
    - Thẩm định 4 trụ cột khắt khe: Chính sách nền tảng (Meta Ads / YouTube Guidelines), Quét sạch AI Slop (danh sách đen từ ngữ sáo rỗng), **Kiểm chứng dữ liệu (Fact-check đối soát trực tiếp giữa bài viết và Research Dossier)**, Độ sắc chuyển đổi (Hook/CTA).
    - Trả về phán quyết chuẩn: `VERDICT: APPROVE` hoặc `VERDICT: REJECT` kèm danh sách lỗi cụ thể.
 4. **Vòng lặp & Cầu dao ngắt mạch:**

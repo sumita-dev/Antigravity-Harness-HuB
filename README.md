@@ -34,7 +34,7 @@ Antigravity-Harness-Hub/
 │   │   ├── builder.md                      # Developer (Lập trình mã nguồn phân lập)
 │   │   └── qa_auditor.md                   # QA Reviewer (Kiểm thử, bảo mật OWASP, phát hiện lỗi)
 │   └── marketing/                          # Tác tử khối Tăng trưởng / Nội dung (Marketing)
-│       ├── researcher.md                   # Market Researcher (Nghiên cứu thị trường & insight)
+│       ├── web_researcher.md               # Web & Market Intelligence Researcher
 │       ├── creator.md                      # Content Creator (Soạn kịch bản & copy chuyển đổi cao)
 │       └── compliance_critic.md            # Policy Reviewer (Rà soát chính sách, lọc AI slop)
 ├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
@@ -124,7 +124,7 @@ flowchart LR
 ```
 
 1. **Bước 1 - DESIGN (Researcher):**
-   - **Tác tử:** `agents/marketing/researcher.md` (Market Researcher).
+   - **Tác tử:** `agents/marketing/web_researcher.md` (Web & Market Intelligence Researcher).
    - **Nhiệm vụ:** Nghiên cứu insight khách hàng mục tiêu, tìm kiếm từ khóa ngách, nắm bắt xu hướng thị trường và giải phẫu đối thủ cạnh tranh.
 2. **Bước 2 - IMPLEMENTATION (Creator):**
    - **Tác tử:** `agents/marketing/creator.md` (Content Creator).

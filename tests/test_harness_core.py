@@ -158,3 +158,42 @@ def test_app_runner_default_payloads():
     }
     assert steps["AUDIT"] == {"actor": "qa_auditor"}
 
+
+def test_marketing_runner_custom_payloads():
+    """MarketingRunner ghi nhận đúng payload tùy chọn cho DESIGN và IMPLEMENTATION."""
+    orc = ChiefOrchestrator()
+    runner = orc.marketing_runner
+    ctx = TaskContext("test_mkt_payload", "marketing")
+    ctx.transition(HarnessState.INTAKE)
+    verdict = runner.run(
+        "Write custom marketing post",
+        ctx,
+        dossier="Custom Research Dossier 1.0",
+        content_artifacts={"status": "draft_ready", "files": ["post.md"]},
+    )
+    assert verdict == Verdict.APPROVE
+    steps = {s["step"]: s["payload"] for s in ctx.trace_steps}
+    assert steps["DESIGN"] == {"actor": "web_researcher", "dossier": "Custom Research Dossier 1.0"}
+    assert steps["IMPLEMENTATION"] == {
+        "actor": "creator",
+        "artifacts": {"status": "draft_ready", "files": ["post.md"]},
+    }
+    assert steps["AUDIT"] == {"actor": "compliance_critic"}
+
+
+def test_marketing_runner_default_payloads():
+    """MarketingRunner ghi nhận payload mặc định khi không truyền dossier / content_artifacts."""
+    orc = ChiefOrchestrator()
+    runner = orc.marketing_runner
+    ctx = TaskContext("test_mkt_default", "marketing")
+    ctx.transition(HarnessState.INTAKE)
+    verdict = runner.run("Write default marketing post", ctx)
+    assert verdict == Verdict.APPROVE
+    steps = {s["step"]: s["payload"] for s in ctx.trace_steps}
+    assert steps["DESIGN"] == {"actor": "web_researcher", "dossier": "Default Research Dossier"}
+    assert steps["IMPLEMENTATION"] == {
+        "actor": "creator",
+        "artifacts": {"status": "draft_created"},
+    }
+    assert steps["AUDIT"] == {"actor": "compliance_critic"}
+

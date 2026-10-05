@@ -16,6 +16,12 @@ import os
 import sys
 from pathlib import Path
 
+# Đảm bảo hỗ trợ UTF-8 trơn tru trên Windows console
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 BASE_URL = "https://graph.facebook.com/v20.0"
 ENV_KEYS = ("FB_PAGE_ID", "FB_PAGE_ACCESS_TOKEN")
 
