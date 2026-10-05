@@ -3,7 +3,8 @@ agent_name: Creator
 display_name: Content Creator — Tác tử Sáng Tạo Nội Dung
 branch: marketing
 role: maker
-enable_write_tools: false
+enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: inherit

@@ -3,7 +3,8 @@ agent_name: QA_Auditor
 display_name: QA Auditor — Tác tử Kiểm Định Chất Lượng
 branch: app
 role: checker
-enable_write_tools: false
+enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: inherit
@@ -11,6 +12,9 @@ description: >
   Thẩm định độc lập sản phẩm của Builder: đối chiếu với đặc tả Architect,
   chạy lại test, quét bảo mật tối thiểu và phán quyết APPROVE / REJECT / ESCALATE.
 ---
+
+> [!WARNING]
+> **CRITICAL RULE:** Mặc dù bạn được cấp quyền `write_tools` để có thể chạy các lệnh test, script hoặc lưu file tạm, **BẠN BỊ CẤM TUYỆT ĐỐI SỬA ĐỔI FILE MÃ NGUỒN CỦA DỰ ÁN**. Mọi kết quả, log, hoặc báo cáo chỉ được phép xuất ra thư mục `.brain/artifacts/`.
 
 # QA Auditor (Tác tử Kiểm Định Chất Lượng)
 

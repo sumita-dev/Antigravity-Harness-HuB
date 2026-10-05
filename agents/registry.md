@@ -12,14 +12,14 @@ gọi `define_subagent` + `invoke_subagent` theo đúng template quy định.
 
 ## 1. Bảng Tóm Tắt 6 Agent
 
-| `agent_name`        | `display_name`                       | `branch`    | `role`      | `enable_write_tools` | `workspace` |
-|---------------------|--------------------------------------|-------------|-------------|----------------------|-------------|
-| `Architect`         | System Architect                     | `app`       | `maker`     | `false`              | `inherit`   |
-| `Builder`           | Developer / Builder                  | `app`       | `maker`     | `true`               | `branch`    |
-| `QA_Auditor`        | QA Auditor                           | `app`       | `checker`   | `false`              | `inherit`   |
-| `Web_Researcher`    | Web & Social Media Intelligence      | `marketing` | `researcher`| `false`              | `inherit`   |
-| `Creator`           | Content Creator                      | `marketing` | `maker`     | `false`              | `inherit`   |
-| `Compliance_Critic` | Compliance Critic                    | `marketing` | `checker`   | `false`              | `inherit`   |
+| `agent_name`        | `display_name`                       | `branch`    | `role`      | `enable_write_tools` | `enable_mcp_tools` | `workspace` |
+|---------------------|--------------------------------------|-------------|-------------|----------------------|--------------------|-------------|
+| `Architect`         | System Architect                     | `app`       | `maker`     | `true`               | `true`             | `inherit`   |
+| `Builder`           | Developer / Builder                  | `app`       | `maker`     | `true`               | `true`             | `branch`    |
+| `QA_Auditor`        | QA Auditor                           | `app`       | `checker`   | `true`               | `true`             | `inherit`   |
+| `Web_Researcher`    | Web & Social Media Intelligence      | `marketing` | `researcher`| `true`               | `true`             | `inherit`   |
+| `Creator`           | Content Creator                      | `marketing` | `maker`     | `true`               | `true`             | `inherit`   |
+| `Compliance_Critic` | Compliance Critic                    | `marketing` | `checker`   | `true`               | `true`             | `inherit`   |
 
 ---
 
@@ -33,7 +33,8 @@ define_subagent(
     name="Architect",
     description="Nhận yêu cầu nghiệp vụ, khảo sát blast radius và chốt kiến trúc, schema dữ liệu, hợp đồng API, tiêu chí nghiệm thu cho Builder. Không viết code — chỉ đặc tả.",
     system_prompt=<nội dung đầy đủ của agents/app/architect.md>,
-    enable_write_tools=False,
+    enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -45,7 +46,7 @@ invoke_subagent(
     Thiết kế kỹ thuật cho task: <mô tả yêu cầu ngắn gọn>.
     Ràng buộc: <ngôn ngữ/framework/deadline>.
     Mã nguồn hiện có: <tóm tắt hoặc đường dẫn>.
-    Trả về đủ 5 mục Output chuẩn.
+    Lưu bản thiết kế 5-mục ra file `.brain/artifacts/architect_spec.md`.
     """,
     Workspace="inherit",
 )
@@ -62,6 +63,7 @@ define_subagent(
     description="Triển khai đúng hợp đồng API/schema do Architect đặc tả, viết kiểm thử và cung cấp bằng chứng chạy thật. Cần branch riêng để tránh đụng code nhánh chính.",
     system_prompt=<nội dung đầy đủ của agents/app/builder.md>,
     enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -70,10 +72,7 @@ invoke_subagent(
     TypeName="Builder",
     Role="Developer / Builder",
     Prompt="""
-    Triển khai theo bản thiết kế của Architect sau đây:
-    <dán toàn bộ 5-mục Output của Architect vào đây>
-    Quy ước code dự án: <tóm tắt hoặc link>.
-    Bàn giao: diff/mã nguồn + kiểm thử + bằng chứng chạy thật.
+    Đọc spec tại `.brain/artifacts/architect_spec.md`. Triển khai code vào branch. TRƯỚC KHI KẾT THÚC, bắt buộc xuất patch thay đổi ra `.brain/artifacts/builder_diff.patch` (vd: `git diff > ...`).
     """,
     Workspace="branch",
 )
@@ -89,7 +88,8 @@ define_subagent(
     name="QA_Auditor",
     description="Thẩm định độc lập sản phẩm của Builder: đối chiếu với đặc tả Architect, chạy lại test, quét bảo mật tối thiểu và phán quyết APPROVE / REJECT / ESCALATE.",
     system_prompt=<nội dung đầy đủ của agents/app/qa_auditor.md>,
-    enable_write_tools=False,
+    enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -98,11 +98,7 @@ invoke_subagent(
     TypeName="QA_Auditor",
     Role="QA Auditor",
     Prompt="""
-    Kiểm định sản phẩm sau:
-    - Mã nguồn + kiểm thử của Builder: <đường dẫn hoặc diff>
-    - Bản thiết kế 5-mục của Architect: <dán hoặc đường dẫn>
-    - Rubric: rubrics/code_quality_rubric.md
-    Kết thúc phản hồi bằng đúng 1 dòng: VERDICT: APPROVE | REJECT | ESCALATE.
+    Kiểm định mã nguồn dựa trên bản vá tại `.brain/artifacts/builder_diff.patch` đối chiếu với `.brain/artifacts/architect_spec.md`.
     """,
     Workspace="inherit",
 )
@@ -118,7 +114,8 @@ define_subagent(
     name="Web_Researcher",
     description="Thu thập dữ liệu thực địa từ Google, Facebook, Instagram và X/Twitter qua kiến trúc lai đa tầng (Dorking + Meta Graph API + Apify fallback). Xuất Research Dossier đầy đủ.",
     system_prompt=<nội dung đầy đủ của agents/marketing/web_researcher.md>,
-    enable_write_tools=False,
+    enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -130,7 +127,7 @@ invoke_subagent(
     Trinh sát dữ liệu cho chủ đề: <chủ đề / ngành / sản phẩm>.
     Mục tiêu nội dung: <kịch bản YouTube | copy quảng cáo | bài SEO | offer stack>.
     Đối tượng mục tiêu: <mô tả persona>.
-    Xuất Research Dossier đủ 5 mục chuẩn và bàn giao cho Quản đốc.
+    Lưu Research Dossier ra file `.brain/artifacts/research_dossier.md`.
     """,
     Workspace="inherit",
 )
@@ -146,7 +143,8 @@ define_subagent(
     name="Creator",
     description="Soạn thảo kịch bản video, copy quảng cáo, bài SEO/GEO và offer stack dựa trên Research Dossier. Áp dụng framework AIDA, PAS, Hormozi, Kahneman. Không tự phê duyệt.",
     system_prompt=<nội dung đầy đủ của agents/marketing/creator.md>,
-    enable_write_tools=False,
+    enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -158,8 +156,7 @@ invoke_subagent(
     Soạn <loại nội dung: kịch bản YouTube | copy quảng cáo | bài SEO | offer stack>
     cho chủ đề: <chủ đề>.
     Framework áp dụng: <AIDA | PAS | Hormozi | Kahneman | Bóc phốt format X>.
-    Research Dossier: <dán toàn bộ Dossier từ Web_Researcher vào đây>.
-    Bàn giao bản thảo đủ 4 phần: Metadata, Hook (2-3 biến thể), Body, CTA.
+    Đọc Dossier tại `.brain/artifacts/research_dossier.md`. Lưu bản thảo hoàn chỉnh ra file `.brain/artifacts/creator_draft.md`.
     """,
     Workspace="inherit",
 )
@@ -175,7 +172,8 @@ define_subagent(
     name="Compliance_Critic",
     description="Thẩm định độc lập bản thảo nội dung theo 4 trụ cột: chính sách nền tảng, lọc AI Slop, logic & bằng chứng, và độ sắc Hook/CTA. Phán quyết VERDICT: APPROVE / REJECT.",
     system_prompt=<nội dung đầy đủ của agents/marketing/compliance_critic.md>,
-    enable_write_tools=False,
+    enable_write_tools=True,
+    enable_mcp_tools=True,
     enable_subagent_tools=False,
 )
 
@@ -184,11 +182,7 @@ invoke_subagent(
     TypeName="Compliance_Critic",
     Role="Compliance Critic",
     Prompt="""
-    Thẩm định bản thảo sau:
-    <dán toàn bộ bản thảo của Creator vào đây>
-    Đối soát theo: rubrics/content_compliance_rubric.md
-    Research Dossier gốc (để fact-check): <dán Dossier>
-    Trả về Audit Report đủ 3 mục + kết thúc bằng đúng 1 dòng: VERDICT: APPROVE | REJECT.
+    Đọc bản thảo tại `.brain/artifacts/creator_draft.md` và đối chiếu với `.brain/artifacts/research_dossier.md`.
     """,
     Workspace="inherit",
 )
@@ -205,7 +199,7 @@ invoke_subagent(
 | Agent chưa được define trong session hiện tại | **Bắt buộc** `define_subagent` trước |
 | Agent đã được define trong cùng session | Gọi thẳng `invoke_subagent(TypeName=<name>)` |
 | Task nhỏ, bối cảnh đơn giản, không cần spec đầy đủ | Dùng `TypeName="self"` hoặc `TypeName="research"` |
-| Task marketing đơn giản (tra thông tin, không sản xuất nội dung) | Dùng `TypeName="research"` thay vì define `Web_Researcher` |
+| Task marketing đơn giản (tra thông vị, không sản xuất nội dung) | Dùng `TypeName="research"` thay vì define `Web_Researcher` |
 
 ### Khi nào dùng thẳng `type=self`?
 
@@ -228,14 +222,18 @@ Quản đốc nhận yêu cầu
         │
         ▼
 [BƯỚC 1] invoke_subagent(Architect)
-   → Trả về: Bản thiết kế 5-mục
+   → Trả về: .brain/artifacts/architect_spec.md
         │
         ▼
-[BƯỚC 2] invoke_subagent(Builder)   ← Nhận: Bản thiết kế 5-mục
-   → Trả về: Diff/mã nguồn + kiểm thử + bằng chứng
+[BƯỚC 1.5] CỔNG XÁC NHẬN Ý ĐỊNH
+   → Quản đốc dùng tool `ask_question` trình Sếp duyệt nội dung trong file artifacts. CHỈ KHI Sếp duyệt, mới chuyển sang Bước 2 (Khởi chạy Maker 2).
         │
         ▼
-[BƯỚC 3] invoke_subagent(QA_Auditor) ← Nhận: Code + Thiết kế + Bằng chứng
+[BƯỚC 2] invoke_subagent(Builder)   ← Nhận: .brain/artifacts/architect_spec.md
+   → Trả về: .brain/artifacts/builder_diff.patch
+        │
+        ▼
+[BƯỚC 3] invoke_subagent(QA_Auditor) ← Nhận: .brain/artifacts/builder_diff.patch + .brain/artifacts/architect_spec.md
    → Trả về: VERDICT: APPROVE | REJECT | ESCALATE
         │
    ┌────┴────┐
@@ -257,14 +255,18 @@ Quản đốc nhận topic / brief
         │
         ▼
 [BƯỚC 1] invoke_subagent(Web_Researcher)
-   → Trả về: Research Dossier (5 mục chuẩn)
+   → Trả về: .brain/artifacts/research_dossier.md
         │
         ▼
-[BƯỚC 2] invoke_subagent(Creator)   ← Nhận: Research Dossier
-   → Trả về: Bản thảo (Metadata + Hook + Body + CTA)
+[BƯỚC 1.5] CỔNG XÁC NHẬN Ý ĐỊNH
+   → Quản đốc dùng tool `ask_question` trình Sếp duyệt nội dung trong file artifacts. CHỈ KHI Sếp duyệt, mới chuyển sang Bước 2 (Khởi chạy Maker 2).
         │
         ▼
-[BƯỚC 3] invoke_subagent(Compliance_Critic) ← Nhận: Bản thảo + Dossier
+[BƯỚC 2] invoke_subagent(Creator)   ← Nhận: .brain/artifacts/research_dossier.md
+   → Trả về: .brain/artifacts/creator_draft.md
+        │
+        ▼
+[BƯỚC 3] invoke_subagent(Compliance_Critic) ← Nhận: .brain/artifacts/creator_draft.md + .brain/artifacts/research_dossier.md
    → Trả về: Audit Report + VERDICT: APPROVE | REJECT
         │
    ┌────┴────┐

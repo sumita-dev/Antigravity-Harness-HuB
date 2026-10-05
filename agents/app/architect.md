@@ -3,7 +3,8 @@ agent_name: Architect
 display_name: System Architect — Tác tử Thiết kế Hệ thống
 branch: app
 role: maker
-enable_write_tools: false
+enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: inherit

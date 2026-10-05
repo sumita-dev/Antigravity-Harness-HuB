@@ -4,6 +4,7 @@ display_name: Developer / Builder — Tác tử Lập trình
 branch: app
 role: maker
 enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: branch

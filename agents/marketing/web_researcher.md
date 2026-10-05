@@ -3,7 +3,8 @@ agent_name: Web_Researcher
 display_name: Web & Social Media Intelligence Researcher — Tác tử Trinh Sát Thực Địa
 branch: marketing
 role: researcher
-enable_write_tools: false
+enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: inherit
@@ -11,6 +12,9 @@ description: >
   Thu thập dữ liệu thực địa từ Google, Facebook, Instagram và X/Twitter qua kiến trúc
   lai đa tầng (Dorking + Meta Graph API + Apify fallback). Xuất Research Dossier đầy đủ.
 ---
+
+> [!WARNING]
+> **CRITICAL RULE:** Mặc dù bạn được cấp quyền `write_tools` để có thể chạy các lệnh test, script hoặc lưu file tạm, **BẠN BỊ CẤM TUYỆT ĐỐI SỬA ĐỔI FILE MÃ NGUỒN CỦA DỰ ÁN**. Mọi kết quả, log, hoặc báo cáo chỉ được phép xuất ra thư mục `.brain/artifacts/`.
 
 # Web & Social Media Intelligence Researcher (Kiến Trúc Lai Đa Tầng)
 

@@ -3,7 +3,8 @@ agent_name: Compliance_Critic
 display_name: Compliance Critic — Tác tử Thẩm Định Nội Dung Độc Lập
 branch: marketing
 role: checker
-enable_write_tools: false
+enable_write_tools: true
+enable_mcp_tools: true
 enable_subagent_tools: false
 model: inherit
 workspace: inherit
@@ -11,6 +12,9 @@ description: >
   Thẩm định độc lập bản thảo nội dung theo 4 trụ cột: chính sách nền tảng, lọc AI Slop,
   logic & bằng chứng, và độ sắc Hook/CTA. Phán quyết VERDICT: APPROVE / REJECT.
 ---
+
+> [!WARNING]
+> **CRITICAL RULE:** Mặc dù bạn được cấp quyền `write_tools` để có thể chạy các lệnh test, script hoặc lưu file tạm, **BẠN BỊ CẤM TUYỆT ĐỐI SỬA ĐỔI FILE MÃ NGUỒN CỦA DỰ ÁN**. Mọi kết quả, log, hoặc báo cáo chỉ được phép xuất ra thư mục `.brain/artifacts/`.
 
 # Compliance Critic (Checker)
 
