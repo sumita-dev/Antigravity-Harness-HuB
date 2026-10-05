@@ -1,5 +1,6 @@
 import sys
 import os
+import subprocess
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -196,4 +197,31 @@ def test_marketing_runner_default_payloads():
         "artifacts": {"status": "draft_created"},
     }
     assert steps["AUDIT"] == {"actor": "compliance_critic"}
+
+
+def test_cli_subprocess_utf8():
+    """Kiểm tra chạy CLI run_harness.py qua subprocess không bị crash UTF-8 trên Windows."""
+    python_exe = sys.executable
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    script_path = os.path.join(repo_root, "run_harness.py")
+
+    res_help = subprocess.run(
+        [python_exe, script_path, "--help"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=repo_root,
+    )
+    assert res_help.returncode == 0
+    assert "Antigravity Harness CLI" in res_help.stdout
+
+    res_dump = subprocess.run(
+        [python_exe, script_path, "--task", "test", "--dump-skill"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=repo_root,
+    )
+    assert res_dump.returncode == 0
+    assert len(res_dump.stdout) > 0
 

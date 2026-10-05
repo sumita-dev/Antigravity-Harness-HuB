@@ -196,7 +196,7 @@ repo có lớp code `harness/` để **kiểm thử luồng và trích xuất n�
     **Stagnation Circuit Breaker** (quá 2 vòng REJECT → `ESCALATED`).
   - `--dump-skill`: in nội dung `SKILL.md` mà router đã chọn (cho pipeline bên ngoài dùng).
   - `--json`: xuất kết quả dạng JSON.
-- Định tuyến skill: `configs/harness_config.json → skill_routing` (32 skill → keyword).
+- Định tuyến skill: `configs/harness_config.json → skill_routing` (33 skill → keyword).
   Router ưu tiên **keyword dài hơn** vì tín hiệu cụ thể hơn.
 - Nạp skill: `harness/skills/router.py` tìm `plugins/<nhánh>/skills/<tên>/SKILL.md`, neo theo gốc repo
   nên chạy được từ bất kỳ thư mục nào.

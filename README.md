@@ -39,12 +39,12 @@ Antigravity-Harness-Hub/
 │       └── compliance_critic.md            # Policy Reviewer (Rà soát chính sách, lọc AI slop)
 ├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
 │   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
-│   └── marketing/skills/                   # 11 skill marketing / nội dung
+│   └── marketing/skills/                   # 12 skill marketing / nội dung
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
 ├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (32 skill)
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (33 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
 │   ├── quality_gate.py                     # AdversarialQualityGate & Verdict logic
@@ -78,7 +78,7 @@ Antigravity-Harness-Hub/
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
 | `harness/runners/` | Đóng gói chu trình 3 bước cho từng nhánh: `app_runner.py` (Architect → Builder → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Compliance Critic). Runner là nơi ghi trace từng bước. |
-| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (32 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (33 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá. |
 
 ---
@@ -199,7 +199,7 @@ Bộ test gồm 6 file:
 - `test_harness_core.py` — state machine, quality gate, circuit breaker
 - `test_harness_e2e.py` — luồng 2 nhánh, escalate sau 2 vòng REJECT
 - `test_harness_learning.py` — trajectory store + learning harvester
-- `test_skill_router.py` — keyword routing (32 skill)
+- `test_skill_router.py` — keyword routing (33 skill)
 - `test_marketing_skills.py` — frontmatter + loader của skill
 - `test_session_manager.py` — portable session sync
 - `test_repo_integrity.py` — chặn hồi quy cấu trúc/secret/path cá nhân

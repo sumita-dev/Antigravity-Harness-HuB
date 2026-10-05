@@ -1,3 +1,17 @@
+---
+agent_name: Web_Researcher
+display_name: Web & Social Media Intelligence Researcher — Tác tử Trinh Sát Thực Địa
+branch: marketing
+role: researcher
+enable_write_tools: false
+enable_subagent_tools: false
+model: inherit
+workspace: inherit
+description: >
+  Thu thập dữ liệu thực địa từ Google, Facebook, Instagram và X/Twitter qua kiến trúc
+  lai đa tầng (Dorking + Meta Graph API + Apify fallback). Xuất Research Dossier đầy đủ.
+---
+
 # Web & Social Media Intelligence Researcher (Kiến Trúc Lai Đa Tầng)
 
 ## 1. Định Danh & Vai Trò
