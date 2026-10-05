@@ -34,12 +34,9 @@ EXTERNAL_PREFIX_OK = (
 # File phụ trợ được tài liệu nhắc tới nhưng CHƯA từng có trong repo (đã tra git
 # history + toàn máy): không tự bịa nội dung, chỉ ghi nhận để port sau.
 # Mỗi mục đều có ghi chú "TRẠNG THÁI SKILL" ngay trong SKILL.md tương ứng.
-KNOWN_GAPS = {
-    "plugins/code/skills/app -> AI_CODE_WORKFLOW.md",
-    "plugins/code/skills/app -> references/coding-taste.md",
-    "plugins/code/skills/app -> references/engineering-standards.md",
-    "plugins/code/skills/app -> templates/app-spec.md",
-}
+# File phụ trợ được tài liệu nhắc tới nhưng CHƯA từng có trong repo:
+# Toàn bộ tham chiếu ảo của skill /app đã được dọn sạch và chuyển đổi sang Native SubAgents.
+KNOWN_GAPS = set()
 
 
 def _skill_dirs():
@@ -225,3 +222,27 @@ def test_env_example_duoc_commit():
         if line and not line.startswith("#") and "=" in line:
             key, _, val = line.partition("=")
             assert val.strip() in ("", "<điền-giá-trị-thật>"), f"{key} phải để trống trong file mẫu"
+
+def test_no_phantom_python_scripts_in_skill_codeblocks():
+    """Mọi script python trong code block bash (python scripts/<x>.py) phải tồn tại trong repo hoặc skill."""
+    missing = []
+    pat = re.compile(r"```(?:bash|sh|shell)?\s*\n(.*?)\n```", re.DOTALL)
+    for skill in _skill_dirs():
+        f = skill / "SKILL.md"
+        if not f.exists():
+            continue
+        text = f.read_text(encoding="utf-8")
+        codeblocks = pat.findall(text)
+        for block in codeblocks:
+            for line in block.splitlines():
+                line = line.strip()
+                matches = re.findall(
+                    r"(?:python|python3)\s+(?:-[^\s]+\s+)*(?:(?:\./)?((?:[\w./\-]+/)?scripts/[\w./\-]+\.py))",
+                    line,
+                )
+                for script_rel in matches:
+                    if not (skill / script_rel).exists() and not (REPO / script_rel).exists():
+                        missing.append(f"{skill.relative_to(REPO).as_posix()}: {script_rel}")
+    assert not missing, f"Script python ảo trong code block SKILL.md: {missing}"
+
+

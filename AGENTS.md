@@ -20,7 +20,7 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 4. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):**
    - **Tôn chỉ bất biến:** AI trong ô chat chính là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự mình gọi các công cụ sửa code (`replace_file_content`, `write_to_file`) hoặc tự chạy kiểm thử trực tiếp trong thread chính để "tự biên tự diễn".
    - **Bắt buộc phân rã bằng `invoke_subagent`:** Mọi tác vụ triển khai kỹ thuật hoặc sản xuất nội dung đều phải được phân công cho các SubAgent chuyên biệt chạy độc lập:
-     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Builder** (Maker) để viết code -> Khởi chạy SubAgent **QA Auditor** (Checker) độc lập để kiểm thử và review code.
+     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Maker 1 - DESIGN lập Spec 5 mục) -> Trình Sếp duyệt (Intent Alignment Gate) -> Khởi chạy SubAgent **Builder** (Maker 2 - IMPLEMENTATION viết mã & test) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT thẩm định độc lập & chạy test).
      + *Nhánh Marketing:* Khởi chạy SubAgent **Web Researcher** để trinh sát số liệu -> Khởi chạy SubAgent **Creator** (Maker) viết bài -> Khởi chạy SubAgent **Compliance Critic** (Checker) độc lập để thẩm định chính sách & fact-check.
    - **Trách nhiệm của Quản đốc:** Lắng nghe Sếp, làm rõ yêu cầu, giao việc chính xác cho SubAgent qua `invoke_subagent`, nhận kết quả thẩm định từ Checker, và báo cáo tổng kết ngắn gọn, minh bạch cho Sếp.
 5. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):**
@@ -123,6 +123,47 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/verification-before-completion` | Verification Gate | Bắt buộc chạy kiểm thử chứng minh trước khi tuyên bố xong |
 | `/advisor` | Architecture Advisor | Trọng tài cố vấn độc lập đánh giá rủi ro kiến trúc |
 | `/loop-circuit-breaker` | Loop Circuit Breaker | Cơ chế ngắt mạch chống lặp vô hạn và suy thoái ngữ cảnh |
+
+### 4.1 Quy Trình Khép Kín Nhánh Kỹ Thuật (App Closed-Loop Pipeline)
+
+Áp dụng cho các tác vụ phát triển tính năng mới, xây dựng module/ứng dụng (lệnh `/app`) hoặc refactor hệ thống:
+
+```mermaid
+flowchart TD
+    A["Yêu Cầu / Brief Kỹ Thuật"] --> B["BƯỚC 1: ARCHITECTURE SPEC<br/>(SubAgent: System Architect - Maker 1)<br/><i>Khảo sát blast radius, lập Spec 5 mục</i>"]
+    B --> C["BƯỚC 2: INTENT ALIGNMENT GATE<br/>(Quản đốc trình Spec & Chờ Sếp duyệt)<br/><i>Chờ SIGN_OFF: approved</i>"]
+    C -->|"Sếp Duyệt"| D["BƯỚC 3: TDD IMPLEMENTATION<br/>(SubAgent: Builder - Maker 2)<br/><i>Red-Green-Refactor, test thật, Diff + Evidence</i>"]
+    C -->|"Yêu cầu chỉnh sửa"| B
+    D -->|"Bàn giao Diff & Test Log"| E["BƯỚC 4: INDEPENDENT AUDIT<br/>(SubAgent: QA Auditor - Checker)<br/><i>Chạy lại test, đối soát Rubric 5 trụ cột</i>"]
+    E -->|"VERDICT: APPROVE"| F["Nghiệm Thu Thành Công"]
+    E -->|"VERDICT: REJECT (vòng <= 2)"| D
+    E -->|"VERDICT: REJECT (vòng > 2) hoặc ESCALATE"| G["Kích Hoạt Circuit Breaker<br/>(Báo Cáo Sếp)"]
+```
+
+1. **Bước 1 - ARCHITECTURE SPEC (SubAgent: System Architect - Maker 1):**
+   - Đọc đặc tả vai trò tại `agents/app/architect.md`.
+   - **Tool Whitelist:** Read-only (`view_file`, tìm kiếm mã nguồn, đọc cấu trúc thư mục). CẤM write tools.
+   - Khảo sát codebase, đánh giá blast radius, lập bản Đặc Tả Kiến Trúc 5 mục bắt buộc: (1) Phạm vi & blast radius, (2) Thiết kế, (3) Hợp đồng API / schema, (4) Tiêu chí nghiệm thu (Acceptance Criteria), (5) Rủi ro & giả định.
+   - Bàn giao bản Spec hoàn chỉnh cho Quản đốc.
+2. **Bước 2 - INTENT ALIGNMENT GATE (Quản đốc Trình Spec & Chờ Sếp Duyệt):**
+   - Quản đốc tiếp nhận bản Spec từ Architect, tóm tắt và trình bày minh bạch trong ô chat cho Sếp.
+   - **Cổng xác nhận bắt buộc:** CẤM TUYỆT ĐỐI tự ý sửa đổi file mã nguồn khi chưa có sự xác nhận của Sếp. Chờ Sếp phê duyệt rõ ràng (`SIGN_OFF: approved` hoặc lệnh thực thi rõ ràng).
+   - Nếu Sếp yêu cầu chỉnh sửa: chuyển phản hồi về Architect cập nhật lại Spec. Nếu Sếp duyệt: kích hoạt Bước 3.
+3. **Bước 3 - TDD IMPLEMENTATION (SubAgent: Builder - Maker 2):**
+   - Đọc đặc tả vai trò tại `agents/app/builder.md`.
+   - **Tool Whitelist:** Read + Write + Test Commands (`replace_file_content`, `write_to_file`, `run_command`).
+   - Triển khai mã nguồn tuân thủ nghiêm ngặt phương pháp TDD Red-Green-Refactor: Viết test trước -> Chạy test fail (Red) -> Viết code tối thiểu -> Chạy test pass (Green) -> Refactor mã sạch.
+   - Không mở rộng ngoài phạm vi blast radius đã định; không hardcode secrets.
+   - Bàn giao: Diff hoàn chỉnh, bộ test, log Terminal chạy test thật (Evidence), danh sách thay đổi so với spec.
+4. **Bước 4 - INDEPENDENT AUDIT (SubAgent: QA Auditor - Checker):**
+   - Đọc đặc tả vai trò tại `agents/app/qa_auditor.md` và tiêu chí tại `rubrics/code_quality_rubric.md`.
+   - Khởi chạy trong context độc lập hoàn toàn với Maker.
+   - **Tool Whitelist:** Read + Test Commands (`view_file`, `run_command` chạy test). CẤM TUYỆT ĐỐI WRITE TOOLS — Checker không tự ý sửa code.
+   - Thẩm định 5 trụ cột: Bằng chứng thực thi (tự chạy lại test), Tuân thủ đặc tả (hợp đồng API/blast radius), Chất lượng mã nguồn (sạch, không silent failure), Bảo mật tối thiểu (không secret, chống injection), Kiểm thử (test ca biên/lỗi).
+   - Xuất báo cáo [AUDIT REPORT] và ra phán quyết: `VERDICT: APPROVE`, `VERDICT: REJECT`, hoặc `VERDICT: ESCALATE`.
+5. **Vòng lặp & Cầu dao ngắt mạch:**
+   - Nếu `VERDICT: REJECT` và `critique_rounds <= 2`: Quản đốc chuyển lỗi chi tiết cho Builder sửa lại.
+   - Nếu sau 2 vòng vẫn `VERDICT: REJECT` hoặc nhận `VERDICT: ESCALATE`: Kích hoạt Stagnation Circuit Breaker, dừng vòng lặp, chuyển trạng thái `ESCALATED` và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp xin chỉ đạo.
 
 ---
 

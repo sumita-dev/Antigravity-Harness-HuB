@@ -118,3 +118,43 @@ def test_skill_instructions_duoc_nap_va_ghi_trace():
     assert ctx.skill_instructions and len(ctx.skill_instructions) > 500
     assert any(s["step"] == "SKILL_LOAD" and s["payload"]["chars"] > 500
                for s in ctx.trace_steps)
+
+
+def test_app_runner_custom_payloads():
+    """AppRunner ghi nhận đúng payload tùy chọn cho DESIGN và IMPLEMENTATION."""
+    orc = ChiefOrchestrator()
+    runner = orc.app_runner
+    ctx = TaskContext("test_payload", "app")
+    ctx.transition(HarnessState.INTAKE)
+    verdict = runner.run(
+        "Build a custom widget",
+        ctx,
+        spec="Custom App Spec 1.0",
+        implementation_artifacts={"status": "done", "files": ["widget.py"]},
+    )
+    assert verdict == Verdict.APPROVE
+    steps = {s["step"]: s["payload"] for s in ctx.trace_steps}
+    assert steps["DESIGN"] == {"actor": "architect", "spec": "Custom App Spec 1.0"}
+    assert steps["IMPLEMENTATION"] == {
+        "actor": "builder",
+        "artifacts": {"status": "done", "files": ["widget.py"]},
+    }
+    assert steps["AUDIT"] == {"actor": "qa_auditor"}
+
+
+def test_app_runner_default_payloads():
+    """AppRunner ghi nhận payload mặc định khi không truyền spec / implementation_artifacts."""
+    orc = ChiefOrchestrator()
+    runner = orc.app_runner
+    ctx = TaskContext("test_default", "app")
+    ctx.transition(HarnessState.INTAKE)
+    verdict = runner.run("Build default widget", ctx)
+    assert verdict == Verdict.APPROVE
+    steps = {s["step"]: s["payload"] for s in ctx.trace_steps}
+    assert steps["DESIGN"] == {"actor": "architect", "spec": "Default Architecture Spec"}
+    assert steps["IMPLEMENTATION"] == {
+        "actor": "builder",
+        "artifacts": {"status": "code_implemented"},
+    }
+    assert steps["AUDIT"] == {"actor": "qa_auditor"}
+
