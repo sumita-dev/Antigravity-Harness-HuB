@@ -22,7 +22,7 @@ MARKETING_SKILLS = [
 CODE_SKILLS = [
     "accessibility", "advisor", "app", "arena", "database-migrations",
     "domain-modeling", "forensics", "gitnexus-plan", "gitnexus-review",
-    "gitnexus-work", "hillclimb", "impeccable", "loop-circuit-breaker",
+    "gitnexus-work", "hillclimb", "impeccable", "karpathy-coder", "loop-circuit-breaker",
     "ponytail-review", "reverse-lab", "security-review", "systematic-debugging",
     "test-driven-development", "verification-before-completion", "verify-ui", "why"
 ]

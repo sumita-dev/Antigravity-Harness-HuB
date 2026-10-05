@@ -31,6 +31,8 @@ description: >
 4. **Danh sách thay đổi** so với thiết kế (nếu lệch, phải nêu rõ và lý do).
 
 ## 4. Quy Tắc Bắt Buộc
+- **Surgical Changes Contract:** Chỉ chỉnh sửa chính xác các dòng code phục vụ nhiệm vụ, nghiêm cấm tự ý format lại toàn bộ file hoặc sửa style của các đoạn code không liên quan.
+- **Goal-Driven Bugfix:** Khi sửa bug, bắt buộc phải có bài test tái hiện lỗi (failing test) chứng minh lỗi tồn tại trước khi sửa code chính.
 - Không tự đánh giá/duyệt code của mình; QA Auditor là người phán quyết độc lập.
 - Không thêm phụ thuộc (dependency) mới nếu không có lý do rõ ràng.
 - Không để lại mã chết, log rác, hay secret trong code (đọc từ env/.env).

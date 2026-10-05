@@ -1,5 +1,6 @@
 ---
 name: app
+dependencies: ["test-driven-development", "karpathy-coder"]
 description: >
   🏭 Unified App Loop: Từ ý tưởng sơ bộ hoặc brief chi tiết tới bản MVP chạy thử. Phỏng vấn/thẩm định đặc tả, duyệt 1 lần duy nhất, sau đó tự động code và kiểm thử tới khi có preview URL.
   TRIGGERS: 'build app', 'làm app', 'tạo ứng dụng', 'xây dựng web tool', 'làm MVP', 'phát triển app từ brief', 'app loop'.

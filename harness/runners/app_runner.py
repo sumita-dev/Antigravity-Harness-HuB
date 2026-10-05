@@ -11,6 +11,7 @@ class AppRunner:
         mock_checker_output: str = "VERDICT: APPROVE",
         spec: str = None,
         implementation_artifacts: dict = None,
+        test_command: str = None,
         **kwargs,
     ):
         if context.state == HarnessState.INTAKE:
@@ -26,4 +27,6 @@ class AppRunner:
             context.transition(HarnessState.AUDIT)  # QA Auditor
             context.record_step("AUDIT", {"actor": "qa_auditor"})
             
+        if test_command:
+            return self.quality_gate.evaluate_execution(context, test_command)
         return self.quality_gate.evaluate(context, mock_checker_output)

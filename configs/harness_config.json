@@ -267,6 +267,17 @@
         "mvp app"
       ]
     },
+    "karpathy-coder": {
+      "branch": "app",
+      "keywords": [
+        "karpathy",
+        "surgical",
+        "simplicity first",
+        "surgical changes",
+        "chống over-engineering",
+        "tối giản code"
+      ]
+    },
     "arena": {
       "branch": "app",
       "keywords": [

@@ -108,6 +108,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/app` | App MVP Loop | Xây dựng ứng dụng web / tool hoàn chỉnh từ brief |
 | `/test-driven-development` | TDD Workflow | Quy trình Red-Green-Refactor, viết test trước khi viết mã |
 | `/systematic-debugging` | Systematic Debugging | Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân |
+| `/karpathy-coder` | Karpathy Coder | Áp dụng 4 nguyên lý lập trình thực dụng, chống over-engineering, thay đổi cục bộ |
 | `/security-review` | Security Review | Quét lỗ hổng bảo mật OWASP, injection, rò rỉ API key |
 | `/impeccable` | Impeccable UI Polish | Tối ưu giao diện, visual hierarchy, typography, micro-interactions |
 | `/verify-ui` | UI Verification | Kiểm chứng giao diện thực tế qua Chrome DevTools MCP |

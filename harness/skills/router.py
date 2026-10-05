@@ -5,6 +5,7 @@ pipeline chạy từ bất kỳ thư mục nào cũng tìm đúng file.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -68,8 +69,55 @@ class SkillLoader:
                 return str(candidate)
         return None
 
-    def load_instructions(self, skill_name: Optional[str]) -> Optional[str]:
+    def get_skill_dependencies(self, skill_name: str) -> list[str]:
+        path = self.find_skill_path(skill_name)
+        if not path:
+            return []
+        
+        content = Path(path).read_text(encoding="utf-8")
+        match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
+        if not match:
+            return []
+            
+        frontmatter = match.group(1)
+        dep_match = re.search(r'dependencies:\s*\[(.*?)\]', frontmatter)
+        if dep_match:
+            deps_str = dep_match.group(1)
+            deps = [d.strip(' "\'') for d in deps_str.split(',')]
+            return [d for d in deps if d]
+            
+        return []
+
+    def load_instructions(self, skill_name: Optional[str], include_dependencies: bool = True, _visited: Optional[set] = None) -> Optional[str]:
+        if not skill_name:
+            return None
+            
+        if _visited is None:
+            _visited = set()
+            
+        if skill_name in _visited:
+            return ""
+            
+        _visited.add(skill_name)
+        
         path = self.find_skill_path(skill_name)
         if not path:
             return None
-        return Path(path).read_text(encoding="utf-8")
+            
+        content = Path(path).read_text(encoding="utf-8")
+        
+        if not include_dependencies:
+            return content
+            
+        deps = self.get_skill_dependencies(skill_name)
+        if not deps:
+            return content
+            
+        result = []
+        for dep in deps:
+            dep_content = self.load_instructions(dep, include_dependencies=True, _visited=_visited)
+            if dep_content:
+                result.append(f"<!-- DEPENDENCY: {dep} -->\n{dep_content}")
+                
+        result.append(f"<!-- ROOT SKILL: {skill_name} -->\n{content}")
+        return "\n\n".join(result)

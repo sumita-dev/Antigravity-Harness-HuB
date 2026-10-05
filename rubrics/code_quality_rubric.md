@@ -21,6 +21,7 @@
 - Lệch đặc tả mà không khai báo → REJECT. Lệch có khai báo + lý do hợp lý → ghi nhận, đánh giá riêng.
 
 ### Trụ cột 3: Chất lượng mã nguồn (Code Quality)
+- **Surgical Diff:** Git diff phải sạch, không có thay đổi định dạng ngoài luồng, mọi dòng code thay đổi đều có thể truy vết về yêu cầu của task.
 - Hàm/đơn vị mã có một trách nhiệm rõ ràng; tên nói rõ ý định.
 - Không mã chết, không log rác, không code bị comment-out.
 - Xử lý lỗi tường minh; **không silent failure** (bắt lỗi rồi bỏ qua).
@@ -36,6 +37,7 @@
 
 ### Trụ cột 5: Kiểm thử (Test Adequacy)
 - Có test cho luồng chính **và** ít nhất một luồng lỗi/biên.
+- **Bugfix test:** Khi sửa bug, phải có test case tái hiện lỗi.
 - Test phải thực sự kiểm hành vi (assert có ý nghĩa), không chỉ chạy cho có.
 - Test không phụ thuộc trạng thái máy cá nhân (đường dẫn tuyệt đối, dữ liệu có sẵn).
 - Test không ghi vào dữ liệu của repo (dùng thư mục tạm).

@@ -5,6 +5,11 @@
         "type": "command",
         "command": "python scripts/auto_harvest_global.py",
         "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "pytest -q",
+        "timeout": 60
       }
     ]
   }

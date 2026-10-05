@@ -16,7 +16,7 @@ class HarnessState(Enum):
     ESCALATED = auto()
 
 class TaskContext:
-    def __init__(self, task_id, branch):
+    def __init__(self, task_id, branch, trajectory_store=None):
         self.task_id = task_id
         self.branch = branch
         self.state = HarnessState.INIT
@@ -26,13 +26,27 @@ class TaskContext:
         self.active_skill = None
         self.skill_path = None
         self.skill_instructions = None
+        self.trajectory_store = trajectory_store
+        self.last_event_id = None
 
     def record_step(self, step_name: str, payload: dict):
-        self.trace_steps.append({
+        step_record = {
             "step": step_name,
             "payload": payload,
             "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+        }
+        
+        if self.trajectory_store:
+            event = self.trajectory_store.record_event(
+                task_id=self.task_id,
+                event_type=step_name,
+                payload=payload,
+                parent_id=self.last_event_id
+            )
+            self.last_event_id = event["event_id"]
+            step_record["event_id"] = event["event_id"]
+            
+        self.trace_steps.append(step_record)
 
     def transition(self, new_state: HarnessState):
         valid_transitions = {
