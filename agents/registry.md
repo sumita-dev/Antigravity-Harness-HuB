@@ -42,11 +42,11 @@ define_subagent(
 invoke_subagent(
     TypeName="Architect",
     Role="System Architect",
-    Prompt="""
+    Prompt=f"""
     Thiết kế kỹ thuật cho task: <mô tả yêu cầu ngắn gọn>.
     Ràng buộc: <ngôn ngữ/framework/deadline>.
     Mã nguồn hiện có: <tóm tắt hoặc đường dẫn>.
-    Lưu bản thiết kế 5-mục ra file `.brain/artifacts/architect_spec.md`.
+    Lưu bản thiết kế 5-mục ra file `{artifact_dir}/architect_spec.md`.
     """,
     Workspace="inherit",
 )
@@ -71,8 +71,8 @@ define_subagent(
 invoke_subagent(
     TypeName="Builder",
     Role="Developer / Builder",
-    Prompt="""
-    Đọc spec tại `.brain/artifacts/architect_spec.md`. Triển khai code vào branch. TRƯỚC KHI KẾT THÚC, bắt buộc xuất patch thay đổi ra `.brain/artifacts/builder_diff.patch` (vd: `git diff > ...`).
+    Prompt=f"""
+    Đọc spec tại `{artifact_dir}/architect_spec.md`. Triển khai code vào branch. TRƯỚC KHI KẾT THÚC, bắt buộc xuất patch toàn bộ thay đổi (bằng lệnh `git diff main...HEAD > {artifact_dir}/builder_diff.patch`).
     """,
     Workspace="branch",
 )
@@ -97,8 +97,8 @@ define_subagent(
 invoke_subagent(
     TypeName="QA_Auditor",
     Role="QA Auditor",
-    Prompt="""
-    Kiểm định mã nguồn dựa trên bản vá tại `.brain/artifacts/builder_diff.patch` đối chiếu với `.brain/artifacts/architect_spec.md`.
+    Prompt=f"""
+    Kiểm định mã nguồn dựa trên bản vá tại `{artifact_dir}/builder_diff.patch` đối chiếu với `{artifact_dir}/architect_spec.md`.
     """,
     Workspace="inherit",
 )
@@ -123,11 +123,11 @@ define_subagent(
 invoke_subagent(
     TypeName="Web_Researcher",
     Role="Web & Market Intelligence Researcher",
-    Prompt="""
+    Prompt=f"""
     Trinh sát dữ liệu cho chủ đề: <chủ đề / ngành / sản phẩm>.
     Mục tiêu nội dung: <kịch bản YouTube | copy quảng cáo | bài SEO | offer stack>.
     Đối tượng mục tiêu: <mô tả persona>.
-    Lưu Research Dossier ra file `.brain/artifacts/research_dossier.md`.
+    Lưu Research Dossier ra file `{artifact_dir}/research_dossier.md`.
     """,
     Workspace="inherit",
 )
@@ -152,11 +152,11 @@ define_subagent(
 invoke_subagent(
     TypeName="Creator",
     Role="Content Creator",
-    Prompt="""
+    Prompt=f"""
     Soạn <loại nội dung: kịch bản YouTube | copy quảng cáo | bài SEO | offer stack>
     cho chủ đề: <chủ đề>.
     Framework áp dụng: <AIDA | PAS | Hormozi | Kahneman | Bóc phốt format X>.
-    Đọc Dossier tại `.brain/artifacts/research_dossier.md`. Lưu bản thảo hoàn chỉnh ra file `.brain/artifacts/creator_draft.md`.
+    Đọc Dossier tại `{artifact_dir}/research_dossier.md`. Lưu bản thảo hoàn chỉnh ra file `{artifact_dir}/creator_draft.md`.
     """,
     Workspace="inherit",
 )
@@ -181,8 +181,8 @@ define_subagent(
 invoke_subagent(
     TypeName="Compliance_Critic",
     Role="Compliance Critic",
-    Prompt="""
-    Đọc bản thảo tại `.brain/artifacts/creator_draft.md` và đối chiếu với `.brain/artifacts/research_dossier.md`.
+    Prompt=f"""
+    Đọc bản thảo tại `{artifact_dir}/creator_draft.md` và đối chiếu với `{artifact_dir}/research_dossier.md`.
     """,
     Workspace="inherit",
 )
