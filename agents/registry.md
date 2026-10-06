@@ -20,6 +20,7 @@ gọi `define_subagent` + `invoke_subagent` theo đúng template quy định.
 | `Web_Researcher`    | Web & Social Media Intelligence      | `marketing` | `researcher`| `true`               | `true`             | `inherit`   |
 | `Creator`           | Content Creator                      | `marketing` | `maker`     | `true`               | `true`             | `inherit`   |
 | `Compliance_Critic` | Compliance Critic                    | `marketing` | `checker`   | `true`               | `true`             | `inherit`   |
+| `Synthesizer`       | Skill Synthesizer & Distiller        | `cross`     | `synthesizer`| `true`              | `false`            | `inherit`   |
 
 ---
 
@@ -190,6 +191,33 @@ invoke_subagent(
 
 ---
 
+### 2.7 Synthesizer
+
+```python
+# Bước 1 — Pre-define (đọc spec từ agents/synthesizer.md)
+define_subagent(
+    name="Synthesizer",
+    description="Chưng cất bài học từ quỹ đạo thực thi (trajectories) thành kỹ năng chuẩn hóa (SKILL.md) theo chuẩn agentskills.io. Tuân thủ triết lý 'Lessons, not logs'.",
+    system_prompt=<nội dung đầy đủ của agents/synthesizer.md>,
+    enable_write_tools=True,
+    enable_mcp_tools=False,
+    enable_subagent_tools=False,
+)
+
+# Bước 2 — Dispatch
+invoke_subagent(
+    TypeName="Synthesizer",
+    Role="Skill Synthesizer & Distiller",
+    Prompt=f"""
+    Chưng cất bài học từ trajectory của task: <task_id hoặc mô tả>.
+    Xuất tài liệu kỹ năng SKILL.md gồm 4 phần: When to Use, Procedure, Pitfalls & Mechanisms, Verification.
+    """,
+    Workspace="inherit",
+)
+```
+
+---
+
 ## 3. Quy Tắc Tiền Đăng Ký (Pre-Registration Rules)
 
 ### Khi nào cần `define_subagent` trước `invoke_subagent`?
@@ -291,5 +319,6 @@ APPROVE   REJECT (≤ 2 vòng) → Quay lại Creator
 | `Web_Researcher`    | `agents/marketing/web_researcher.md`                  |
 | `Creator`           | `agents/marketing/creator.md`                         |
 | `Compliance_Critic` | `agents/marketing/compliance_critic.md`               |
+| `Synthesizer`       | `agents/synthesizer.md`                               |
 | Rubric App          | `rubrics/code_quality_rubric.md`                      |
 | Rubric Marketing    | `rubrics/content_compliance_rubric.md`                |

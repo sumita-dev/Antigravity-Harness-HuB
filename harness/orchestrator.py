@@ -6,6 +6,7 @@ Pipeline thật (Antigravity) dùng nó để kiểm thử luồng và lấy ski
 """
 
 import uuid
+from typing import Optional
 
 from harness.quality_gate import AdversarialQualityGate, Verdict
 from harness.runners.app_runner import AppRunner
@@ -16,8 +17,11 @@ from harness.state_machine import HarnessState, HarnessTransitionError, TaskCont
 
 class ChiefOrchestrator:
     def __init__(self):
+        from harness.memory.distiller import SkillDistiller
         from harness.memory.harvester import LearningHarvester
         from harness.memory.trajectory import TrajectoryStore
+        from harness.skills.curator import SkillCurator
+        from harness.skills.manager import SkillManager
 
         self.quality_gate = AdversarialQualityGate(max_rounds=2)
         self.runners = {
@@ -31,6 +35,13 @@ class ChiefOrchestrator:
         self.learning_harvester = LearningHarvester()
         self.skill_router = SkillRouter()
         self.skill_loader = SkillLoader()
+        self.skill_manager = SkillManager()
+        self.skill_curator = SkillCurator(skill_loader=self.skill_loader, skill_manager=self.skill_manager)
+        self.skill_distiller = SkillDistiller(
+            trajectory_store=self.trajectory_store,
+            harvester=self.learning_harvester,
+            skill_manager=self.skill_manager,
+        )
 
     # ----------------------- nội bộ -----------------------
     def _attach_skill(self, context: TaskContext, skill_name) -> None:
@@ -45,8 +56,9 @@ class ChiefOrchestrator:
             "path": context.skill_path,
             "chars": len(context.skill_instructions or ""),
         })
+        self.skill_curator.track_usage(skill_name, task_id=context.task_id)
 
-    def _finish(self, context: TaskContext, task_description: str, verdict):
+    def _finish(self, context: TaskContext, task_description: str, verdict, auto_distill: bool = False):
         final = verdict.value if isinstance(verdict, Verdict) else str(verdict)
         trajectory = self.trajectory_store.save_trajectory(
             task_id=context.task_id,
@@ -62,13 +74,15 @@ class ChiefOrchestrator:
             },
         )
         self.learning_harvester.harvest(trajectory)
+        if auto_distill and final == "APPROVE":
+            self.skill_distiller.auto_distill(trajectory)
         return trajectory
 
     # ----------------------- API công khai -----------------------
     def process_task(self, task_description: str, branch: str = None,
                      mock_checker_output: str = "VERDICT: APPROVE",
                      context: TaskContext = None, task_id: str = None,
-                     review_rounds: int = 1):
+                     review_rounds: int = 1, auto_distill: bool = False):
         """Chạy một task.
 
         review_rounds > 1 mô phỏng hàng đợi review nhiều vòng — đây là cách
@@ -104,7 +118,7 @@ class ChiefOrchestrator:
                 context.safe_transition(HarnessState.ESCALATED)
                 verdict = Verdict.ESCALATE
 
-        self._finish(context, task_description, verdict)
+        self._finish(context, task_description, verdict, auto_distill=auto_distill)
         return context, verdict
 
     def submit_for_review(self, context: TaskContext, checker_output: str):
