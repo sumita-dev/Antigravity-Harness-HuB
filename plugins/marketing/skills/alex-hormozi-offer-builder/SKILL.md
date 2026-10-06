@@ -181,3 +181,9 @@ Tài liệu cuối cùng bao gồm:
 ---
 *Skill này được thiết kế dựa trên framework $100M Offers của Alex Hormozi*
 *Phiên bản: 1.1 | Antigravity AI | 2026-05*
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

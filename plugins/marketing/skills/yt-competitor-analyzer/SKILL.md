@@ -104,3 +104,29 @@ node plugins/marketing/skills/yt-competitor-analyzer/scripts/analyze.js --input 
 # Hoặc truyền trực tiếp chuỗi URL:
 node plugins/marketing/skills/yt-competitor-analyzer/scripts/analyze.js --urls "https://youtu.be/cW4IAoiWIls,https://youtu.be/gfq3O_2GjU0"
 ```
+
+## 5. Cấu hình bắt buộc
+
+**`YOUTUBE_API_KEY`** — Key Google Data API v3:
+- Lấy tại: https://console.cloud.google.com → APIs & Services → Credentials → Create API Key
+- Enable: "YouTube Data API v3" trên project
+- Đặt vào file `.env` ở gốc repo: `YOUTUBE_API_KEY=your_key_here`
+- Hoặc export biến môi trường: `export YOUTUBE_API_KEY=your_key_here`
+
+> ⚠️ **Không hardcode API Key vào script.** Script `analyze.js` đọc từ `process.env.YOUTUBE_API_KEY`.
+> Quota mặc định: 10,000 units/ngày. Mỗi lần quét kênh tiêu tốn ~100-200 units tùy số video.
+
+## Route trước khi làm — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Phân tích hiệu suất tài khoản quảng cáo Meta (Facebook Ads) | `meta-ads-analyzer-mod-by-noti` |
+| Soát kịch bản video YouTube về vi phạm chính sách | `check-youtube-policy` |
+| Viết kịch bản video cho kênh Bóc Phốt Tài Chính | `boc-phot-storytelling` |
+| Nghĩ góc sáng tạo / territory cho quảng cáo | `kahneman-creative-ads` |
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

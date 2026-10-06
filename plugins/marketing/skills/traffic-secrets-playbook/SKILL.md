@@ -14,8 +14,7 @@ risk_level: "low"
 allowed_side_effects:
   - "none"
 requires_confirmation: false
-related_workflows:
-  - "global_workflows/plan.md"
+related_workflows: []
 required_gates: []
 # AWF_METADATA_END
 ---
@@ -71,8 +70,6 @@ Chạy tuần tự từng giai đoạn. Đây là phần AI/bạn sẽ dùng m�
 | **12. Dựng đội quân Affiliate** | Ai trong Dream 100 có thể trở thành affiliate (bán hộ, ăn hoa hồng)? | Mời Dream 100 tham gia affiliate program, cho lý do cụ thể để quảng bá (ra mắt sản phẩm mới / rolling launch / ưu đãi riêng), cung cấp asset dựng sẵn (banner, email mẫu), trả hoa hồng cao/CPA đủ hấp dẫn (tối thiểu 50% lợi nhuận cho sản phẩm chính, có thể 100%+ cho funnel front-end). | Chương trình affiliate sống + ít nhất vài affiliate đã kích hoạt |
 | **13. Mở rộng sang Cold Traffic** | Nếu tôi đã khai thác hết warm/hot traffic, tôi có sẵn sàng mở rộng ra cold traffic chưa? | Chỉ làm bước này SAU KHI đã tối ưu Dream 100 & owned traffic. Dựng "cold traffic avatar" (chính bạn ở giai đoạn trước khi biết giải pháp tồn tại), đổi toàn bộ ngôn ngữ về mức độ nhận thức thấp nhất, dựng "cầu nối" (pre-frame bridge/advertorial) dài hơn trước khi đưa vào funnel chính. | Landing page/advertorial "cầu nối" riêng cho cold traffic + follow-up funnel warm-up dài hơn |
 | **14. Growth hacks & tối ưu liên tục** | Có cơ chế viral/referral nhỏ nào có thể gắn vào funnel không? Có kênh phân phối nào của người khác (email list, group, blog) tôi có thể mua/tích hợp vào không? | Thử nghiệm 1–2 "butterfly" nhỏ mỗi quý (referral để mở khóa quyền lợi, badge/backlink tự nhiên, tích hợp vào quy trình bán hàng của đối tác). Mỗi ngày tự hỏi: "Hôm nay tôi có thể tự tăng traffic bằng cách nào?" | Danh sách growth hack đang test + kết quả đo lường |
-
----
 
 ---
 

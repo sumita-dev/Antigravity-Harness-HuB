@@ -163,6 +163,15 @@ Trong quá trình kiểm định kịch bản phức tạp, bạn hãy dùng `vi
 - `references/edsa_framing_guide.md`: 3 trụ cột EDSA và 5 mẫu Disclaimer cứu cánh kịch bản gai góc.
 - `references/safe_vocabulary_dictionary.md`: Từ điển hoán đổi từ ngữ "tử thần" sang từ ngữ an toàn.
 
+## 6. Route trước khi làm — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Viết kịch bản video mới cho kênh Bóc Phốt Tài Chính | `boc-phot-storytelling` |
+| Phân tích kênh đối thủ YouTube (số liệu, outlier) | `yt-competitor-analyzer` |
+| Viết content bán hàng / caption quảng cáo | `cong-thuc-viet-content-by-noti-v4` |
+| Tối ưu SEO / AEO / GEO cho bài viết | `viet-content-seo-geo-v5` |
+
 ## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
 
 Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:

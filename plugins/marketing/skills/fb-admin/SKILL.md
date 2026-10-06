@@ -66,3 +66,18 @@ Mỗi lệnh phải trả về đúng cấu trúc sau, không mô tả chung chu
 Gọi `list_posts` để kiểm tra bài đã lên chưa; chỉ đăng lại khi chắc chắn chưa có.
 
 **Luôn dán nguyên văn `message` + `code` mà Graph API trả về** khi báo lỗi — không diễn giải thay.
+
+## Route trước khi làm — khi nào KHÔNG dùng skill này
+
+| Yêu cầu thực ra là | Dùng skill |
+|---|---|
+| Viết nội dung bán hàng / caption cho Fanpage | `cong-thuc-viet-content-by-noti-v4` |
+| Phân tích hiệu suất quảng cáo Meta (CPA/ROAS/CPM) | `meta-ads-analyzer-mod-by-noti` |
+| Lên chiến lược offer / combo sản phẩm | `alex-hormozi-offer-builder` |
+| Kiểm tra kịch bản video có vi phạm chính sách YouTube | `check-youtube-policy` |
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

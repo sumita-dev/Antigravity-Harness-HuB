@@ -13,6 +13,12 @@ metadata:
 
 # Bóc Phốt Tài Chính — storytelling
 
+## AWF Truthfulness Boundary
+- Không tự bịa số liệu, con số thống kê, tên công ty, tên nhân vật, kết quả tài chính, hoặc case study không được Sếp cung cấp.
+- Số liệu phải có nhãn nguồn trên thẻ bài: `anh-dua` (số liệu Sếp đưa), `uoc-tinh` (ước tính kèm giả định 1 câu), hoặc `tinh-huong` (tình huống giả định).
+- Thiếu số liệu thật → hỏi Sếp chọn: ước tính có giả định hay khoanh vùng tình huống. Tuyệt đối không bịa rồi trình bày như số thật.
+- Không copy giọng, cách đóng video của kênh khác vào kịch bản này.
+
 Kênh hứa bóc một ảo tưởng và cứu một quyết định xuống tiền. Người kể là anh đi trước, ngồi với đàn em. Mỗi tập đổi cách kể. Giọng, từ điển vỉa hè, điều cấm ngôn từ, sáu việc trong kịch bản, và ba công thức tiêu đề chỉ nằm ở guideline. Đọc guideline trước khi viết. Không chép lại các bảng đó vào bài.
 
 - Guideline: `references/BRAND_GUIDELINE_Boc_Phot_Tai_Chinh.html`
