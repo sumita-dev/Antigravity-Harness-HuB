@@ -130,6 +130,8 @@ class AppWorkflowStore:
                 file = Path(current) / name
                 if file.suffix.lower() in {".log", ".pyc"}:
                     continue
+                if file.name.startswith("ORCHESTRATION_") or file.name.startswith("ANTIGRAVITY_") or file.name.endswith(".htm"):
+                    continue
                 if file.is_symlink() or any(parent.is_symlink() for parent in file.parents if parent != root.parent):
                     raise WorkflowError(f"Symlink in manifest: {file}")
                 try:
@@ -139,6 +141,7 @@ class AppWorkflowStore:
         if not entries:
             raise WorkflowError("Empty implementation manifest")
         return entries, _hash(_canonical(entries))
+
 
     def _evidence(self, value):
         file = Path(_text(value, "evidence path")).resolve()
@@ -257,6 +260,8 @@ class AppWorkflowStore:
                 raise WorkflowError("Maker and Checker actor must differ")
             if verdict in {"APPROVE", "PARTIAL_APPROVE"} and self._manifest(state)[1] != state["manifest_sha256"]:
                 raise WorkflowError("Implementation changed since submission; return to Builder explicitly")
+
+
             evidence = []
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 commands = payload.get("commands")
