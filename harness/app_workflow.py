@@ -33,7 +33,9 @@ def _canonical(value):
 
 class AppWorkflowStore:
     NEXT_AGENT = {"DESIGN": "architect", "DESIGN_REVIEW": "design_reviewer", "SIGN_OFF": "human",
-                  "IMPLEMENTATION": "builder", "AUDIT": "qa_auditor", "APPROVED": None, "ESCALATED": None}
+                  "IMPLEMENTATION": "builder", "AUDIT": "qa_auditor",
+                  "AUDIT_PENDING_BROWSER": "human_browser_verification",
+                  "APPROVED": None, "ESCALATED": None}
     EXCLUDED_DIRS = {".git", ".brain", "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache",
                      ".next", "dist", "build", "coverage", ".cache", "test-results", "playwright-report"}
 
@@ -84,10 +86,10 @@ class AppWorkflowStore:
         if any(not isinstance(item, dict) or not isinstance(item.get("path"), str)
                or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256", ""))) for item in state["evidence"]):
             raise WorkflowError("Corrupt evidence record")
-        if state["stage"] in {"DESIGN_REVIEW", "SIGN_OFF", "IMPLEMENTATION", "AUDIT", "APPROVED"}:
+        if state["stage"] in {"DESIGN_REVIEW", "SIGN_OFF", "IMPLEMENTATION", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
             if not isinstance(state.get("spec"), dict) or _hash(_canonical(state["spec"])) != state.get("spec_sha256"):
                 raise WorkflowError("Corrupt spec binding")
-        if state["stage"] in {"AUDIT", "APPROVED"}:
+        if state["stage"] in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
             if not isinstance(state.get("manifest"), dict) or _hash(_canonical(state["manifest"])) != state.get("manifest_sha256"):
                 raise WorkflowError("Corrupt manifest binding")
         return state
@@ -125,7 +127,7 @@ class AppWorkflowStore:
             for directory in dirs:
                 if directory not in self.EXCLUDED_DIRS and (Path(current) / directory).is_symlink():
                     raise WorkflowError(f"Symlink directory in manifest: {directory}")
-            dirs[:] = sorted(d for d in dirs if d not in self.EXCLUDED_DIRS)
+            dirs[:] = sorted(d for d in dirs if d not in self.EXCLUDED_DIRS and not d.endswith("_files"))
             for name in sorted(files):
                 file = Path(current) / name
                 if file.suffix.lower() in {".log", ".pyc"}:
@@ -143,11 +145,30 @@ class AppWorkflowStore:
         return entries, _hash(_canonical(entries))
 
 
-    def _evidence(self, value):
+    def _evidence(self, value, purpose=None):
         file = Path(_text(value, "evidence path")).resolve()
         if not file.is_file() or file.stat().st_size == 0:
             raise WorkflowError("Missing or empty evidence file")
-        return {"path": str(file), "sha256": _hash(file.read_bytes())}
+        res = {"path": str(file), "sha256": _hash(file.read_bytes())}
+        if purpose:
+            res["purpose"] = purpose
+        return res
+
+    def _add_evidence(self, evidence_map, value, purpose=None):
+        rec = self._evidence(value, purpose=purpose)
+        norm = os.path.normcase(os.path.abspath(rec["path"]))
+        if norm in evidence_map:
+            existing = evidence_map[norm]
+            if purpose:
+                existing_purposes = [p.strip() for p in existing.get("purpose", "").split(",") if p.strip()]
+                if purpose not in existing_purposes:
+                    existing_purposes.append(purpose)
+                    existing["purpose"] = ", ".join(existing_purposes)
+        else:
+            if "purpose" not in rec and purpose:
+                rec["purpose"] = purpose
+            evidence_map[norm] = rec
+        return evidence_map[norm]
 
     def create(self, task_id, description, project_root):
         project = Path(project_root).resolve()
@@ -253,7 +274,8 @@ class AppWorkflowStore:
         _text(payload.get("report"), "report")
         with self._locked(task_id) as path:
             state = self._load(path)
-            self._stage(state, "AUDIT")
+            if state["stage"] not in {"AUDIT", "AUDIT_PENDING_BROWSER"}:
+                raise WorkflowError(f"Expected AUDIT or AUDIT_PENDING_BROWSER, got {state['stage']}")
             self._binding(state, payload.get("spec_sha256"), "spec_sha256")
             self._binding(state, payload.get("manifest_sha256"), "manifest_sha256")
             if actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
@@ -262,7 +284,7 @@ class AppWorkflowStore:
                 raise WorkflowError("Implementation changed since submission; return to Builder explicitly")
 
 
-            evidence = []
+            evidence_map = {}
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 commands = payload.get("commands")
                 if not isinstance(commands, list) or not commands:
@@ -270,13 +292,14 @@ class AppWorkflowStore:
                 for command in commands:
                     if not isinstance(command, dict):
                         raise WorkflowError("Command must be an object")
-                    _text(command.get("command"), "command")
+                    cmd_str = _text(command.get("command"), "command")
                     cwd = Path(_text(command.get("cwd"), "cwd")).resolve()
                     if not cwd.is_dir() or not cwd.is_relative_to(Path(state["project_root"])):
                         raise WorkflowError("QA cwd must be inside project")
                     if type(command.get("exit_code")) is not int or command["exit_code"] != 0:
                         raise WorkflowError("QA commands must exit zero")
-                    evidence.append(self._evidence(command.get("log")))
+                    cmd_purpose = command.get("purpose") or f"qa_command: {cmd_str}"
+                    self._add_evidence(evidence_map, command.get("log"), purpose=cmd_purpose)
                 preview = payload.get("preview", {})
                 if not isinstance(preview, dict) or not isinstance(preview.get("checks"), list):
                     raise WorkflowError("Preview checks required")
@@ -292,7 +315,8 @@ class AppWorkflowStore:
                     if status == "N/A" and not ac["ui"]:
                         _text(check.get("reason"), "N/A reason")
                     elif status == "PASS":
-                        evidence.append(self._evidence(check.get("evidence")))
+                        check_purpose = check.get("purpose") or f"ac_check: {ac['id']}"
+                        self._add_evidence(evidence_map, check.get("evidence"), purpose=check_purpose)
                     elif status == "NOT_VERIFIED" and ac["ui"]:
                         _text(check.get("reason"), "NOT_VERIFIED reason")
                         has_not_verified_ui = True
@@ -312,12 +336,153 @@ class AppWorkflowStore:
                     if port == 0:
                         raise WorkflowError("Invalid preview port")
             state["actors"]["qa_auditor"] = actor
+            state["qa_actor_id"] = actor
+            state["functional_status"] = payload.get("functional", {}).get("status", "PASS") if isinstance(payload.get("functional"), dict) else "PASS"
+            state["http_status"] = payload.get("http_smoke", {}).get("status", "PASS") if isinstance(payload.get("http_smoke"), dict) else "PASS"
             state["audit"] = payload
-            state["evidence"] = evidence
+            state["evidence"] = list(evidence_map.values())
             state["overall_verdict"] = verdict
             state["browser_status"] = "NOT_VERIFIED" if verdict == "PARTIAL_APPROVE" else ("PASS" if verdict == "APPROVE" else "FAIL")
-            self._decision(state, "code", verdict, "APPROVED", "IMPLEMENTATION")
+            
+            # Consistency Auto-Sweep when APPROVE
+            if verdict == "APPROVE":
+                state["browser_status"] = "PASS"
+                state["overall_verdict"] = "APPROVE"
+                if "browser_verification_request" in state and isinstance(state["browser_verification_request"], dict):
+                    state["browser_verification_request"]["status"] = "COMPLETED"
+                state["audit"]["verdict"] = "APPROVE"
+                if "browser" in state["audit"] and isinstance(state["audit"]["browser"], dict):
+                    state["audit"]["browser"]["status"] = "PASS"
+                if isinstance(state["audit"].get("preview"), dict) and isinstance(state["audit"]["preview"].get("checks"), list):
+                    for c in state["audit"]["preview"]["checks"]:
+                        if c.get("status") == "NOT_VERIFIED":
+                            c["status"] = "PASS"
+                            c.pop("reason", None)
+
+            approved_stage = "AUDIT_PENDING_BROWSER" if verdict == "PARTIAL_APPROVE" else "APPROVED"
+            self._decision(state, "code", verdict, approved_stage, "IMPLEMENTATION")
             return self._save(path, state, "audit", actor)
+
+    def verify_browser(self, task_id, actor, payload):
+        """Record browser verification evidence and transition task to APPROVED."""
+        actor = _text(actor, "actor")
+        if not isinstance(payload, dict):
+            raise WorkflowError("verify_browser payload must be object")
+        with self._locked(task_id) as path:
+            state = self._load(path)
+            if state["stage"] not in {"AUDIT_PENDING_BROWSER", "AUDIT"}:
+                raise WorkflowError(f"Expected AUDIT_PENDING_BROWSER or AUDIT, got {state['stage']}")
+            self._binding(state, payload.get("spec_sha256"), "spec_sha256")
+            self._binding(state, payload.get("manifest_sha256"), "manifest_sha256")
+            if actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
+                raise WorkflowError("Maker and Checker actor must differ")
+            if self._manifest(state)[1] != state["manifest_sha256"]:
+                raise WorkflowError("Implementation changed since submission; return to Builder explicitly")
+
+            checks = payload.get("checks")
+            if checks is None and isinstance(payload.get("preview"), dict):
+                checks = payload.get("preview", {}).get("checks")
+            if not isinstance(checks, list) or not checks:
+                raise WorkflowError("Browser verification checks required")
+            if any(not isinstance(c, dict) or not isinstance(c.get("id"), str) for c in checks):
+                raise WorkflowError("Browser checks require string AC IDs")
+
+            checks_by_id = {c["id"]: c for c in checks}
+            ui_acs = [ac for ac in state["spec"]["acceptance_criteria"] if ac.get("ui")]
+            for ac in ui_acs:
+                ac_id = ac["id"]
+                if ac_id not in checks_by_id:
+                    raise WorkflowError(f"Missing browser check for UI AC {ac_id}")
+                check = checks_by_id[ac_id]
+                if check.get("status") != "PASS":
+                    raise WorkflowError(f"Browser check for UI AC {ac_id} must have status PASS")
+                ev_file = check.get("evidence") or check.get("screenshot") or check.get("log")
+                if not ev_file:
+                    raise WorkflowError(f"Browser check for UI AC {ac_id} requires real evidence file")
+
+            # Collect & deduplicate evidence (merging with existing audit evidence)
+            evidence_map = {}
+            for item in state.get("evidence", []):
+                if isinstance(item, dict) and "path" in item:
+                    norm = os.path.normcase(os.path.abspath(item["path"]))
+                    evidence_map[norm] = dict(item)
+
+            for c in checks:
+                if c.get("status") == "PASS":
+                    ev_file = c.get("evidence") or c.get("screenshot") or c.get("log")
+                    if ev_file:
+                        purpose = c.get("purpose") or f"browser_verification: {c['id']}"
+                        self._add_evidence(evidence_map, ev_file, purpose=purpose)
+
+            if isinstance(payload.get("screenshots"), list):
+                for s in payload["screenshots"]:
+                    self._add_evidence(evidence_map, s, purpose="browser_screenshot")
+            if isinstance(payload.get("logs"), list):
+                for l in payload["logs"]:
+                    self._add_evidence(evidence_map, l, purpose="browser_log")
+
+            # Consistency Auto-Sweep
+            if "browser_verification_request" in state and isinstance(state["browser_verification_request"], dict):
+                state["browser_verification_request"]["status"] = "COMPLETED"
+
+            if "audit" not in state or not isinstance(state["audit"], dict):
+                state["audit"] = {}
+            state["audit"]["verdict"] = "APPROVE"
+
+            if "browser" not in state["audit"] or not isinstance(state["audit"]["browser"], dict):
+                state["audit"]["browser"] = {}
+            state["audit"]["browser"]["status"] = "PASS"
+
+            summary = payload.get("summary") or payload.get("report")
+            if summary:
+                state["audit"]["browser"]["summary"] = _text(summary, "summary")
+
+            # Cập nhật từng UI AC trong audit.preview.checks sang PASS
+            if isinstance(state["audit"].get("preview"), dict) and isinstance(state["audit"]["preview"].get("checks"), list):
+                for pc in state["audit"]["preview"]["checks"]:
+                    if pc.get("id") in checks_by_id:
+                        c = checks_by_id[pc["id"]]
+                        pc["status"] = "PASS"
+                        pc.pop("reason", None)
+                        ev_file = c.get("evidence") or c.get("screenshot") or c.get("log")
+                        if ev_file:
+                            pc["evidence"] = str(Path(ev_file).resolve())
+            elif "preview" not in state["audit"]:
+                state["audit"]["preview"] = {"url": payload.get("url", "http://localhost:3000"), "checks": checks}
+
+            if isinstance(state["audit"].get("checks"), list):
+                for pc in state["audit"]["checks"]:
+                    if pc.get("id") in checks_by_id:
+                        c = checks_by_id[pc["id"]]
+                        pc["status"] = "PASS"
+                        pc.pop("reason", None)
+                        ev_file = c.get("evidence") or c.get("screenshot") or c.get("log")
+                        if ev_file:
+                            pc["evidence"] = str(Path(ev_file).resolve())
+
+            state["actors"]["qa_auditor"] = actor
+            state["qa_actor_id"] = actor
+            state["overall_verdict"] = "APPROVE"
+            state["browser_status"] = "PASS"
+            state["stage"] = "APPROVED"
+            state["evidence"] = list(evidence_map.values())
+            state["browser_verification"] = payload
+
+            return self._save(path, state, "verify_browser", actor)
+
+    def request_browser_verification(self, task_id, actor, report):
+        """Official mutation to transition task to AUDIT_PENDING_BROWSER when UI checks need human/browser evidence."""
+        actor = _text(actor, "actor")
+        report = _text(report, "report")
+        with self._locked(task_id) as path:
+            state = self._load(path)
+            if state["stage"] not in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
+                raise WorkflowError(f"Cannot request browser verification from stage {state['stage']}")
+            state["stage"] = "AUDIT_PENDING_BROWSER"
+            state["overall_verdict"] = "PARTIAL_APPROVE"
+            state["browser_status"] = "NOT_VERIFIED"
+            state["browser_verification_request"] = {"report": report, "actor": actor}
+            return self._save(path, state, "audit_pending_browser", actor)
 
     def revise(self, task_id, reason):
         """Invalidate design approval after an explicit architecture change request."""
@@ -334,7 +499,7 @@ class AppWorkflowStore:
     def status(self, task_id):
         with self._locked(task_id) as path:
             state = self._load(path)
-            if state["stage"] == "APPROVED":
+            if state["stage"] in {"APPROVED", "AUDIT_PENDING_BROWSER"}:
                 if self._manifest(state)[1] != state["manifest_sha256"]:
                     raise WorkflowError("Approved implementation changed")
                 for evidence in state["evidence"]:

@@ -252,7 +252,207 @@ def test_partial_approve_with_not_verified_browser_checks(tmp_path):
     
     # PARTIAL_APPROVE should succeed and record status
     res = store.audit("task", "PARTIAL_APPROVE", "qa-1", payload)
-    assert res["stage"] == "APPROVED"
+    assert res["stage"] == "AUDIT_PENDING_BROWSER"
+    assert res["next_agent"] == "human_browser_verification"
     assert res["overall_verdict"] == "PARTIAL_APPROVE"
     assert res["browser_status"] == "NOT_VERIFIED"
+
+
+def test_evidence_auto_deduplication_and_purpose_mapping(tmp_path):
+    store, project = setup_task(tmp_path)
+    approved_design(store)
+    state = store.submit_implementation("task", "builder-1", "done")
+    log = tmp_path / "shared.log"
+    log.write_text("common log output", encoding="utf-8")
+    payload = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "commands": [{"command": "npm test", "cwd": state["project_root"], "exit_code": 0, "log": str(log)}],
+        "preview": {"url": "http://localhost:3000", "checks": [{"id": "AC1", "status": "PASS", "evidence": str(log)}]},
+        "report": "QA checked"
+    }
+    state = store.audit("task", "APPROVE", "qa-1", payload)
+    assert state["stage"] == "APPROVED"
+    # Deduplication: single record despite multiple references
+    assert len(state["evidence"]) == 1
+    ev = state["evidence"][0]
+    assert ev["sha256"] == state["evidence"][0]["sha256"]
+    assert "qa_command: npm test" in ev["purpose"]
+    assert "ac_check: AC1" in ev["purpose"]
+    assert store.status("task")["stage"] == "APPROVED"
+
+
+def test_verify_browser_happy_path_and_consistency_sweep(tmp_path):
+    store, project = setup_task(tmp_path)
+    approved_design(store)
+    state = store.submit_implementation("task", "builder-1", "done")
+    unit_log = tmp_path / "unit.log"
+    unit_log.write_text("unit test passed", encoding="utf-8")
+    audit_pl = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "commands": [{"command": "pytest", "cwd": state["project_root"], "exit_code": 0, "log": str(unit_log)}],
+        "preview": {
+            "url": "http://localhost:3000",
+            "checks": [{"id": "AC1", "status": "NOT_VERIFIED", "reason": "Requires browser execution"}]
+        },
+        "report": "Core tests pass; pending browser"
+    }
+    state = store.audit("task", "PARTIAL_APPROVE", "qa-1", audit_pl)
+    assert state["stage"] == "AUDIT_PENDING_BROWSER"
+    store.request_browser_verification("task", "qa-1", "Please run browser tests")
+
+    screenshot = tmp_path / "ac1_screenshot.png"
+    screenshot.write_bytes(b"PNG_FAKE_IMAGE_DATA")
+
+    verify_pl = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screenshot)}],
+        "summary": "Browser verification confirmed UI behaves correctly"
+    }
+
+    approved_state = store.verify_browser("task", "qa-checker", verify_pl)
+    assert approved_state["stage"] == "APPROVED"
+    assert approved_state["next_agent"] is None
+    assert approved_state["overall_verdict"] == "APPROVE"
+    assert approved_state["browser_status"] == "PASS"
+
+    # Consistency auto-sweep checks
+    assert approved_state["browser_verification_request"]["status"] == "COMPLETED"
+    assert approved_state["audit"]["verdict"] == "APPROVE"
+    assert approved_state["audit"]["browser"]["status"] == "PASS"
+    assert approved_state["audit"]["preview"]["checks"][0]["status"] == "PASS"
+
+    # Evidence has both unit test log and screenshot
+    assert len(approved_state["evidence"]) == 2
+    paths = {e["path"] for e in approved_state["evidence"]}
+    assert str(unit_log.resolve()) in paths
+    assert str(screenshot.resolve()) in paths
+
+    # Event recorded
+    last_event = approved_state["events"][-1]
+    assert last_event["action"] == "verify_browser"
+    assert last_event["actor"] == "qa-checker"
+    assert last_event["stage"] == "APPROVED"
+
+    assert store.status("task")["stage"] == "APPROVED"
+
+
+def test_verify_browser_actor_constraints_and_validation(tmp_path):
+    store, project = setup_task(tmp_path)
+    approved_design(store)
+    state = store.submit_implementation("task", "builder-1", "done")
+    unit_log = tmp_path / "unit.log"
+    unit_log.write_text("unit test passed", encoding="utf-8")
+    audit_pl = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "commands": [{"command": "pytest", "cwd": state["project_root"], "exit_code": 0, "log": str(unit_log)}],
+        "preview": {
+            "url": "http://localhost:3000",
+            "checks": [{"id": "AC1", "status": "NOT_VERIFIED", "reason": "Requires browser execution"}]
+        },
+        "report": "Core tests pass"
+    }
+    state = store.audit("task", "PARTIAL_APPROVE", "qa-1", audit_pl)
+
+    screenshot = tmp_path / "ac1.png"
+    screenshot.write_bytes(b"PNG")
+
+    valid_payload = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screenshot)}]
+    }
+
+    # Maker (builder or architect) cannot verify browser
+    with pytest.raises(WorkflowError, match="Maker and Checker actor must differ"):
+        store.verify_browser("task", "builder-1", valid_payload)
+    with pytest.raises(WorkflowError, match="Maker and Checker actor must differ"):
+        store.verify_browser("task", "architect-1", valid_payload)
+
+    # Wrong spec binding
+    bad_spec_payload = dict(valid_payload, spec_sha256="wrong" * 8)
+    with pytest.raises(WorkflowError, match="spec_sha256"):
+        store.verify_browser("task", "qa-2", bad_spec_payload)
+
+    # Missing evidence file
+    missing_ev_payload = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "checks": [{"id": "AC1", "status": "PASS", "evidence": str(tmp_path / "nonexistent.png")}]
+    }
+    with pytest.raises(WorkflowError, match="Missing or empty evidence"):
+        store.verify_browser("task", "qa-2", missing_ev_payload)
+
+    # Incomplete checks (UI AC not PASS)
+    fail_check_payload = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "checks": [{"id": "AC1", "status": "FAIL", "evidence": str(screenshot)}]
+    }
+    with pytest.raises(WorkflowError, match="must have status PASS"):
+        store.verify_browser("task", "qa-2", fail_check_payload)
+
+
+def test_verify_browser_cli_workflow(tmp_path, monkeypatch, capsys):
+    import run_harness
+    monkeypatch.setenv("HARNESS_BRAIN_DIR", str(tmp_path / "brain"))
+    project = tmp_path / "app"
+    project.mkdir()
+    (project / "index.html").write_text("hello", encoding="utf-8")
+
+    run_harness.main(["--workflow", "init", "--task-id", "t1", "--task", "app", "--project-root", str(project), "--json"])
+    capsys.readouterr()
+
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_text(json.dumps(spec()), encoding="utf-8")
+    run_harness.main(["--workflow", "spec", "--task-id", "t1", "--actor", "arch", "--payload", str(spec_file), "--json"])
+    st = json.loads(capsys.readouterr().out)
+
+    rev_file = tmp_path / "rev.json"
+    rev_file.write_text(json.dumps({"verdict": "APPROVE", "spec_sha256": st["spec_sha256"], "report": "looks good"}), encoding="utf-8")
+    run_harness.main(["--workflow", "design-review", "--task-id", "t1", "--actor", "reviewer", "--payload", str(rev_file), "--json"])
+    capsys.readouterr()
+
+    sign_file = tmp_path / "sign.json"
+    sign_file.write_text(json.dumps({"spec_sha256": st["spec_sha256"], "human_message": "Duyệt"}), encoding="utf-8")
+    run_harness.main(["--workflow", "sign-off", "--task-id", "t1", "--payload", str(sign_file), "--json"])
+    capsys.readouterr()
+
+    impl_file = tmp_path / "impl.json"
+    impl_file.write_text(json.dumps({"report": "built"}), encoding="utf-8")
+    run_harness.main(["--workflow", "implementation", "--task-id", "t1", "--actor", "builder", "--payload", str(impl_file), "--json"])
+    st = json.loads(capsys.readouterr().out)
+
+    log_file = tmp_path / "test.log"
+    log_file.write_text("ok", encoding="utf-8")
+    audit_file = tmp_path / "audit.json"
+    audit_file.write_text(json.dumps({
+        "verdict": "PARTIAL_APPROVE",
+        "spec_sha256": st["spec_sha256"],
+        "manifest_sha256": st["manifest_sha256"],
+        "commands": [{"command": "test", "cwd": str(project), "exit_code": 0, "log": str(log_file)}],
+        "preview": {"url": "http://localhost:3000", "checks": [{"id": "AC1", "status": "NOT_VERIFIED", "reason": "No browser"}]},
+        "report": "partial"
+    }), encoding="utf-8")
+    run_harness.main(["--workflow", "audit", "--task-id", "t1", "--actor", "qa", "--payload", str(audit_file), "--json"])
+    capsys.readouterr()
+
+    screen_file = tmp_path / "screen.png"
+    screen_file.write_bytes(b"IMG")
+    vb_file = tmp_path / "vb.json"
+    vb_file.write_text(json.dumps({
+        "spec_sha256": st["spec_sha256"],
+        "manifest_sha256": st["manifest_sha256"],
+        "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screen_file)}],
+        "summary": "verified in headless chrome"
+    }), encoding="utf-8")
+    ret = run_harness.main(["--workflow", "verify-browser", "--task-id", "t1", "--actor", "qa-browser", "--payload", str(vb_file), "--json"])
+    assert ret == 0
+    final_st = json.loads(capsys.readouterr().out)
+    assert final_st["stage"] == "APPROVED"
+    assert final_st["next_agent"] is None
+    assert final_st["browser_status"] == "PASS"
 

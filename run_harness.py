@@ -48,13 +48,17 @@ def workflow_action(args):
         return store.sign_off(args.task_id, payload.get("spec_sha256"), payload.get("human_message"))
     if args.workflow == "implementation":
         return store.submit_implementation(args.task_id, args.actor, payload.get("report"))
+    if args.workflow == "audit-pending-browser":
+        return store.request_browser_verification(args.task_id, args.actor, payload.get("report", "Awaiting human browser verification"))
+    if args.workflow == "verify-browser":
+        return store.verify_browser(args.task_id, args.actor, payload)
     return store.audit(args.task_id, payload.get("verdict"), args.actor, payload)
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Antigravity Harness CLI")
     parser.add_argument("--task", default=None, help="Mô tả nhiệm vụ")
-    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "revise"],
+    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "audit-pending-browser", "verify-browser", "revise"],
                         help="Checkpoint thật cho native agents; không tự gọi LLM hoặc chạy test")
     parser.add_argument("--project-root", help="Thư mục app local (workflow init)")
     parser.add_argument("--actor", help="ID phiên tác tử do runtime cung cấp")

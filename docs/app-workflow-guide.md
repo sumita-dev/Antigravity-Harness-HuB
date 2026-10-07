@@ -80,7 +80,7 @@ Mẫu một AC dưới đây minh họa schema; benchmark thực tế phải dù
 
 Command mẫu là minh họa, phải thay bằng command stack thực tế và output thật. Non-UI check dùng `{"id":"AC7","status":"N/A","reason":"Lý do phù hợp Spec"}` nếu hợp đồng cho phép; kiểm thử cần PASS thì QA vẫn phải kiểm, không dùng N/A để tránh AC bắt buộc.
 
-Với UI, `preview.checks` kiểm từng AC và trỏ evidence thật; non-UI dùng N/A có lý do hợp Spec. Một URL hoặc test exit 0 không đủ APPROVE. Source/test/config kể cả untracked thay đổi sau snapshot khiến evidence stale. Nếu đang AUDIT, QA nộp REJECT với hashes của checkpoint và report giải thích source đổi, quay Builder rồi nộp implementation mới; counter code tăng. Nếu phải đổi kiến trúc, dùng revise về DESIGN và review/signoff lại. REJECT thứ hai mỗi pha chuyển ESCALATED; counters giữ qua restart/resubmit.
+Với UI, `preview.checks` kiểm từng AC và trỏ evidence thật; non-UI dùng N/A có lý do hợp Spec. Một URL hoặc test exit 0 không đủ APPROVE. Tuyệt đối cấm gán `stage: APPROVED` khi browser checks còn `NOT_VERIFIED`: task phải chuyển sang `stage: AUDIT_PENDING_BROWSER` với `next_agent: human_browser_verification` và `verdict: PARTIAL_APPROVE`. Chỉ được chuyển `APPROVED` sau khi có bằng chứng browser thật (viewport 1280px desktop, 390px mobile, tương tác CRUD, localStorage persistence, anti-XSS, không console error). Source/test/config kể cả untracked thay đổi sau snapshot khiến evidence stale. Nếu đang AUDIT, QA nộp REJECT với hashes của checkpoint và report giải thích source đổi, quay Builder rồi nộp implementation mới; counter code tăng. Nếu phải đổi kiến trúc, dùng revise về DESIGN và review/signoff lại. REJECT thứ hai mỗi pha chuyển ESCALATED; counters giữ qua restart/resubmit.
 
 ## Acceptance criteria cho benchmark
 
