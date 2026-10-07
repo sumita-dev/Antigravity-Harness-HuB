@@ -33,22 +33,26 @@ Antigravity-Harness-Hub/
 │   │   ├── architect.md                    # System Architect (Thiết kế hệ thống & API contract)
 │   │   ├── builder.md                      # Developer (Lập trình mã nguồn phân lập)
 │   │   └── qa_auditor.md                   # QA Reviewer (Kiểm thử, bảo mật OWASP, phát hiện lỗi)
-│   └── marketing/                          # Tác tử khối Tăng trưởng / Nội dung (Marketing)
-│       ├── web_researcher.md               # Web & Market Intelligence Researcher
-│       ├── creator.md                      # Content Creator (Soạn kịch bản & copy chuyển đổi cao)
-│       └── compliance_critic.md            # Policy Reviewer (Rà soát chính sách, lọc AI slop)
+│   ├── marketing/                          # Tác tử khối Tăng trưởng / Nội dung (Marketing)
+│   │   ├── web_researcher.md               # Web & Market Intelligence Researcher
+│   │   ├── creator.md                      # Content Creator (Soạn kịch bản & copy chuyển đổi cao)
+│   │   └── compliance_critic.md            # Policy Reviewer (Rà soát chính sách, lọc AI slop)
+│   ├── registry.md                         # Bảng đăng ký định danh & quyền hạn tác tử
+│   └── synthesizer.md                      # Tác tử tổng hợp tri thức & giải pháp
 ├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
-│   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
+│   ├── code/skills/                        # 22 skill kỹ thuật (SKILL.md + references/ + scripts/)
 │   └── marketing/skills/                   # 12 skill marketing / nội dung
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
-├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py
+├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py, auto_harvest_global.py, dispatch_subagents.py
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (33 skill)
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (34 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
 │   ├── quality_gate.py                     # AdversarialQualityGate & Verdict logic
 │   ├── state_machine.py                    # Cỗ máy trạng thái (HarnessState & TaskContext)
+│   ├── memory/                             # Vòng lặp tự học & bộ nhớ trajectory (harvester.py, distiller.py, trajectory.py)
+│   ├── skills/                             # Quản lý vòng đời skill, staging, routing (curator.py, manager.py, router.py)
 │   └── runners/                            # Các Runner thực thi theo phân nhánh
 │       ├── app_runner.py                   # Luồng vận hành nhánh Build App
 │       └── marketing_runner.py             # Luồng vận hành nhánh Marketing
@@ -78,7 +82,9 @@ Antigravity-Harness-Hub/
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
 | `harness/runners/` | Đóng gói chu trình 3 bước cho từng nhánh: `app_runner.py` (Architect → Builder → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Compliance Critic). Runner là nơi ghi trace từng bước. |
-| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (33 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
+| `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (34 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá. |
 
 ---
@@ -135,7 +141,7 @@ flowchart LR
 
 ### 2.3. Gọi Trực Tiếp Kỹ Năng Nhánh Marketing Trong Ô Chat (Slash Commands)
 
-Toàn bộ 11 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
+Toàn bộ 12 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
 
 | Lệnh Slash trong Chat | Kỹ Năng | Trọng Tâm Xử Lý |
 | :--- | :--- | :--- |
@@ -150,6 +156,7 @@ Toàn bộ 11 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO | Tối ưu bài viết đạt chuẩn SEO, trích dẫn AEO/GEO cho AI Search |
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất quảng cáo Meta, CPA/ROAS/CPM |
 | `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage Doanh Nghiệp (đăng bài, đọc/trả lời comment) |
+| `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
 
 ---
 
@@ -195,19 +202,26 @@ pytest -v
 
 Kết quả hiện tại: toàn bộ test PASS.
 
-Bộ test gồm 6 file:
-- `test_harness_core.py` — state machine, quality gate, circuit breaker
-- `test_harness_e2e.py` — luồng 2 nhánh, escalate sau 2 vòng REJECT
-- `test_harness_learning.py` — trajectory store + learning harvester
-- `test_skill_router.py` — keyword routing (33 skill)
-- `test_marketing_skills.py` — frontmatter + loader của skill
-- `test_session_manager.py` — portable session sync
-- `test_repo_integrity.py` — chặn hồi quy cấu trúc/secret/path cá nhân
+Bộ test gồm 15 file:
+- `test_auto_harvest_global.py` — Harvest global learnings & trajectories
+- `test_curator.py` — Đánh giá vòng đời skill, phát hiện trùng lặp & curation
+- `test_distiller.py` — Chưng cất trajectory thành kỹ năng mới
+- `test_dsh_patterns.py` — Kiểm tra mẫu thiết kế & phân rã nhiệm vụ (DSH)
+- `test_harness_core.py` — State machine, quality gate, circuit breaker
+- `test_harness_e2e.py` — Luồng 2 nhánh, escalate sau 2 vòng REJECT
+- `test_harness_learning.py` — Trajectory store + learning harvester
+- `test_harness_live.py` — Kiểm thử live harness orchestration
+- `test_marketing_skill_quality.py` — Kiểm định chất lượng nội dung skill marketing
+- `test_marketing_skills.py` — Frontmatter & loader của skill marketing
+- `test_repo_integrity.py` — Chặn hồi quy cấu trúc/secret/path cá nhân/ref gãy
+- `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
+- `test_session_manager.py` — Portable session sync
+- `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
+- `test_skill_router.py` — Keyword routing (34 skill)
 
 ```text
 $ pytest -q
-44 passed
-```
+160 passed
 ```
 
 ---
@@ -248,6 +262,12 @@ Task processing finished. Status: HarnessState.APPROVED, Verdict: APPROVE
 - `--task-id`: ID tùy chọn (mặc định sinh UUID mới cho mỗi task).
 - `--dump-skill`: In nội dung SKILL.md đã nạp ra stdout (để pipeline bên ngoài dùng).
 - `--json`: Xuất kết quả dạng JSON (task_id, branch, state, verdict, critique_rounds, active_skill, skill_path).
+- `--auto-distill`: Tự động chưng cất kỹ năng vào staging khi task hoàn thành APPROVE.
+- `--distill <TASK_ID>`: Chưng cất kỹ năng mới từ trajectory của task_id đã lưu.
+- `--curate`: Chạy Curator đánh giá vòng đời kỹ năng và phát hiện trùng lặp.
+- `--skills-pending`: Xem danh sách các kỹ năng đang chờ duyệt trong hàng đợi Staging.
+- `--skills-approve <STAGE_ID>`: Phê duyệt một kỹ năng trong staging theo ID.
+- `--skills-reject <STAGE_ID>`: Từ chối một kỹ năng trong staging theo ID.
 
 **Ví dụ kiểm chứng circuit breaker:**
 ```bash
