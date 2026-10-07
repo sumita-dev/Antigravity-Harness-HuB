@@ -20,7 +20,7 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 4. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):**
    - **Tôn chỉ bất biến:** AI trong ô chat chính là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự mình gọi các công cụ sửa code (`replace_file_content`, `write_to_file`) hoặc tự chạy kiểm thử trực tiếp trong thread chính để "tự biên tự diễn".
    - **Bắt buộc phân rã bằng `invoke_subagent`:** Mọi tác vụ triển khai kỹ thuật hoặc sản xuất nội dung đều phải được phân công cho các SubAgent chuyên biệt chạy độc lập:
-     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Maker 1 - DESIGN lập Spec 5 mục) -> Trình Sếp duyệt (Intent Alignment Gate) -> Khởi chạy SubAgent **Builder** (Maker 2 - IMPLEMENTATION viết mã & test) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT thẩm định độc lập & chạy test).
+     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Spec 5 mục) -> **Design Reviewer** độc lập -> Trình Sếp duyệt đúng Spec -> Khởi chạy SubAgent **Builder** (Maker 2 - IMPLEMENTATION viết mã & test) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT thẩm định độc lập & chạy test).
      + *Nhánh Marketing:* Khởi chạy SubAgent **Web Researcher** để trinh sát số liệu -> Khởi chạy SubAgent **Creator** (Maker) viết bài -> Khởi chạy SubAgent **Compliance Critic** (Checker) độc lập để thẩm định chính sách & fact-check.
    - **Trách nhiệm của Quản đốc:** Lắng nghe Sếp, làm rõ yêu cầu, giao việc chính xác cho SubAgent qua `invoke_subagent`, nhận kết quả thẩm định từ Checker, và báo cáo tổng kết ngắn gọn, minh bạch cho Sếp.
 5. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):**
@@ -65,8 +65,8 @@ flowchart LR
     B -->|"Research Dossier"| C["BƯỚC 2: IMPLEMENTATION<br/>(SubAgent: Content Creator / Maker)<br/><i>Cấy số liệu thật vào Hook/Story/Body</i>"]
     C -->|"Bản thảo hoàn chỉnh"| D["BƯỚC 3: FACT-CHECK & AUDIT<br/>(SubAgent: Compliance Critic / Checker)<br/><i>Đối soát bài viết với Dossier + Chính sách</i>"]
     D -->|"VERDICT: APPROVE"| E["Nghiệm Thu Thành Công"]
-    D -->|"VERDICT: REJECT (vòng <= 2)"| C
-    D -->|"VERDICT: REJECT (vòng > 2)"| F["Kích Hoạt Circuit Breaker<br/>(Báo Cáo Sếp)"]
+    D -->|"VERDICT: REJECT lần 1"| C
+    D -->|"VERDICT: REJECT lần 2"| F["Kích Hoạt Circuit Breaker<br/>(Báo Cáo Sếp)"]
 ```
 
 1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web & Market Intelligence Researcher):**
@@ -90,7 +90,7 @@ flowchart LR
    - Thẩm định 4 trụ cột khắt khe: Chính sách nền tảng (Meta Ads / YouTube Guidelines), Quét sạch AI Slop (danh sách đen từ ngữ sáo rỗng), **Kiểm chứng dữ liệu (Fact-check đối soát trực tiếp giữa bài viết và Research Dossier)**, Độ sắc chuyển đổi (Hook/CTA).
    - Trả về phán quyết chuẩn: `VERDICT: APPROVE` hoặc `VERDICT: REJECT` kèm danh sách lỗi cụ thể.
 4. **Vòng lặp & Cầu dao ngắt mạch:**
-   - Nếu `VERDICT: REJECT` và `critique_rounds <= 2`: Quản đốc chuyển yêu cầu sửa cho SubAgent Maker làm lại.
+   - Nếu `VERDICT: REJECT` ở lần thứ nhất: Quản đốc chuyển yêu cầu sửa cho SubAgent Maker làm lại.
    - Nếu sau 2 vòng vẫn `VERDICT: REJECT`: Kích hoạt Stagnation Circuit Breaker, dừng vòng lặp, chuyển trạng thái `ESCALATED` và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp.
 
 ### Chế độ B: Chế Độ Nghiên Cứu Độc Lập (Standalone Research Mode)
@@ -128,49 +128,21 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/advisor` | Architecture Advisor | Trọng tài cố vấn độc lập đánh giá rủi ro kiến trúc |
 | `/loop-circuit-breaker` | Loop Circuit Breaker | Cơ chế ngắt mạch chống lặp vô hạn và suy thoái ngữ cảnh |
 
-### 4.1 Quy Trình Khép Kín Nhánh Kỹ Thuật (App Closed-Loop Pipeline)
+### 4.1 Gemini Native App Workflow
 
-Áp dụng cho các tác vụ phát triển tính năng mới, xây dựng module/ứng dụng (lệnh `/app`) hoặc refactor hệ thống:
+Runtime Gemini trong Antigravity gọi tác tử native; `harness/` simulation không thay công việc thật. Đọc `plugins/code/skills/app/SKILL.md` và `docs/app-workflow-guide.md` trước triển khai. Kiểm tools thực tế; không suy ra quyền sandbox/context isolation từ metadata.
 
-```mermaid
-flowchart TD
-    A["Yêu Cầu / Brief Kỹ Thuật"] --> B["BƯỚC 1: ARCHITECTURE SPEC<br/>(SubAgent: System Architect - Maker 1)<br/><i>Khảo sát blast radius, lập Spec 5 mục</i>"]
-    B --> C["BƯỚC 2: INTENT ALIGNMENT GATE<br/>(Quản đốc trình Spec & Chờ Sếp duyệt)<br/><i>Chờ SIGN_OFF: approved</i>"]
-    C -->|"Sếp Duyệt"| D["BƯỚC 3: TDD IMPLEMENTATION<br/>(SubAgent: Builder - Maker 2)<br/><i>Red-Green-Refactor, test thật, Diff + Evidence</i>"]
-    C -->|"Yêu cầu chỉnh sửa"| B
-    D -->|"Bàn giao Diff & Test Log"| E["BƯỚC 4: INDEPENDENT AUDIT<br/>(SubAgent: QA Auditor - Checker)<br/><i>Chạy lại test, đối soát Rubric 5 trụ cột</i>"]
-    E -->|"VERDICT: APPROVE"| F["Nghiệm Thu Thành Công"]
-    E -->|"VERDICT: REJECT (vòng <= 2)"| D
-    E -->|"VERDICT: REJECT (vòng > 2) hoặc ESCALATE"| G["Kích Hoạt Circuit Breaker<br/>(Báo Cáo Sếp)"]
-```
+Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → Builder → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
 
-1. **Bước 1 - ARCHITECTURE SPEC (SubAgent: System Architect - Maker 1):**
-   - Đọc đặc tả vai trò tại `agents/app/architect.md`.
-   - **Tool Whitelist:** Read-only (`view_file`, tìm kiếm mã nguồn, đọc cấu trúc thư mục). CẤM write tools.
-   - Khảo sát codebase, đánh giá blast radius, lập bản Đặc Tả Kiến Trúc 5 mục bắt buộc: (1) Phạm vi & blast radius, (2) Thiết kế, (3) Hợp đồng API / schema, (4) Tiêu chí nghiệm thu (Acceptance Criteria), (5) Rủi ro & giả định.
-   - Bàn giao bản Spec hoàn chỉnh cho Quản đốc.
-2. **Bước 2 - INTENT ALIGNMENT GATE (Quản đốc Trình Spec & Chờ Sếp Duyệt):**
-   - Quản đốc tiếp nhận bản Spec từ Architect, tóm tắt và trình bày minh bạch trong ô chat cho Sếp.
-   - **Cổng xác nhận bắt buộc:** CẤM TUYỆT ĐỐI tự ý sửa đổi file mã nguồn khi chưa có sự xác nhận của Sếp. Chờ Sếp phê duyệt rõ ràng (`SIGN_OFF: approved` hoặc lệnh thực thi rõ ràng).
-   - Nếu Sếp yêu cầu chỉnh sửa: chuyển phản hồi về Architect cập nhật lại Spec. Nếu Sếp duyệt: kích hoạt Bước 3.
-3. **Bước 3 - TDD IMPLEMENTATION (SubAgent: Builder - Maker 2):**
-   - Đọc đặc tả vai trò tại `agents/app/builder.md`.
-   - **Tool Whitelist:** Read + Write + Test Commands (`replace_file_content`, `write_to_file`, `run_command`).
-   - Triển khai mã nguồn tuân thủ nghiêm ngặt phương pháp TDD Red-Green-Refactor: Viết test trước -> Chạy test fail (Red) -> Viết code tối thiểu -> Chạy test pass (Green) -> Refactor mã sạch.
-   - Không mở rộng ngoài phạm vi blast radius đã định; không hardcode secrets.
-   - Bàn giao: Diff hoàn chỉnh, bộ test, log Terminal chạy test thật (Evidence), danh sách thay đổi so với spec.
-4. **Bước 4 - INDEPENDENT AUDIT (SubAgent: QA Auditor - Checker):**
-   - Đọc đặc tả vai trò tại `agents/app/qa_auditor.md` và tiêu chí tại `rubrics/code_quality_rubric.md`.
-   - Khởi chạy trong context độc lập hoàn toàn với Maker.
-   - **Tool Whitelist:** Read + Test Commands (`view_file`, `run_command` chạy test). CẤM TUYỆT ĐỐI WRITE TOOLS — Checker không tự ý sửa code.
-   - Thẩm định 5 trụ cột: Bằng chứng thực thi (tự chạy lại test), Tuân thủ đặc tả (hợp đồng API/blast radius), Chất lượng mã nguồn (sạch, không silent failure), Bảo mật tối thiểu (không secret, chống injection), Kiểm thử (test ca biên/lỗi).
-   - Xuất báo cáo [AUDIT REPORT] và ra phán quyết: `VERDICT: APPROVE`, `VERDICT: REJECT`, hoặc `VERDICT: ESCALATE`.
-5. **Vòng lặp & Cầu dao ngắt mạch:**
-   - Nếu `VERDICT: REJECT` và `critique_rounds <= 2`: Quản đốc chuyển lỗi chi tiết cho Builder sửa lại.
-   - Nếu sau 2 vòng vẫn `VERDICT: REJECT` hoặc nhận `VERDICT: ESCALATE`: Kích hoạt Stagnation Circuit Breaker, dừng vòng lặp, chuyển trạng thái `ESCALATED` và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp xin chỉ đạo.
+Spec gồm scope/design/contracts/acceptance_criteria có ID/risks. Reviewer khác Architect, QA khác Builder; actor ID là provenance khai báo, không xác thực identity. Review và human signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ. Sau reviewer APPROVE, Sếp duyệt một lần đúng Spec trước Builder.
+
+Implementation snapshot bytes source/test/config gồm untracked; runtime/log/dependencies/cache loại trừ. QA tự rerun command/cwd/exit/log và đối chiếu manifest/spec hiện tại. Source đổi làm audit cũ stale. UI phải có local preview và browser evidence từng AC; non-UI ghi N/A có lý do theo Spec. Không nhận URL, simulator APPROVE hoặc Stop hook pytest là bằng chứng app đạt.
+
+REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha design/audit chuyển ESCALATED ngay. Counters riêng và tồn tại qua resubmit/restart. Resume task ID cũ từ checkpoint, không tạo task mới để bỏ gate. Architect/Reviewer/QA không sửa source; write/terminal quyền native chỉ được giới hạn bằng prompt nếu runtime không có sandbox phù hợp. Không claim cưỡng chế quyền mà chưa kiểm.
+
+Đọc role tại `agents/app/architect.md`, `agents/app/design_reviewer.md`, `agents/app/builder.md`, `agents/app/qa_auditor.md`; tiêu chí tại `rubrics/design_review_rubric.md` và `rubrics/code_quality_rubric.md`. Benchmark Task Board trong guide là đề bài kiểm thử, chưa phải app được triển khai. Không deploy khi chỉ yêu cầu local preview.
 
 ---
-
 ## 5. Nguyên Tắc Trả Lời & Giao Tiếp
 
 - **Xưng hô:** Luôn gọi anh là "Sếp" (hoặc "anh") và xưng "em". Sử dụng tiếng Việt.
@@ -184,17 +156,17 @@ flowchart TD
 
 ## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
 
-Bộ luật trong file này là lớp điều phối **thật** khi chạy trong Antigravity. Song song đó,
+Bộ luật trong file này hướng dẫn Gemini điều phối native agents khi chạy trong Antigravity. `harness/app_workflow.py` lưu/kiểm checkpoint nhưng không gọi agents hoặc browser. Song song đó,
 repo có lớp code `harness/` để **kiểm thử luồng và trích xuất nội dung skill**:
 
-- `harness/*.py` là **mô phỏng state machine** (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`).
+- `harness/orchestrator.py` và `harness/runners/` là **mô phỏng state machine** (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`).
   Nó **không gọi LLM API** và không tự sinh nội dung — **không thay thế** bước gọi SubAgent.
 - CLI:
   ```bash
   python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]
   ```
   - `--review-rounds N` + `--checker-output "VERDICT: REJECT"`: mô phỏng nhiều vòng review để kiểm chứng
-    **Stagnation Circuit Breaker** (quá 2 vòng REJECT → `ESCALATED`).
+    **Stagnation Circuit Breaker** (REJECT thứ hai → `ESCALATED`).
   - `--dump-skill`: in nội dung `SKILL.md` mà router đã chọn (cho pipeline bên ngoài dùng).
   - `--json`: xuất kết quả dạng JSON.
 - Định tuyến skill: `configs/harness_config.json → skill_routing` (33 skill → keyword).
@@ -209,3 +181,47 @@ repo có lớp code `harness/` để **kiểm thử luồng và trích xuất n�
    cấu trúc, secret, path cá nhân và con trỏ file gãy.
 4. Cài phụ thuộc trước khi chạy: `pip install -r requirements.txt`.
 
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **Antigravity-Harness-HuB** (7386 symbols, 17681 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/Antigravity-Harness-HuB/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/Antigravity-Harness-HuB/clusters` | All functional areas |
+| `gitnexus://repo/Antigravity-Harness-HuB/processes` | All execution flows |
+| `gitnexus://repo/Antigravity-Harness-HuB/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+
+<!-- gitnexus:end -->

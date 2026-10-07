@@ -72,13 +72,9 @@ def test_quality_gate_circuit_breaker():
     assert ctx.state == HarnessState.IMPLEMENTATION
     ctx.transition(HarnessState.AUDIT)
 
-    assert gate.evaluate(ctx, "VERDICT: REJECT") == Verdict.REJECT
-    assert ctx.state == HarnessState.IMPLEMENTATION
-    ctx.transition(HarnessState.AUDIT)
-
     assert gate.evaluate(ctx, "VERDICT: REJECT") == Verdict.ESCALATE
     assert ctx.state == HarnessState.ESCALATED
-    assert ctx.critique_rounds == 3
+    assert ctx.critique_rounds == 2
 
 
 def test_quality_gate_output_vo_nghia_thi_escalate():
@@ -108,7 +104,7 @@ def test_review_rounds_kich_hoat_circuit_breaker():
                                     review_rounds=3)
     assert ctx.state == HarnessState.ESCALATED
     assert verdict == Verdict.ESCALATE
-    assert ctx.critique_rounds == 3
+    assert ctx.critique_rounds == 2
 
 
 def test_skill_instructions_duoc_nap_va_ghi_trace():
@@ -224,4 +220,3 @@ def test_cli_subprocess_utf8():
     )
     assert res_dump.returncode == 0
     assert len(res_dump.stdout) > 0
-

@@ -21,11 +21,44 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 from harness.orchestrator import ChiefOrchestrator
+from harness.app_workflow import AppWorkflowStore, WorkflowError
+from pathlib import Path
+
+
+def workflow_action(args):
+    """Record native-agent checkpoints; does not run agents or claim tests ran."""
+    store = AppWorkflowStore()
+    payload = {}
+    if args.payload:
+        payload = json.loads(Path(args.payload).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise WorkflowError("Payload must be a JSON object")
+    if args.workflow == "init":
+        return store.create(args.task_id, args.task, args.project_root)
+    if args.workflow == "status":
+        return store.status(args.task_id)
+    if args.workflow == "revise":
+        return store.revise(args.task_id, payload.get("reason"))
+    if args.workflow == "spec":
+        return store.submit_spec(args.task_id, payload, args.actor)
+    if args.workflow == "design-review":
+        return store.review_design(args.task_id, payload.get("verdict"), args.actor,
+                                   payload.get("spec_sha256"), payload.get("report"))
+    if args.workflow == "sign-off":
+        return store.sign_off(args.task_id, payload.get("spec_sha256"), payload.get("human_message"))
+    if args.workflow == "implementation":
+        return store.submit_implementation(args.task_id, args.actor, payload.get("report"))
+    return store.audit(args.task_id, payload.get("verdict"), args.actor, payload)
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Antigravity Harness CLI")
     parser.add_argument("--task", default=None, help="Mô tả nhiệm vụ")
+    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "revise"],
+                        help="Checkpoint thật cho native agents; không tự gọi LLM hoặc chạy test")
+    parser.add_argument("--project-root", help="Thư mục app local (workflow init)")
+    parser.add_argument("--actor", help="ID phiên tác tử do runtime cung cấp")
+    parser.add_argument("--payload", help="File JSON artifact/checkpoint")
     parser.add_argument("--branch", choices=["app", "marketing", "auto"],
                         default="auto", help="Nhánh xử lý (mặc định: tự định tuyến)")
     parser.add_argument("--checker-output", default="VERDICT: APPROVE",
@@ -50,6 +83,15 @@ def main(argv=None) -> int:
                         help="Từ chối một kỹ năng trong staging theo ID")
 
     args = parser.parse_args(argv)
+    if args.workflow:
+        try:
+            state = workflow_action(args)
+        except (WorkflowError, OSError, ValueError, TypeError) as exc:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False) if args.json else f"Workflow error: {exc}")
+            return 1
+        print(json.dumps(state, ensure_ascii=False, indent=2) if args.json else
+              f"Task {state['task_id']}: {state['stage']}; next_agent={state['next_agent']}; revision={state['revision']}")
+        return 0
     orchestrator = ChiefOrchestrator()
 
     # ----------------------- DISTILL TASK -----------------------
@@ -163,9 +205,10 @@ def main(argv=None) -> int:
             "critique_rounds": context.critique_rounds,
             "active_skill": context.active_skill,
             "skill_path": context.skill_path,
+            "execution_mode": "simulation",
         }, ensure_ascii=False, indent=2))
     else:
-        print(f"Task processing finished. Status: {context.state}, Verdict: {verdict_str}")
+        print(f"Simulation finished (no agents executed). Status: {context.state}, Verdict: {verdict_str}")
     return 0
 
 

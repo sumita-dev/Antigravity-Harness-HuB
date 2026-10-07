@@ -45,13 +45,9 @@ def test_evaluate_execution_circuit_breaker():
     # 2nd fail
     context.state = HarnessState.AUDIT  # reset to AUDIT for next evaluation
     v2 = gate.evaluate_execution(context, command)
-    assert v2 == Verdict.REJECT
-    
-    # 3rd fail (exceeds max_rounds 2) -> ESCALATE
-    context.state = HarnessState.AUDIT
-    v3 = gate.evaluate_execution(context, command)
-    assert v3 == Verdict.ESCALATE
+    assert v2 == Verdict.ESCALATE
     assert context.state == HarnessState.ESCALATED
+    
 
 def test_dispatch_subagents_schema():
     script_path = Path(__file__).parent.parent / "scripts" / "dispatch_subagents.py"
@@ -69,7 +65,7 @@ def test_dispatch_subagents_schema():
     agents = json.loads(result.stdout)
     agent_names = [a["name"] for a in agents]
     
-    expected_agents = ["architect", "builder", "qa_auditor", "web_researcher", "creator", "compliance_critic"]
+    expected_agents = ["architect", "design_reviewer", "builder", "qa_auditor", "web_researcher", "creator", "compliance_critic"]
     for ea in expected_agents:
         assert ea in agent_names, f"{ea} not found in exported agents"
     
@@ -86,3 +82,9 @@ def test_dispatch_subagents_schema():
     assert architect_data["name"] == "architect"
     assert "description" in architect_data
     assert "system_prompt" in architect_data
+    assert architect_data["role"] == "maker"
+    assert architect_data["branch"] == "app"
+    assert architect_data["model"] == "inherit"
+    assert "Metadata only" in architect_data["runtime_enforcement"]
+    reviewer = next(agent for agent in agents if agent["name"] == "design_reviewer")
+    assert reviewer["role"] == "checker"

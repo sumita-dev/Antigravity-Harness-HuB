@@ -40,7 +40,11 @@ description: >
 - Mọi quyết định phải kèm lý do; không dùng câu "theo kinh nghiệm" mà không có căn cứ.
 - Nếu thiếu thông tin để thiết kế đúng: DỪNG và hỏi lại, không đoán.
 - Không được phê duyệt (APPROVE) sản phẩm của chính mình — Maker-Checker tách biệt.
-- Khi rời bước này, chuyển trạng thái `DESIGN -> IMPLEMENTATION`.
+- Khi xong, bàn giao Spec cho Design Reviewer: `DESIGN -> DESIGN_REVIEW`; chỉ Builder triển khai sau reviewer APPROVE và Sếp duyệt đúng SHA256 Spec hiện tại.
+
+- Mỗi AC có ID và cách kiểm chứng. Task UI phải xác định local preview, browser checks và evidence; task không UI ghi lý do không áp dụng.
+- Kê khai phạm vi source/test/config, gồm file untracked liên quan; logs/cache/dependencies không thuộc snapshot source.
+- Không sửa source. Quyền tool trong frontmatter không tạo sandbox read-only; chỉ lưu Spec/artifact vào thư mục task khi được giao.
 
 ## 5. Định Dạng Bàn Giao
 Trả về Markdown có 5 tiêu đề đúng thứ tự mục 3, để Builder và QA Auditor đối chiếu máy móc được.

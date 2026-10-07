@@ -74,7 +74,7 @@ class TaskContext:
 
     def increment_critique(self, max_rounds=2):
         self.critique_rounds += 1
-        if self.critique_rounds > max_rounds:
+        if self.critique_rounds >= max_rounds:
             self.safe_transition(HarnessState.ESCALATED)
             return False
         return True

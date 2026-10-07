@@ -30,15 +30,15 @@ def test_app_branch_e2e():
 
 def test_marketing_branch_e2e():
     orc = ChiefOrchestrator()
-    # Mocking 2 round review where both fail, 3rd escalate
+    # Two rejected reviews stop immediately.
     ctx, verdict = orc.process_task("Write ads copy", "marketing", mock_checker_output="VERDICT: REJECT")
     assert verdict == Verdict.REJECT
     assert ctx.state == HarnessState.IMPLEMENTATION
     assert ctx.critique_rounds == 1
     
     verdict2 = orc.submit_for_review(ctx, "VERDICT: REJECT")
-    assert verdict2 == Verdict.REJECT
-    assert ctx.state == HarnessState.IMPLEMENTATION
+    assert verdict2 == Verdict.ESCALATE
+    assert ctx.state == HarnessState.ESCALATED
     assert ctx.critique_rounds == 2
     
     verdict3 = orc.submit_for_review(ctx, "VERDICT: REJECT")

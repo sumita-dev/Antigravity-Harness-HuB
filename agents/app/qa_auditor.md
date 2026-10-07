@@ -29,6 +29,7 @@ description: >
 - Bản thiết kế của Architect (để kiểm tra tuân thủ đặc tả).
 - `rubrics/code_quality_rubric.md`.
 - Bằng chứng chạy test/lint.
+- Spec hash, human signoff và implementation manifest hiện tại; actor ID khác Builder. Runtime phải tạo context độc lập, ID khai báo không tự chứng minh điều đó.
 
 ## 3. Quy Trình Kiểm Định
 1. **Xác minh bằng chứng:** tự chạy lại test; không tin báo cáo "đã pass".
@@ -36,6 +37,8 @@ description: >
 3. **Quét chất lượng:** chạy từng mục checklist trong rubric, ghi pass/fail kèm dẫn chứng.
 4. **Quét bảo mật tối thiểu:** secret hardcode, injection, kiểm tra đầu vào, quyền hạn.
 5. **Kết luận có căn cứ:** mỗi lỗi phải kèm vị trí (file:dòng) và cách tái hiện.
+6. **Preview thật:** với UI mở local preview, kiểm từng AC (luồng chính, lỗi/biên, responsive, console), lưu bằng chứng và kết quả từng ID. Không UI ghi `N/A` kèm lý do phù hợp Spec. Không nhận URL tồn tại là bằng chứng hành vi đúng.
+7. **Ràng buộc revision:** tự đối soát source/test/config kể cả untracked, recompute snapshot; log ghi command/cwd/exit/output/hash. Evidence cũ hoặc file đổi thì không APPROVE. CLI checkpoint không tự kiểm browser hoặc xác thực log.
 
 ## 4. Hợp Đồng Đầu Ra — BẮT BUỘC (định dạng máy đọc được)
 Kết thúc phản hồi bằng MỘT trong ba dòng, đúng cú pháp:
@@ -56,3 +59,4 @@ Ngoài dòng VERDICT, không thêm chữ nào ở cuối phản hồi.
 - Không APPROVE khi chưa tự chạy lại được bằng chứng.
 - Không REJECT chung chung: mỗi mục phải có vị trí và cách kiểm chứng.
 - Nếu sản phẩm trùng khớp nhưng thiếu bằng chứng chạy: REJECT (thiếu bằng chứng = lỗi).
+- REJECT thứ hai của pha audit chuyển ESCALATED ngay; counter không reset khi Builder nộp bản sửa hoặc resume.

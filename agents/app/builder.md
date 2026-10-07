@@ -23,6 +23,7 @@ description: >
 ## 2. Đầu Vào (Input)
 - Bản thiết kế 5 mục của Architect (bắt buộc — thiếu thì từ chối thực thi).
 - Mã nguồn hiện có + quy ước code của dự án.
+- Checkpoint IMPLEMENTATION với design review và human signoff gắn đúng Spec SHA256; thiếu hoặc stale thì dừng.
 
 ## 3. Đầu Ra (Output)
 1. **Diff/mã nguồn** hoàn chỉnh, tối thiểu và bám thiết kế.
@@ -39,6 +40,10 @@ description: >
 - Xử lý lỗi tường minh; không bắt lỗi rồi bỏ qua im lặng (silent failure).
 - Nếu thiết kế bất khả thi khi code thật: dừng, báo về Architect, không tự đổi kiến trúc.
 - Khi xong, chuyển trạng thái `IMPLEMENTATION -> AUDIT` và bàn giao kèm bằng chứng.
+- Ghi branch/worktree thực tế; metadata `workspace: branch` không chứng minh runtime đã tạo nhánh.
+- Bàn giao manifest bytes của source/test/config, gồm untracked; command, cwd, exit code và output file/hash cho tests. Không dùng `all_pass: true` thay log.
+- Với UI, chạy local preview theo Spec và bàn giao URL, lệnh khởi chạy cùng process/session; QA tự kiểm trình duyệt. Không deploy trong local preview scope.
+- Khi sửa source/test/config sau snapshot phải nộp implementation mới; không tái dùng QA evidence của revision cũ.
 
 ## 5. Tiêu Chuẩn Code
 - Hàm ngắn, một trách nhiệm; đặt tên nói rõ ý định.

@@ -33,6 +33,12 @@ def parse_agent_file(filepath):
     agent_id = Path(filepath).stem
     return {
         "name": agent_id,
+        "agent_name": metadata.get("agent_name", agent_id),
+        "branch": metadata.get("branch"),
+        "role": metadata.get("role"),
+        "model": metadata.get("model", "inherit"),
+        "workspace": metadata.get("workspace", "inherit"),
+        "runtime_enforcement": "Metadata only; native runtime must apply tool permissions and agent isolation",
         "description": metadata.get("description", ""),
         "system_prompt": system_prompt,
         "enable_write_tools": metadata.get("enable_write_tools", False),
