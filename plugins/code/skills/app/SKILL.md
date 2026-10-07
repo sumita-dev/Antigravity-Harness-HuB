@@ -20,7 +20,7 @@ Tạo task checkpoint cho project mục tiêu, giữ task ID. Mỗi lượt gọ
 
 Gọi Architect theo `agents/app/architect.md`: Spec năm mục scope/design/contracts/acceptance_criteria có ID/description/ui/risks. Kê khai source/test/config, preview và cách kiểm AC. Lưu JSON và nộp `--workflow spec` với actor Architect.
 
-Gọi Design Reviewer context độc lập theo `agents/app/design_reviewer.md` và `rubrics/design_review_rubric.md`; actor khác Architect. Reviewer ghi report, verdict gắn `spec_sha256`, nộp `--workflow design-review`. REJECT trả Architect; REJECT thứ hai ESCALATED. Không sửa source trước reviewer APPROVE.
+Gọi Design Reviewer context độc lập theo `agents/app/design_reviewer.md` và `rubrics/design_review_rubric.md`; actor khác Architect. Reviewer kiểm tra 8 Trụ cột bằng chứng (StatusIntegrity, Error Contract Testability, Responsive Parity, DOM-Free Core, Anti-XSS, ID Integrity, Strict Schema Guard, MutationResult) và lập Bảng Evidence 10 mục. Ghi report tại `.brain/artifacts/<task-id>/design-review.md`, verdict gắn `spec_sha256`, nộp `--workflow design-review`. REJECT trả Architect; REJECT thứ hai ESCALATED. Không sửa source trước reviewer APPROVE.
 
 ## SIGN_OFF
 
