@@ -47,7 +47,7 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 | `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 | Soạn thảo content bán hàng và quảng cáo chuyển đổi cao theo 14 công thức kinh điển (AIDA, PAS, 4Cs, FAB, ACC, SLAP, BAB, Storytelling, SSS, PPPP...) tích hợp NLP. | `plugins/marketing/skills/cong-thuc-viet-content-by-noti-v4/SKILL.md` |
 | `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 | Nhận bài viết có sẵn, chấm điểm và tối ưu lại đạt chuẩn SEO (Search Engine), AEO (Answer Engine / Snippet) và GEO (Generative Engine Optimization / AI trích dẫn). | `plugins/marketing/skills/viet-content-seo-geo-v5/SKILL.md` |
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất tài khoản quảng cáo Meta (Facebook/Instagram), phân tích CPA/ROAS/CPM, Breakdown Effect, đề xuất phương án scale/pause. | `plugins/marketing/skills/meta-ads-analyzer-mod-by-noti/SKILL.md` |
-| `/fb-admin` | Facebook Fanpage Manager | Trợ lý quản lý Fanpage Doanh Nghiệp thông qua Meta Graph API (đăng bài mới, đọc danh sách bài viết, đọc và trả lời bình luận tự động). | `plugins/marketing/skills/fb-admin/SKILL.md` |
+| `/fb-admin` | Facebook Fanpage Manager | Trợ lý quản lý Fanpage thông qua Meta Graph API (đăng bài mới, đọc danh sách bài viết, đọc và trả lời bình luận tự động). | `plugins/marketing/skills/fb-admin/SKILL.md` |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá toàn diện hành trình khách hàng 6 pha, kết nối ma trận kênh, truy vấn 8 công cụ MCP của Noti và tối ưu luồng chuyển đổi. | `plugins/marketing/skills/framework-marketing-da-kenh/SKILL.md` |
 
 ---

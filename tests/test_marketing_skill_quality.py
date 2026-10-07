@@ -38,7 +38,7 @@ REAL_REQUESTS = [
     ("viết kịch bản tập tiếp theo cho kênh bóc phốt", "boc-phot-storytelling"),
     ("soát kịch bản này có vi phạm chính sách YouTube không", "check-youtube-policy"),
     ("quét kênh đối thủ trên YouTube", "yt-competitor-analyzer"),
-    ("đăng bài lên fanpage Doanh Nghiệp", "fb-admin"),
+    ("đăng bài lên fanpage doanh nghiệp", "fb-admin"),
     ("trả lời comment fanpage giúp tôi", "fb-admin"),
     ("kênh nào đang làm rớt phễu chuyển đổi", "framework-marketing-da-kenh"),
     ("phễu marketing của tôi đang tắc ở đâu", "framework-marketing-da-kenh"),
