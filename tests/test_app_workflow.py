@@ -228,3 +228,31 @@ def test_runtime_logs_excluded_but_untracked_config_included(tmp_path):
     (project / "config.json").write_text("{}")
     with pytest.raises(WorkflowError, match="changed"):
         store.status("task")
+
+
+def test_partial_approve_with_not_verified_browser_checks(tmp_path):
+    store, project = setup_task(tmp_path)
+    approved_design(store)
+    state = store.submit_implementation("task", "builder", "done")
+    log = tmp_path / "qa.log"
+    log.write_text("unit tests pass", encoding="utf-8")
+    payload = {
+        "spec_sha256": state["spec_sha256"],
+        "manifest_sha256": state["manifest_sha256"],
+        "commands": [{"command": "npm test", "cwd": state["project_root"], "exit_code": 0, "log": str(log)}],
+        "preview": {
+            "url": "http://localhost:3000",
+            "checks": [{"id": "AC1", "status": "NOT_VERIFIED", "reason": "Runtime has no browser automation tool"}]
+        },
+        "report": "Core functional tests pass; browser checks NOT_VERIFIED"
+    }
+    # Full APPROVE should fail when UI AC is NOT_VERIFIED
+    with pytest.raises(WorkflowError, match="Full APPROVE requires PASS evidence"):
+        store.audit("task", "APPROVE", "qa-1", payload)
+    
+    # PARTIAL_APPROVE should succeed and record status
+    res = store.audit("task", "PARTIAL_APPROVE", "qa-1", payload)
+    assert res["stage"] == "APPROVED"
+    assert res["overall_verdict"] == "PARTIAL_APPROVE"
+    assert res["browser_status"] == "NOT_VERIFIED"
+

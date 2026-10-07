@@ -186,15 +186,17 @@ class AppWorkflowStore:
             return self._save(path, state, "spec", actor)
 
     def _verdict(self, value):
-        if value not in {"APPROVE", "REJECT", "ESCALATE"}:
-            raise WorkflowError("verdict must be APPROVE, REJECT or ESCALATE")
+        if value not in {"APPROVE", "PARTIAL_APPROVE", "REJECT", "ESCALATE"}:
+            raise WorkflowError("verdict must be APPROVE, PARTIAL_APPROVE, REJECT or ESCALATE")
 
     def _decision(self, state, phase, verdict, approved, rejected):
         if verdict == "REJECT":
             state["reject_counts"][phase] += 1
             state["stage"] = "ESCALATED" if state["reject_counts"][phase] >= 2 else rejected
+        elif verdict in {"APPROVE", "PARTIAL_APPROVE"}:
+            state["stage"] = approved
         else:
-            state["stage"] = approved if verdict == "APPROVE" else "ESCALATED"
+            state["stage"] = "ESCALATED"
 
     def review_design(self, task_id, verdict, actor, spec_sha256, report):
         self._verdict(verdict)
@@ -253,10 +255,10 @@ class AppWorkflowStore:
             self._binding(state, payload.get("manifest_sha256"), "manifest_sha256")
             if actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
                 raise WorkflowError("Maker and Checker actor must differ")
-            if verdict == "APPROVE" and self._manifest(state)[1] != state["manifest_sha256"]:
+            if verdict in {"APPROVE", "PARTIAL_APPROVE"} and self._manifest(state)[1] != state["manifest_sha256"]:
                 raise WorkflowError("Implementation changed since submission; return to Builder explicitly")
             evidence = []
-            if verdict == "APPROVE":
+            if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 commands = payload.get("commands")
                 if not isinstance(commands, list) or not commands:
                     raise WorkflowError("Independent QA command evidence required")
@@ -278,14 +280,23 @@ class AppWorkflowStore:
                 checks = {c.get("id"): c for c in preview["checks"]}
                 if len(checks) != len(preview["checks"]) or set(checks) != {ac["id"] for ac in state["spec"]["acceptance_criteria"]}:
                     raise WorkflowError("Preview must cover every AC exactly once")
+                has_not_verified_ui = False
                 for ac in state["spec"]["acceptance_criteria"]:
                     check = checks[ac["id"]]
-                    if check.get("status") == "N/A" and not ac["ui"]:
+                    status = check.get("status")
+                    if status == "N/A" and not ac["ui"]:
                         _text(check.get("reason"), "N/A reason")
-                    elif check.get("status") == "PASS":
+                    elif status == "PASS":
                         evidence.append(self._evidence(check.get("evidence")))
+                    elif status == "NOT_VERIFIED" and ac["ui"]:
+                        _text(check.get("reason"), "NOT_VERIFIED reason")
+                        has_not_verified_ui = True
                     else:
-                        raise WorkflowError("Every UI AC requires PASS evidence; non UI N/A requires reason")
+                        raise WorkflowError("Every UI AC requires PASS evidence or NOT_VERIFIED with reason for PARTIAL_APPROVE; non UI N/A requires reason")
+                
+                if verdict == "APPROVE" and has_not_verified_ui:
+                    raise WorkflowError("Full APPROVE requires PASS evidence for all UI ACs; use PARTIAL_APPROVE when browser checks are NOT_VERIFIED")
+
                 if any(ac["ui"] for ac in state["spec"]["acceptance_criteria"]):
                     if not re.fullmatch(r"http://(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:/[^\s]*)?", str(preview.get("url", ""))):
                         raise WorkflowError("Local preview URL required")
@@ -298,6 +309,8 @@ class AppWorkflowStore:
             state["actors"]["qa_auditor"] = actor
             state["audit"] = payload
             state["evidence"] = evidence
+            state["overall_verdict"] = verdict
+            state["browser_status"] = "NOT_VERIFIED" if verdict == "PARTIAL_APPROVE" else ("PASS" if verdict == "APPROVE" else "FAIL")
             self._decision(state, "code", verdict, "APPROVED", "IMPLEMENTATION")
             return self._save(path, state, "audit", actor)
 
