@@ -6,10 +6,10 @@ import pytest
 from harness.app_workflow import AppWorkflowStore, WorkflowError
 
 
-def spec():
+def spec(**extra):
     return {"scope": "task board", "design": "local UI", "contracts": "local storage",
             "acceptance_criteria": [{"id": "AC1", "description": "create task", "ui": True}],
-            "risks": "storage corruption"}
+            "risks": "storage corruption", **extra}
 
 
 def setup_task(tmp_path):
@@ -21,8 +21,8 @@ def setup_task(tmp_path):
     return store, project
 
 
-def approved_design(store):
-    s = store.submit_spec("task", spec(), "architect-1")
+def approved_design(store, **extra):
+    s = store.submit_spec("task", spec(evidence_root=str(store.root.parent.parent), **extra), "architect-1")
     store.review_design("task", "APPROVE", "reviewer-1", s["spec_sha256"], "structure/function/logic checked")
     return store.sign_off("task", s["spec_sha256"], "Sếp: Duyệt bản đặc tả này")
 
@@ -220,7 +220,7 @@ def test_symlink_directory_cannot_escape_manifest(tmp_path):
 
 def test_runtime_logs_excluded_but_untracked_config_included(tmp_path):
     store, project = setup_task(tmp_path)
-    approved_design(store)
+    approved_design(store, snapshot_exclusions=["server.log"])
     state = store.submit_implementation("task", "builder", "done")
     (project / "server.log").write_text("new logs")
     payload = audit_payload(state, tmp_path)
@@ -308,6 +308,7 @@ def test_verify_browser_happy_path_and_consistency_sweep(tmp_path):
     verify_pl = {
         "spec_sha256": state["spec_sha256"],
         "manifest_sha256": state["manifest_sha256"],
+        "url": "http://localhost:3000",
         "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screenshot)}],
         "summary": "Browser verification confirmed UI behaves correctly"
     }
@@ -321,7 +322,9 @@ def test_verify_browser_happy_path_and_consistency_sweep(tmp_path):
     # Consistency auto-sweep checks
     assert approved_state["browser_verification_request"]["status"] == "COMPLETED"
     assert approved_state["audit"]["verdict"] == "APPROVE"
-    assert approved_state["audit"]["browser"]["status"] == "PASS"
+    assert approved_state["http_status"] == "NOT_VERIFIED"
+    assert "browser" not in approved_state["audit"]
+    assert approved_state["actors"]["qa_auditor"] == "qa-1"
     assert approved_state["audit"]["preview"]["checks"][0]["status"] == "PASS"
 
     # Evidence has both unit test log and screenshot
@@ -363,6 +366,7 @@ def test_verify_browser_actor_constraints_and_validation(tmp_path):
     valid_payload = {
         "spec_sha256": state["spec_sha256"],
         "manifest_sha256": state["manifest_sha256"],
+        "url": "http://localhost:3000",
         "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screenshot)}]
     }
 
@@ -381,6 +385,7 @@ def test_verify_browser_actor_constraints_and_validation(tmp_path):
     missing_ev_payload = {
         "spec_sha256": state["spec_sha256"],
         "manifest_sha256": state["manifest_sha256"],
+        "url": "http://localhost:3000",
         "checks": [{"id": "AC1", "status": "PASS", "evidence": str(tmp_path / "nonexistent.png")}]
     }
     with pytest.raises(WorkflowError, match="Missing or empty evidence"):
@@ -390,6 +395,7 @@ def test_verify_browser_actor_constraints_and_validation(tmp_path):
     fail_check_payload = {
         "spec_sha256": state["spec_sha256"],
         "manifest_sha256": state["manifest_sha256"],
+        "url": "http://localhost:3000",
         "checks": [{"id": "AC1", "status": "FAIL", "evidence": str(screenshot)}]
     }
     with pytest.raises(WorkflowError, match="must have status PASS"):
@@ -407,7 +413,7 @@ def test_verify_browser_cli_workflow(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
 
     spec_file = tmp_path / "spec.json"
-    spec_file.write_text(json.dumps(spec()), encoding="utf-8")
+    spec_file.write_text(json.dumps(spec(evidence_root=str(tmp_path))), encoding="utf-8")
     run_harness.main(["--workflow", "spec", "--task-id", "t1", "--actor", "arch", "--payload", str(spec_file), "--json"])
     st = json.loads(capsys.readouterr().out)
 
@@ -446,6 +452,7 @@ def test_verify_browser_cli_workflow(tmp_path, monkeypatch, capsys):
     vb_file.write_text(json.dumps({
         "spec_sha256": st["spec_sha256"],
         "manifest_sha256": st["manifest_sha256"],
+        "url": "http://localhost:3000",
         "checks": [{"id": "AC1", "status": "PASS", "evidence": str(screen_file)}],
         "summary": "verified in headless chrome"
     }), encoding="utf-8")
@@ -455,4 +462,3 @@ def test_verify_browser_cli_workflow(tmp_path, monkeypatch, capsys):
     assert final_st["stage"] == "APPROVED"
     assert final_st["next_agent"] is None
     assert final_st["browser_status"] == "PASS"
-

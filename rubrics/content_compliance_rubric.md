@@ -1,65 +1,20 @@
-# Bộ Tiêu Chí Thẩm Định & Kiểm Soát Tuân Thủ Nội Dung (Content Compliance Rubric)
+# Rubric Thẩm Định Marketing và Nghiên Cứu
 
-Bộ tiêu chí này áp dụng độc lập cho tác tử **Compliance Critic** khi thẩm định kịch bản, bài viết quảng cáo, offer stack và nội dung marketing do **Content Creator** tạo ra.
+Áp dụng content và research-only. Critic độc lập đối soát dossier, bytes artifacts và baseline đã khóa lúc init, không sửa draft/source.
 
----
+| Required ID | Tiêu chí |
+| --- | --- |
+| source_accuracy | Nguồn gốc, ngày công bố/truy xuất, claim/source IDs, units/timeframe, số liệu và trích dẫn đúng evidence |
+| policy | Đối soát chính sách liên quan bằng nguồn hiện hành; quyền sử dụng media; báo rủi ro và giới hạn, không bảo đảm nền tảng duyệt |
+| integrity | Hash dossier/artifact/baseline/report/evidence hiện tại; đủ claim coverage, actor độc lập, không bịa số liệu/chứng cứ |
+| task_quality | Đúng brief/skill, logic rõ và sản phẩm thực sự giúp quyết định của người dùng |
 
-## 1. Bốn Trụ Cột Thẩm Định Bắt Buộc
+Bốn ID bắt buộc không được Creator chọn/bỏ; checklist và claim_checks phải phủ mọi ID đúng một lần. APPROVE yêu cầu PASS có evidence. Fact có status verified và nguồn kiểm được; unverified không được viết thành factual. Assumption phải hiện rõ `Giả định:` hoặc `Assumption:` ngay excerpt bản thảo; excluded claim không còn literal statement trong artifact. Hash chứng minh bytes không đổi, không tự chứng minh nguồn đúng hoặc paraphrase đúng.
 
-### Trụ cột 1: Tuân thủ Chính sách Nền tảng (Platform Policy Compliance)
-- **Meta (Facebook/Instagram Ads Policy):**
-  - Không cam kết kết quả tuyệt đối (100% khỏi bệnh, chắc chắn giàu, cam kết hoàn vốn X ngày không rủi ro).
-  - Không nhắm trực tiếp vào đặc điểm cá nhân gây tiêu cực (cân nặng, khiếm khuyết cơ thể, tình trạng nợ nần, ám chỉ riêng tư).
-  - Không dùng hình ảnh so sánh Before/After phản cảm hoặc bẫy click ảo (fake button, video play button giả).
-- **YouTube Policy & YPP Guidelines:**
-  - Quy tắc 7 giây đầu: Không chửi bậy, không bạo lực máu me hoặc yếu tố giật gân phản cảm.
-  - Tuân thủ nguyên tắc EDSA (Giáo dục, Tài liệu, Khoa học, Nghệ thuật) khi đề cập đến các vụ việc tài chính / pháp lý / bóc phốt.
-  - Không xúi giục hành vi nguy hiểm hoặc quảng bá mô hình đa cấp/Ponzi trái phép.
-- **TikTok Policy:** Không vi phạm ngôn từ gây hiểu lầm, không đạo nhái bản quyền thương hiệu, không vi phạm an toàn cộng đồng.
+Với Meta Ads/analyzer/money models/research-only: kiểm công thức CPA = spend / conversions, ROAS = revenue / spend, CPM = spend / impressions * 1000; mẫu số 0 và unavailable không giả thành 0. Kiểm tiền tệ, kỳ dữ liệu, timezone, date range, attribution, currency conversion source/date, coverage/truncation/errors. Phân biệt tương quan/nhân quả và tiếng nói mẫu nhỏ/đại diện thị trường. Dossier ghi chất lượng nguồn, hạn chế, số chưa kiểm được.
 
-### Trụ cột 2: Quét Sạch Sáo Rỗng AI (Anti-AI Slop & Tone of Voice)
-- **Danh sách đen cụm từ sáo rỗng AI (Bắt buộc loại bỏ hoặc viết lại tự nhiên):**
-  - *"Trong kỷ nguyên số...", "Trong thời đại 4.0...", "Trong thế giới ngày nay..."*
-  - *"Không chỉ... mà còn...", "Đóng vai trò quan trọng...", "Một bước đột phá..."*
-  - *"Hãy cùng khám phá...", "Bạn có bao giờ tự hỏi...", "Đừng ngần ngại..."*
-  - *"Mở ra một chân trời mới...", "Nâng tầm trải nghiệm...", "Bức tranh toàn cảnh..."*
-  - *"Tóm lại là...", "Như chúng ta đã biết...", "Lời kết..."*
-- **Kiểm tra văn phong:**
-  - Giọng văn phải mang chất liệu đời thực, ngôn ngữ nói tự nhiên, có nhịp điệu (câu ngắn xen câu dài), giàu hình ảnh giác quan.
-  - Loại bỏ các tính từ chung chung vô thưởng vô phạt.
+Hook/CTA và framework AIDA/PAS/Hormozi chỉ chấm khi brief yêu cầu nội dung chuyển đổi. Research-only, phân tích hiệu suất và bảng số liệu không bắt có Hook/CTA; task_quality chấm tính đúng, khả năng tái tính và tính hữu ích của phân tích.
 
-### Trụ cột 3: Kiểm Chứng Dữ Liệu & Logic Xác Thực (Fact-Check & Data Grounding)
-- **Đối soát với Research Dossier:** Mọi số liệu, tỷ lệ %, sự kiện, nhân vật và câu trích dẫn trong bài viết bắt buộc phải khớp đúng với `Research Dossier` do Web Researcher cung cấp. Tuyệt đối không chấp nhận số liệu "chém gió" hoặc tự phóng đại không có nguồn.
-- **Xác thực dữ liệu Mạng xã hội (Social Media Accuracy):** Đảm bảo các dẫn chứng về phản ứng dư luận, top bình luận, nỗi bức xúc từ Facebook, Instagram, X (Twitter) phải bám sát dữ liệu thực địa trong Dossier; không bịa đặt cuộc trò chuyện ảo hay gán ghép quan điểm cực đoan vô căn cứ.
-- **Kiểm tra tính ngụy biện:** Không dùng ngụy biện khái quát hóa vội vã (hasty generalization), ngụy biện người rơm, hoặc đánh tráo khái niệm.
-- **Tính khả thi và minh bạch:** Giải pháp đưa ra cho khách hàng phải thực tế, không vẽ vời ảo tưởng, dẫn nguồn minh bạch nếu đưa ra số liệu nhạy cảm.
+Quét heuristic chỉ phát hiện pattern đáng rà lại; không xác nhận YPP, bản quyền hay an toàn tuyệt đối. Critic dẫn nguồn chính sách cụ thể và thời điểm kiểm, không dùng quy tắc số giây cố định như bảo đảm tuân thủ. Giọng văn rõ, tránh sáo rỗng, không thêm hứa hẹn thiếu căn cứ.
 
-### Trụ cột 4: Cấu Trúc Chuyển Đổi & Sức Hút (Conversion Architecture & Engagement)
-- **Độ bén của Hook (3 giây đầu / 2 dòng đầu):** Phải tạo được cú dừng ngón tay (pattern interrupt), chạm đúng nỗi đau (pain point) hoặc kích thích sự tò mò mạnh mẽ.
-- **Đúng khung sườn (Framework Fidelity):** Tuân thủ chính xác công thức được chỉ định (AIDA, PAS, Hormozi Grand Slam Offer, Kahneman System 1/System 2, Bóc phốt storytelling...).
-- **Độ sắc của Lời kêu gọi hành động (CTA):** CTA phải đơn nhiệm, rõ ràng, giảm thiểu rào cản hành động (friction), có lý do để hành động ngay (urgency/scarcity có cơ sở).
-
----
-
-## 2. Quy Định Định Dạng Đầu Ra Bắt Buộc Của Compliance Critic
-
-Mọi đánh giá từ Checker phải tuân thủ nghiêm ngặt cấu trúc báo cáo sau:
-
-```markdown
-### [AUDIT REPORT] - BÁO CÁO THẨM ĐỊNH NỘI DUNG
-
-#### 1. Đánh giá theo 4 Trụ Cột:
-- **Chính sách nền tảng:** [ĐẠT / CÓ RỦI RO] - {Chi tiết điều khoản vi phạm nếu có}
-- **Bộ lọc AI Slop:** [ĐẠT / CHƯA ĐẠT] - {Trích dẫn các câu từ sáo rỗng cần gọt giũa}
-- **Kiểm chứng dữ liệu & Logic (Fact-Check):** [ĐẠT / CHƯA ĐẠT] - {Đối soát số liệu/claim với Research Dossier, chỉ rõ sai lệch nếu có}
-- **Cấu trúc chuyển đổi & Hook/CTA:** [ĐẠT / CHƯA ĐẠT] - {Nhận xét về độ bén của Hook, Body, CTA}
-
-#### 2. Danh sách chỉnh sửa yêu cầu (Actionable Feedback):
-1. {Vị trí lỗi cụ thể - Trích đoạn}: {Lý do} -> {Hướng dẫn sửa cụ thể}
-2. ...
-
-#### 3. Phán quyết chuẩn:
-VERDICT: APPROVE
-(hoặc)
-VERDICT: REJECT
-```
+Report file nằm trong configured brain root, được hash bind; marketing payload `report` là PATH absolute tới report thật (khác app report TEXT). Findings có excerpt/location, claim ID, nguồn, tác động và cách sửa. REJECT thứ hai audit → ESCALATED ngay, counter tồn tại qua revise/resubmit/restart. Kết thúc report bằng `VERDICT: APPROVE|REJECT|ESCALATE` theo một phán quyết cụ thể.

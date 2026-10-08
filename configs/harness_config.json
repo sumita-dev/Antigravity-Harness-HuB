@@ -5,6 +5,11 @@
   },
   "roles": {
     "architect": "pro",
+    "design_reviewer": "flash",
+    "builder": "pro",
+    "qa_auditor": "flash",
+    "web_researcher": "pro",
+    "creator": "pro",
     "builder_creator": "pro",
     "qa": "flash",
     "compliance_critic": "flash"

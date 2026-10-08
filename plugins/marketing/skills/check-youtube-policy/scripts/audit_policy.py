@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 YouTube Policy Auditor CLI & Engine
-Analyzes YouTube scripts against 50 YouTube policies crawled from YouTube Support.
+Screens text using local keyword heuristics; does not issue a platform verdict.
 """
 
 import sys
@@ -216,19 +216,24 @@ def analyze_script(script_text):
     
     # Status Determination
     if critical_count > 0:
-        status = "🔴 NGUY HIỂM / VI PHẠM NGUYÊN TẮC CỘNG ĐỒNG (CÓ NGUY CƠ NHẬN GẬY HOẶC XÓA VIDEO)"
-        monetization = "BỊ TẮT KIẾM TIỀN HOẶC XÓA VIDEO"
+        status = "Tín hiệu rủi ro CRITICAL cần thẩm định ngữ cảnh"
     elif high_count > 0 or score < 70:
-        status = "🟠 RỦI RO CAO / GIỚI HẠN ĐỘ TUỔI 18+ HOẶC VÀNG TIỀN NẶNG"
-        monetization = "ĐÔ LA VÀNG / HẠN CHẾ HẦU HẾT NHÀ QUẢNG CÁO"
+        status = "Tín hiệu rủi ro HIGH cần thẩm định ngữ cảnh"
     elif medium_count > 0 or score < 90:
-        status = "🟡 CẦN LƯU Ý / CÓ THỂ BỊ HẠN CHẾ QUẢNG CÁO (ĐÔ LA VÀNG)"
-        monetization = "ĐÔ LA VÀNG (Cần chỉnh sửa từ ngữ để lên Đô la Xanh)"
+        status = "Tín hiệu rủi ro MEDIUM cần thẩm định ngữ cảnh"
     else:
-        status = "🟢 AN TOÀN TUYỆT ĐỐI (CHUẨN BẬT KIẾM TIỀN ĐÔ LA XANH)"
-        monetization = "ĐÔ LA XANH (Phù hợp mọi nhà quảng cáo)"
+        status = "Chưa phát hiện từ khóa trong bộ quy tắc hiện có"
+    monetization = "NOT_VERIFIED: cần YouTube đánh giá video và kênh thực tế"
 
     return {
+        "screening_method": "regex_heuristic",
+        "limitations": [
+            "Chỉ sàng lọc từ khóa văn bản; có thể bỏ sót hoặc báo nhầm do ngữ cảnh.",
+            "Không xác minh hình ảnh, âm thanh, quyền sử dụng tài sản, bản quyền hoặc Content ID.",
+            "Không chứng nhận tuân thủ chính sách, điều kiện YPP hoặc kết quả kiếm tiền.",
+            "20 từ đầu chỉ ước tính thời gian; có disclaimer không tự tạo ngoại lệ EDSA.",
+            "Quy tắc cục bộ không tự cập nhật chính sách; cần kiểm tra tài liệu hiện hành.",
+        ],
         "metrics": {
             "total_words": total_words,
             "estimated_duration": f"{estimated_seconds} giây (~{round(estimated_seconds/60, 1)} phút)",
@@ -257,11 +262,11 @@ def format_markdown_report(result, original_script):
     lines.append("")
     lines.append("| Chỉ số kiểm định | Kết quả đánh giá | Diễn giải kỹ thuật |")
     lines.append("|:---|:---:|:---|")
-    lines.append(f"| **Điểm An toàn Chính sách** | **{m['safety_score']}/100** | {'Đạt ngưỡng xuất bản an toàn' if m['safety_score']>=90 else 'Cần sửa đổi trước khi sản xuất'} |")
-    lines.append(f"| **Đánh giá Trạng thái** | {m['status']} | Dựa trên 50 bộ quy chuẩn YouTube |")
-    lines.append(f"| **Dự báo Kiếm tiền** | **{m['monetization']}** | Tác động trực tiếp đến doanh thu AdSense/YPP |")
+    lines.append(f"| **Điểm sàng lọc heuristic** | **{m['safety_score']}/100** | Điểm quy ước từ regex, không phải xác suất an toàn |")
+    lines.append(f"| **Đánh giá Trạng thái** | {m['status']} | Bộ từ khóa cục bộ; cần Checker đánh giá ngữ cảnh |")
+    lines.append(f"| **Kiếm tiền** | **{m['monetization']}** | Không chứng nhận YPP |")
     lines.append(f"| **Quy mô Kịch bản** | {m['total_words']} từ | Ước tính thời lượng: {m['estimated_duration']} |")
-    lines.append(f"| **Bối cảnh EDSA** | {'✅ Đã tích hợp Disclaimer' if m['has_edsa_framing'] else '❌ Chưa có Disclaimer/Bối cảnh'} | Ngoại lệ Giáo dục/Tư liệu (Policy 6345162) |")
+    lines.append(f"| **Từ khóa EDSA** | {'Có từ khóa' if m['has_edsa_framing'] else 'Không thấy từ khóa'} | Không xác nhận ngoại lệ EDSA |")
     crit = m['violation_counts']['critical']
     high = m['violation_counts']['high']
     med = m['violation_counts']['medium']
@@ -274,7 +279,7 @@ def format_markdown_report(result, original_script):
     lines.append("")
     
     if not v_list:
-        lines.append("🎉 **KỊCH BẢN HOÀN HẢO!** Không phát hiện vi phạm nào trong 50 tài liệu chính sách của YouTube. Kịch bản đủ điều kiện bật kiếm tiền Đô la Xanh.")
+        lines.append("Không tìm thấy từ khóa trong bộ regex hiện có. Kết quả này không xác nhận kịch bản tuân thủ chính sách.")
     else:
         lines.append("| STT | Vị trí xuất hiện | Từ khóa vi phạm | Chính sách liên quan (ID) | Mức rủi ro | Hướng dẫn khắc phục an toàn |")
         lines.append("|:---:|:---|:---|:---|:---:|:---|")
@@ -285,11 +290,10 @@ def format_markdown_report(result, original_script):
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## 3. KHUYẾN NGHỊ HÀNH ĐỘNG CỐT LÕI ĐỂ SẠCH BÓNG VI PHẠM")
+    lines.append("## 3. GIỚI HẠN & THẨM ĐỊNH TIẾP THEO")
     lines.append("")
-    lines.append("1. **Áp dụng triệt để Quy tắc 7 giây đầu tiên (First 7 Seconds Rule)**: Đảm bảo phần Hook mở đầu tuyệt đối không có từ chửi thề, tiếng la hét ghê rợn, hình ảnh máu me hoặc chi tiết kích dục.")
-    lines.append("2. **Hoán đổi sang Từ điển Từ ngữ An toàn (Safe Euphemisms)**: Thay các từ nhạy cảm (giết, chết, tự tử, súng, ma túy) bằng từ ngữ mô tả khách quan, học thuật, báo chí.")
-    lines.append("3. **Cấy Bối cảnh Ngoại lệ EDSA (Giáo dục/Tư liệu)**: Luôn chèn câu tuyên bố miễn trừ trách nhiệm (Disclaimer) ở 5s đầu và nhắc lại thông điệp nhân văn/thượng tôn pháp luật ở phần kết.")
+    lines.extend(f"- {item}" for item in result["limitations"])
+    lines.append("Checker cần xem bản dựng thực tế, ngữ cảnh, nguồn dữ liệu và hồ sơ cấp phép tài sản. Đổi từ hoặc thêm disclaimer không bảo đảm tuân thủ.")
     lines.append("")
     return "\n".join(lines)
 

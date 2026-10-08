@@ -40,7 +40,7 @@
 - **Bugfix test:** Khi sửa bug, phải có test case tái hiện lỗi.
 - Test phải thực sự kiểm hành vi (assert có ý nghĩa), không chỉ chạy cho có.
 - Test không phụ thuộc trạng thái máy cá nhân (đường dẫn tuyệt đối, dữ liệu có sẵn).
-- Test không ghi vào dữ liệu của repo (dùng thư mục tạm).
+- Test dùng thư mục tạm riêng; trong môi trường hạn chế dùng `.brain/qa-tmp-<unique>` và `-p no:cacheprovider`, không thay quyền toàn máy.
 
 ---
 
@@ -99,7 +99,9 @@ Kết thúc báo cáo bằng **đúng một** dòng, không thêm chữ nào kh�
   vấn đề hệ thống vượt phạm vi task.
 - **APPROVE** chỉ khi mọi mục Bắt buộc PASS và đã tự chạy lại bằng chứng.
 - Native app workflow: Spec/human signoff và manifest source/test/config phải khớp snapshot hiện tại, kể cả thay đổi chưa commit. Actor QA khác Builder; identity khai báo không thay chứng minh context độc lập của runtime.
-- Evidence gồm command, cwd, exit code, output file/hash. Exit code 0 không tự suy ra APPROVE; QA phải đối chiếu toàn bộ AC. UI yêu cầu local preview và browser evidence từng AC; non-UI ghi lý do `not_applicable` theo Spec.
+- Evidence gồm command ID, command, cwd absolute trong project, ac_ids, exit code, output file/hash; khớp signed verification_commands với cwd root-relative. Exit code 0 không tự suy ra APPROVE. Mọi applicable AC, kể cả non-UI, phải PASS có evidence; N/A chỉ cho Spec applicable false kèm na_reason. UI yêu cầu local preview và browser evidence từng AC.
+- PARTIAL_APPROVE chỉ khi có applicable UI AC NOT_VERIFIED và toàn bộ non-UI PASS/commands hợp lệ. AUDIT_PENDING_BROWSER không được tạo để bỏ QA; verify-browser đối soát pending IDs/URL cũ và cả logs/evidence/source hiện tại. Design không có partial verdict.
+- Git diff chỉ hỗ trợ đọc; QA kiểm cùng checkout chứa staged/unstaged/untracked, không audit mỗi committed HEAD. Runtime/log/cache exclusion theo policy Spec; generated build/dist/.next chỉ loại khi kê khai, nested source collision vẫn included.
 - REJECT thứ hai của pha audit chuyển ESCALATED; counters tồn tại qua resubmit/restart. CLI kiểm dữ liệu checkpoint, không tự xác thực hành động người dùng hay kiểm trình duyệt.
 - Mỗi lỗi phải kèm **vị trí cụ thể** và **cách tái hiện**; REJECT chung chung là báo cáo lỗi.
 - QA Auditor **không được sửa code** — chỉ nêu lỗi và yêu cầu Builder sửa.

@@ -14,22 +14,23 @@ const DEFAULT_API_KEY = process.env.YOUTUBE_API_KEY || '';
 // Helper to make HTTPS GET requests
 function getRequest(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const request = https.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.error) {
-            reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
+          if (res.statusCode < 200 || res.statusCode >= 300 || parsed.error) {
+            reject(new Error(`YouTube API HTTP ${res.statusCode}; request failed`));
           } else {
             resolve(parsed);
           }
         } catch (e) {
-          reject(new Error(`JSON Parse error: ${e.message} - Data: ${data.slice(0, 200)}`));
+          reject(new Error('Invalid YouTube API JSON response'));
         }
       });
-    }).on('error', reject);
+    }).on('error', () => reject(new Error('YouTube API network error')));
+    request.setTimeout(30000, () => request.destroy(new Error('YouTube API timeout')));
   });
 }
 
@@ -51,55 +52,110 @@ function extractVideoIds(content) {
 }
 
 // Fetch video details in chunks
-async function fetchVideos(videoIds, apiKey) {
+async function fetchVideos(videoIds, apiKey, request = getRequest) {
   const allVideos = [];
   const chunkSize = 50;
   for (let i = 0; i < videoIds.length; i += chunkSize) {
     const chunk = videoIds.slice(i, i + chunkSize);
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${chunk.join(',')}&key=${apiKey}`;
-    const res = await getRequest(url);
-    if (res.items) {
+    try {
+      const res = await request(url);
+      if (!Array.isArray(res.items)) throw new Error('Missing items');
       allVideos.push(...res.items);
+    } catch {
+      if (!allVideos.coverage) allVideos.coverage = {failed: 0};
+      allVideos.coverage.failed += chunk.length;
     }
   }
+  allVideos.coverage = detailCoverage(videoIds, allVideos, allVideos.coverage?.failed || 0, ['viewCount', 'commentCount', 'likeCount']);
   return allVideos;
 }
 
 // Fetch channel details
-async function fetchChannels(channelIds, apiKey) {
+async function fetchChannels(channelIds, apiKey, request = getRequest) {
   const allChannels = [];
   const chunkSize = 50;
   for (let i = 0; i < channelIds.length; i += chunkSize) {
     const chunk = channelIds.slice(i, i + chunkSize);
     const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails,brandingSettings&id=${chunk.join(',')}&key=${apiKey}`;
-    const res = await getRequest(url);
-    if (res.items) {
+    try {
+      const res = await request(url);
+      if (!Array.isArray(res.items)) throw new Error('Missing items');
       allChannels.push(...res.items);
+    } catch {
+      if (!allChannels.coverage) allChannels.coverage = {failed: 0};
+      allChannels.coverage.failed += chunk.length;
     }
   }
+  allChannels.coverage = detailCoverage(channelIds, allChannels, allChannels.coverage?.failed || 0, ['subscriberCount', 'viewCount']);
   return allChannels;
 }
 
 // Fetch ALL video IDs from a channel's uploads playlist
-async function fetchAllVideoIdsFromUploads(uploadsPlaylistId, apiKey, maxPerChannel = 1000) {
+async function fetchAllVideoIdsFromUploads(uploadsPlaylistId, apiKey, maxPerChannel = 1000, request = getRequest) {
+  if (!Number.isInteger(maxPerChannel) || maxPerChannel < 1) throw new Error('max-videos must be a positive integer');
   const videoIds = [];
+  const coverage = {requested: maxPerChannel, collected: 0, failed: 0, truncated: false, complete: false, pages: 0};
+  const seenTokens = new Set();
   let pageToken = '';
   while (videoIds.length < maxPerChannel) {
     let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${uploadsPlaylistId}&maxResults=50&key=${apiKey}`;
     if (pageToken) {
       url += `&pageToken=${pageToken}`;
     }
-    const res = await getRequest(url);
-    if (!res.items || res.items.length === 0) break;
+    let res;
+    try { res = await request(url); } catch { coverage.failed++; break; }
+    coverage.pages++;
+    if (!Array.isArray(res.items)) { coverage.failed++; break; }
     res.items.forEach(item => {
       if (item.contentDetails && item.contentDetails.videoId) {
-        videoIds.push(item.contentDetails.videoId);
+        if (videoIds.length < maxPerChannel) videoIds.push(item.contentDetails.videoId);
+        else coverage.truncated = true;
+      } else {
+        coverage.failed++;
       }
     });
     pageToken = res.nextPageToken;
-    if (!pageToken) break;
+    if (!pageToken) { coverage.complete = !coverage.failed && !coverage.truncated; break; }
+    if (seenTokens.has(pageToken)) { coverage.failed++; break; }
+    seenTokens.add(pageToken);
+    if (videoIds.length >= maxPerChannel) coverage.truncated = true;
   }
+  coverage.collected = videoIds.length;
+  videoIds.coverage = coverage;
   return videoIds;
+}
+
+function detailCoverage(ids, items, failed, metrics) {
+  const found = new Set(items.map(item => item.id));
+  const missing_ids = ids.filter(id => !found.has(id));
+  const missing_metrics = items.flatMap(item => metrics.filter(metric => metricValue(item.statistics?.[metric]) === null).map(metric => ({id: item.id, metric})));
+  return {requested: ids.length, collected: items.length, failed, missing_ids, missing_metrics, truncated: false, complete: !failed && !missing_ids.length && !missing_metrics.length};
+}
+
+function metricValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[character]));
+}
+
+function safeUrl(value) {
+  try { const url = new URL(String(value)); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
+}
+
+function scriptJson(value) {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, character => '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
+function csvCell(value) {
+  let text = value == null ? 'N/A' : String(value);
+  text = text.replace(/[\r\n]+/g, ' ');
+  if (/^[=+@\-\t]/.test(text)) text = "'" + text;
+  return '"' + text.replace(/"/g, '""') + '"';
 }
 
 // Extract hashtags
@@ -122,6 +178,7 @@ function extractHashtags(title = '', description = '', tags = []) {
 
 // Generate Dashboard HTML
 function generateHtmlDashboard(channelData, videoData, meta) {
+  const coverage = meta.coverage || {requested: null, collected: videoData.length, failed: null, truncated: null, complete: false, missing_metrics: []};
   return `<!DOCTYPE html>
 <html lang="vi" class="dark">
 <head>
@@ -130,7 +187,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
   <title>YouTube Competitor Intelligence Dashboard (Full Channel Scan)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
+    if (typeof tailwind !== 'undefined') tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
@@ -148,6 +205,40 @@ function generateHtmlDashboard(channelData, videoData, meta) {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    /* Basic offline layout keeps local exports usable when the optional CDNs fail. */
+    body { margin: 0; background: #0f172a; color: #f1f5f9; }
+    * { box-sizing: border-box; }
+    .hidden { display: none !important; }
+    .flex { display: flex; } .flex-wrap { flex-wrap: wrap; }
+    .grid { display: grid; } .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; } .justify-center { justify-content: center; }
+    .max-w-7xl { max-width: 1280px; margin-left: auto; margin-right: auto; }
+    main { padding: 24px; } header > div { padding: 16px 24px; gap: 16px; }
+    h1 { font-size: 20px; margin: 0; } p { overflow-wrap: anywhere; }
+    .gap-2, .gap-2\\.5 { gap: 10px; } .gap-4 { gap: 16px; }
+    .space-y-8 > * + * { margin-top: 24px; }
+    .grid { gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid > div { min-width: 0; padding: 16px; border: 1px solid #334155; border-radius: 8px; }
+    .overflow-x-auto { overflow-x: auto; max-width: 100%; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+    td:nth-child(2), td:first-child { max-width: 340px; overflow-wrap: anywhere; }
+    a { color: #38bdf8; overflow-wrap: anywhere; }
+    button, input, select { font: inherit; font-size: 13px; border: 1px solid #475569; border-radius: 6px; padding: 8px 10px; background: #1e293b; color: #f1f5f9; max-width: 100%; }
+    button { cursor: pointer; white-space: normal; } button:hover { background: #334155; }
+    header button { flex-shrink: 0; white-space: nowrap; }
+    [data-tag-index] { text-align: left; max-width: 140px; overflow-wrap: anywhere; }
+    input, select { min-width: 0; width: 100%; }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .text-xs { font-size: 12px; } .text-sm { font-size: 14px; } .text-3xl { font-size: 30px; font-weight: bold; }
+    .text-amber-300 { color: #fcd34d; } .text-red-400 { color: #fb7185; }
+    .text-emerald-400 { color: #34d399; } .text-cyan-300 { color: #67e8f9; }
+    .fixed { position: fixed; } .inset-0 { inset: 0; } .z-50 { z-index: 50; }
+    #descModal, #exportModal { background: #000b; padding: 16px; align-items: center; justify-content: center; }
+    #descModal > div, #exportModal > div { background: #1e293b; padding: 24px; border-radius: 8px; max-width: 650px; max-height: 85vh; overflow: auto; width: 100%; }
+    #modalContent { white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 700px) { main { padding: 12px; } header > div { padding: 12px; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } h1 { flex-wrap: wrap; } }
+    @media (max-width: 420px) { .grid { grid-template-columns: minmax(0, 1fr); } }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
@@ -166,13 +257,13 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         <div>
           <h1 class="text-xl font-bold text-white flex items-center gap-2">
             YouTube Competitor Intelligence
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">Toàn Bộ Video Kênh</span>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">Video đã thu thập</span>
           </h1>
-          <p class="text-xs text-slate-400">Quét toàn bộ video • Cập nhật: ${meta.generatedAt}</p>
+          <p class="text-xs text-slate-400">Dữ liệu đã thu thập • Cập nhật: ${escapeHtml(meta.generatedAt)}</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-2.5">
+      <div class="flex flex-wrap items-center gap-2.5">
         <button onclick="exportCSV('channels')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5">
           <i class="fa-solid fa-file-csv text-emerald-400"></i> Xuất Kênh (CSV)
         </button>
@@ -182,14 +273,15 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         <button onclick="exportJSON()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5">
           <i class="fa-solid fa-code text-amber-400"></i> JSON
         </button>
-        <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-          <i id="themeIcon" class="fa-solid fa-sun"></i>
+        <button onclick="toggleTheme()" aria-label="Đổi giao diện" title="Đổi giao diện" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+          <i id="themeIcon" class="fa-solid fa-sun" aria-hidden="true"></i> Giao diện
         </button>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <p id="coverage" class="text-sm text-amber-300 break-words">${coverage.complete ? 'Đã hết phân trang theo API' : 'Dữ liệu một phần / chưa xác minh đầy đủ'}: requested=${escapeHtml(coverage.requested ?? 'N/A')}, collected=${escapeHtml(coverage.collected)}, failed=${escapeHtml(coverage.failed ?? 'N/A')}, truncated=${escapeHtml(coverage.truncated ?? 'N/A')}. Chỉ số thiếu: ${escapeHtml((coverage.missing_metrics || []).length)}. Comments chỉ đại diện video đã lấy được; giới hạn mặc định 1000 video/kênh.</p>
     <!-- Metric KPI Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-sm relative overflow-hidden group">
@@ -197,7 +289,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Tổng Số Kênh</span>
         <div class="text-3xl font-extrabold text-white mt-1" id="kpiChannels">${channelData.length}</div>
         <div class="text-xs text-emerald-400 mt-2 font-medium flex items-center gap-1">
-          <i class="fa-solid fa-circle-check"></i> Đã quét toàn diện
+          <i class="fa-solid fa-circle-check"></i> Kênh đã lấy được
         </div>
       </div>
 
@@ -205,13 +297,13 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         <div class="absolute -right-2 -bottom-2 opacity-10 text-6xl text-rose-400 group-hover:scale-110 transition"><i class="fa-solid fa-video"></i></div>
         <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Tổng Video Đã Quét</span>
         <div class="text-3xl font-extrabold text-white mt-1" id="kpiVideos">${videoData.length.toLocaleString('vi-VN')}</div>
-        <div class="text-xs text-rose-400 mt-2 font-medium">Toàn bộ video các kênh</div>
+        <div class="text-xs text-rose-400 mt-2 font-medium">Video đã lấy được</div>
       </div>
 
       <div class="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-sm relative overflow-hidden group">
         <div class="absolute -right-2 -bottom-2 opacity-10 text-6xl text-amber-400 group-hover:scale-110 transition"><i class="fa-solid fa-fire"></i></div>
         <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Tổng Video Outlier</span>
-        <div class="text-3xl font-extrabold text-amber-300 mt-1" id="kpiOutliers">${meta.totalOutliers.toLocaleString('vi-VN')}</div>
+        <div class="text-3xl font-extrabold text-amber-300 mt-1" id="kpiOutliers">${escapeHtml(Number(meta.totalOutliers).toLocaleString('vi-VN'))}</div>
         <div class="text-xs text-amber-400 mt-2 font-medium" title="Đây là các video có lượt xem =2 lần số subcriber của kênh">
           Lượt xem ≥ 2x Subscriber
         </div>
@@ -220,8 +312,8 @@ function generateHtmlDashboard(channelData, videoData, meta) {
       <div class="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-sm relative overflow-hidden group">
         <div class="absolute -right-2 -bottom-2 opacity-10 text-6xl text-cyan-400 group-hover:scale-110 transition"><i class="fa-solid fa-bolt"></i></div>
         <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Video View/Ngày Đỉnh Nhất</span>
-        <div class="text-base font-bold text-cyan-300 mt-1 truncate" title="${meta.topVpdVideo.title}">${meta.topVpdVideo.title}</div>
-        <div class="text-xs text-cyan-400 mt-2 font-medium">+${meta.topVpdVideo.viewsPerDay.toLocaleString('vi-VN')} view / ngày</div>
+        <div class="text-base font-bold text-cyan-300 mt-1 truncate" title="${escapeHtml(meta.topVpdVideo.title)}">${escapeHtml(meta.topVpdVideo.title)}</div>
+        <div class="text-xs text-cyan-400 mt-2 font-medium">+${escapeHtml(meta.topVpdVideo.viewsPerDay == null ? 'N/A' : Number(meta.topVpdVideo.viewsPerDay).toLocaleString('vi-VN'))} view / ngày</div>
       </div>
     </div>
 
@@ -232,7 +324,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
           <i class="fa-solid fa-chart-pie"></i> Bảng 1: Thông Tin Chung Kênh (${channelData.length})
         </button>
         <button onclick="switchTab('videos')" id="tabBtnVideos" class="px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
-          <i class="fa-solid fa-clapperboard"></i> Bảng 2: Chi Tiết Toàn Bộ Video (${videoData.length.toLocaleString('vi-VN')})
+          <i class="fa-solid fa-clapperboard"></i> Bảng 2: Chi Tiết Video Đã Lấy (${videoData.length.toLocaleString('vi-VN')})
         </button>
       </div>
 
@@ -434,7 +526,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
                 <th class="p-2">
                   <select id="f_vid_channel" onchange="applyVideoFilters()" class="w-full px-2 py-1 text-xs rounded bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-red-500">
                     <option value="">Tất cả kênh</option>
-                    ${channelData.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                    ${channelData.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')}
                   </select>
                 </th>
                 <th class="p-2">
@@ -536,7 +628,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
           <div class="text-sm font-bold text-white">3. Xuất riêng cho một kênh cụ thể:</div>
           <div class="flex items-center gap-2">
             <select id="exportSelectChannel" class="flex-1 px-3 py-1.5 text-xs rounded-lg bg-slate-800 border border-slate-600 text-white focus:outline-none">
-              ${channelData.map(c => `<option value="${c.id}">${c.name} (${c.scannedVideoCount || 0} video)</option>`).join('')}
+              ${channelData.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)} (${escapeHtml(c.scannedVideoCount || 0)} video)</option>`).join('')}
             </select>
             <button onclick="executeExportCSV('singleChannel')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">
               Xuất
@@ -552,8 +644,11 @@ function generateHtmlDashboard(channelData, videoData, meta) {
   </div>
 
   <script>
-    const RAW_CHANNELS = ${JSON.stringify(channelData)};
-    const RAW_VIDEOS = ${JSON.stringify(videoData)};
+    const RAW_CHANNELS = ${scriptJson(channelData)};
+    const RAW_VIDEOS = ${scriptJson(videoData)};
+    const escapeHtml = ${escapeHtml.toString()};
+    const safeUrl = ${safeUrl.toString()};
+    const csvCell = ${csvCell.toString()};
 
     let currentChannels = [...RAW_CHANNELS];
     let currentVideos = [...RAW_VIDEOS];
@@ -566,7 +661,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
     let onlyOutliers = false;
 
     function formatNum(num) {
-      if (num === undefined || num === null) return '0';
+      if (num === undefined || num === null || !Number.isFinite(Number(num))) return 'N/A';
       return Number(num).toLocaleString('vi-VN');
     }
 
@@ -711,12 +806,12 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         tr.innerHTML = \`
           <td class="py-3 px-4 font-semibold text-white">
             <div class="flex items-center space-x-3">
-              \${c.avatar ? \`<img src="\${c.avatar}" class="w-8 h-8 rounded-full border border-slate-700 flex-shrink-0">\` : ''}
+              \${safeUrl(c.avatar) ? \`<img src="\${escapeHtml(safeUrl(c.avatar))}" class="w-8 h-8 rounded-full border border-slate-700 flex-shrink-0">\` : ''}
               <div>
-                <a href="\${c.channelUrl}" target="_blank" class="hover:text-red-400 transition hover:underline flex items-center gap-1.5">
-                  \${c.name} <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-70"></i>
+                <a href="\${escapeHtml(safeUrl(c.channelUrl))}" target="_blank" rel="noopener noreferrer" class="hover:text-red-400 transition hover:underline flex items-center gap-1.5">
+                  \${escapeHtml(c.name)} <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-70"></i>
                 </a>
-                <div class="text-[11px] text-slate-400 font-normal">\${c.handle || ''}</div>
+                <div class="text-[11px] text-slate-400 font-normal">\${escapeHtml(c.handle || '')}</div>
               </div>
             </div>
           </td>
@@ -724,29 +819,32 @@ function generateHtmlDashboard(channelData, videoData, meta) {
           <td class="py-3 px-4 text-slate-300 font-medium">\${formatNum(c.views)}</td>
           <td class="py-3 px-4 text-slate-300 font-medium">\${formatNum(c.comments)}</td>
           <td class="py-3 px-4 text-emerald-400 font-medium">+\${formatNum(c.viewsPerDay)}/ngày</td>
-          <td class="py-3 px-4 text-cyan-300 font-medium">\${c.commentViewRatio}%</td>
+          <td class="py-3 px-4 text-cyan-300 font-medium">\${formatNum(c.commentViewRatio)}%</td>
           <!-- NEW COLUMN: Outlier with Tooltip Hint -->
           <td class="py-3 px-4 text-center">
-            <button onclick="filterOutliersByChannel('\${c.name.replace(/'/g, "\\\\'")}')" 
+            <button data-action="outliers"
               title="Đây là các video có lượt xem =2 lần số subcriber của kênh (Bấm để xem danh sách video)"
               class="px-2.5 py-1 rounded-full text-xs font-bold \${c.outlierCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 shadow-sm' : 'bg-slate-800 text-slate-500 border border-slate-700'} transition inline-flex items-center gap-1.5">
-              <i class="fa-solid fa-fire text-[10px]"></i> \${c.outlierCount} video
+              <i class="fa-solid fa-fire text-[10px]"></i> \${formatNum(c.outlierCount)} video
             </button>
           </td>
           <td class="py-3 px-4 text-center whitespace-nowrap">
             <div class="flex items-center justify-center gap-1.5">
-              <button onclick="filterVideosByChannel('\${c.name.replace(/'/g, "\\\\'")}')" 
+              <button data-action="videos"
                 class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30 transition flex items-center gap-1">
-                <i class="fa-solid fa-filter"></i> Xem Video (\${c.scannedVideoCount || 0})
+                <i class="fa-solid fa-filter"></i> Xem Video (\${formatNum(c.scannedVideoCount)})
               </button>
-              <button onclick="exportCSVForChannel('\${c.id}', '\${c.name.replace(/'/g, "\\\\'")}')" 
-                title="Xuất toàn bộ \${c.scannedVideoCount || 0} video của kênh này ra file CSV"
+              <button data-action="csv"
+                title="Xuất video đã thu thập của kênh ra file CSV"
                 class="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium border border-emerald-500/30 transition flex items-center gap-1">
                 <i class="fa-solid fa-file-csv"></i> CSV
               </button>
             </div>
           </td>
         \`;
+        tr.querySelector('[data-action="outliers"]').addEventListener('click', () => filterOutliersByChannel(c.name));
+        tr.querySelector('[data-action="videos"]').addEventListener('click', () => filterVideosByChannel(c.name));
+        tr.querySelector('[data-action="csv"]').addEventListener('click', () => exportCSVForChannel(c.id, c.name));
         tbody.appendChild(tr);
       });
     }
@@ -861,8 +959,8 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-800/80 transition-colors";
         
-        const tagBadges = (v.hashtags || []).slice(0, 3).map(t => 
-          \`<span onclick="filterByTag('\${t}')" class="cursor-pointer inline-block px-1.5 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 hover:text-red-400 border border-slate-700 mr-1 mb-1 font-mono">\${t}</span>\`
+        const tagBadges = (v.hashtags || []).slice(0, 3).map((t, index) =>
+          \`<button data-tag-index="\${index}" class="cursor-pointer inline-block px-1.5 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 hover:text-red-400 border border-slate-700 mr-1 mb-1 font-mono">\${escapeHtml(t)}</button>\`
         ).join('');
 
         const outlierBadge = v.isOutlier 
@@ -872,15 +970,15 @@ function generateHtmlDashboard(channelData, videoData, meta) {
         tr.innerHTML = \`
           <td class="py-3 px-3 font-medium text-slate-300 whitespace-nowrap">
             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-              \${v.channelTitle}
+              \${escapeHtml(v.channelTitle)}
             </span>
           </td>
           <td class="py-3 px-3 font-semibold text-white">
             <div class="flex items-start space-x-2.5">
-              \${v.thumbnail ? \`<img src="\${v.thumbnail}" class="w-14 h-9 object-cover rounded border border-slate-700 flex-shrink-0 mt-0.5">\` : ''}
+              \${safeUrl(v.thumbnail) ? \`<img src="\${escapeHtml(safeUrl(v.thumbnail))}" class="w-14 h-9 object-cover rounded border border-slate-700 flex-shrink-0 mt-0.5">\` : ''}
               <div>
-                <a href="\${v.videoUrl}" target="_blank" class="hover:text-red-400 transition hover:underline line-clamp-2 text-xs sm:text-sm">
-                  \${v.title}
+                <a href="\${escapeHtml(safeUrl(v.videoUrl))}" target="_blank" rel="noopener noreferrer" class="hover:text-red-400 transition hover:underline line-clamp-2 text-xs sm:text-sm">
+                  \${escapeHtml(v.title)}
                 </a>
                 <div class="mt-0.5 flex items-center gap-1">\${outlierBadge}</div>
               </div>
@@ -890,18 +988,20 @@ function generateHtmlDashboard(channelData, videoData, meta) {
           <td class="py-3 px-3 text-amber-300 font-semibold whitespace-nowrap">\${formatNum(v.comments)}</td>
           <!-- Views/Day -->
           <td class="py-3 px-3 text-cyan-400 font-semibold whitespace-nowrap">+\${formatNum(v.viewsPerDay)}</td>
-          <td class="py-3 px-3 text-slate-400 font-mono text-xs whitespace-nowrap">\${v.date}</td>
-          <td class="py-3 px-3 text-slate-300 font-mono text-xs whitespace-nowrap">\${v.day} ngày</td>
+          <td class="py-3 px-3 text-slate-400 font-mono text-xs whitespace-nowrap">\${escapeHtml(v.date)}</td>
+          <td class="py-3 px-3 text-slate-300 font-mono text-xs whitespace-nowrap">\${formatNum(v.day)} ngày</td>
           <!-- Hashtags & Descriptions pushed to end -->
           <td class="py-3 px-3" style="max-width: 160px;">
             <div class="flex flex-wrap">\${tagBadges || '<span class="text-xs text-slate-500">--</span>'}</div>
           </td>
           <td class="py-3 px-3 text-center whitespace-nowrap">
-            <button onclick="openModalById('\${v.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs">
+            <button data-action="description" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs">
               <i class="fa-regular fa-file-lines text-blue-400"></i> Xem
             </button>
           </td>
         \`;
+        tr.querySelector('[data-action="description"]').addEventListener('click', () => openModalById(v.id));
+        tr.querySelectorAll('[data-tag-index]').forEach(button => button.addEventListener('click', () => filterByTag(v.hashtags[Number(button.dataset.tagIndex)])));
         tbody.appendChild(tr);
       });
 
@@ -1018,32 +1118,12 @@ function generateHtmlDashboard(channelData, videoData, meta) {
       ];
 
       videosList.forEach(v => {
-        const safeChan = (v.channelTitle || '').replace(/"/g, '""');
-        const safeTitle = (v.title || '').replace(/"/g, '""');
-        const safeUrl = (v.videoUrl || '').replace(/"/g, '""');
-        const views = v.views !== undefined ? v.views : 0;
-        const comments = v.comments !== undefined ? v.comments : 0;
-        const viewsPerDay = v.viewsPerDay !== undefined ? v.viewsPerDay : 0;
-        const date = v.date || '';
-        const day = v.day !== undefined ? v.day : 0;
-        const isOutlier = v.isOutlier ? "Yes" : "No";
-        const tags = (v.hashtags || []).join(' ').replace(/"/g, '""');
-        // Replace newlines with space to keep each video record on a single clean row in Excel
-        const safeDesc = (v.description || '').replace(/"/g, '""').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ');
-
         rows.push([
-          '"' + safeChan + '"',
-          '"' + safeTitle + '"',
-          '"' + safeUrl + '"',
-          views,
-          comments,
-          viewsPerDay,
-          '"' + date + '"',
-          day,
-          '"' + isOutlier + '"',
-          '"' + tags + '"',
-          '"' + safeDesc + '"'
-        ]);
+          v.channelTitle, v.title, safeUrl(v.videoUrl), v.views, v.comments,
+          v.viewsPerDay, v.date, v.day,
+          v.isOutlier == null ? null : (v.isOutlier ? 'Yes' : 'No'),
+          (v.hashtags || []).join(' '), v.description
+        ].map(csvCell));
       });
 
       const newline = String.fromCharCode(13, 10);
@@ -1066,18 +1146,11 @@ function generateHtmlDashboard(channelData, videoData, meta) {
           ["Tên Kênh", "Subscribers", "Views", "Comments", "View/Day", "Comment/View %", "Outlier Videos", "Tổng Video Quét", "URL Kênh"]
         ];
         currentChannels.forEach(c => {
-          const safeName = (c.name || '').replace(/"/g, '""');
           rows.push([
-            '"' + safeName + '"',
-            c.subscribers,
-            c.views,
-            c.comments,
-            c.viewsPerDay,
-            '"' + c.commentViewRatio + '%"',
-            c.outlierCount,
-            (c.scannedVideoCount || 0),
-            '"' + c.channelUrl + '"'
-          ]);
+            c.name, c.subscribers, c.views, c.comments, c.viewsPerDay,
+            c.commentViewRatio == null ? null : c.commentViewRatio + '%',
+            c.outlierCount, c.scannedVideoCount, safeUrl(c.channelUrl)
+          ].map(csvCell));
         });
         const newline = String.fromCharCode(13, 10);
         const csvContent = "\uFEFF" + rows.map(r => r.join(',')).join(newline);
@@ -1098,7 +1171,7 @@ function generateHtmlDashboard(channelData, videoData, meta) {
 
     function exportJSON() {
       const exportData = {
-        meta: ${JSON.stringify(meta)},
+        meta: ${scriptJson(meta)},
         channels: currentChannels,
         videos: currentVideos
       };
@@ -1195,6 +1268,7 @@ Usage:
 
   console.log(`✅ Tìm thấy ${seedVideoIds.length} video mẫu. Đang truy vấn kênh sở hữu...`);
   const seedVideos = await fetchVideos(seedVideoIds, apiKey);
+  if (!seedVideos.length) throw new Error('No seed videos collected; see API credentials/quota/video availability');
 
   // Extract unique channel IDs
   const channelIdSet = new Set();
@@ -1207,17 +1281,19 @@ Usage:
   const channelIds = Array.from(channelIdSet);
   console.log(`📡 Tìm thấy ${channelIds.length} kênh đối thủ riêng biệt. Đang thu thập thông tin kênh...`);
   const rawChannels = await fetchChannels(channelIds, apiKey);
+  if (!rawChannels.length) throw new Error('No channels collected; cannot generate dashboard');
 
   // Build map of channelId -> subCount
   const channelSubMap = new Map();
   rawChannels.forEach(c => {
-    const sub = parseInt(c.statistics?.subscriberCount || '0', 10);
+    const sub = c.statistics?.hiddenSubscriberCount ? null : metricValue(c.statistics?.subscriberCount);
     channelSubMap.set(c.id, sub);
   });
 
   // For each channel, fetch ALL videos from uploads playlist
-  console.log(`🚀 Bước 2: Quét TOÀN BỘ video của ${rawChannels.length} kênh từ uploads playlist...`);
+  console.log(`🚀 Bước 2: Quét video của ${rawChannels.length} kênh (giới hạn ${maxVideosPerChannel}/kênh)...`);
   const channelVideosMap = new Map();
+  const playlistCoverage = [];
   let totalAllVideoIds = [];
 
   for (const c of rawChannels) {
@@ -1225,11 +1301,13 @@ Usage:
     if (uploadsId) {
       process.stdout.write(`   ↳ Đang quét kênh "${c.snippet.title}"... `);
       const vids = await fetchAllVideoIdsFromUploads(uploadsId, apiKey, maxVideosPerChannel);
+      playlistCoverage.push({channel_id: c.id, ...vids.coverage});
       channelVideosMap.set(c.id, vids);
       totalAllVideoIds.push(...vids);
       console.log(`xong (${vids.length} videos)`);
     } else {
       channelVideosMap.set(c.id, []);
+      playlistCoverage.push({channel_id: c.id, requested: maxVideosPerChannel, collected: 0, failed: 1, truncated: false, complete: false, reason: 'Uploads playlist unavailable'});
     }
   }
 
@@ -1246,14 +1324,14 @@ Usage:
   // Process Table 2: Videos Details
   const videoData = allRawVideos.map(v => {
     const pubDate = new Date(v.snippet.publishedAt);
-    const ageDays = Math.max(0, Math.floor((now - pubDate.getTime()) / (1000 * 60 * 60 * 24)));
-    const views = parseInt(v.statistics?.viewCount || '0', 10);
-    const comments = parseInt(v.statistics?.commentCount || '0', 10);
-    const viewsPerDay = Math.round(views / Math.max(1, ageDays));
+    const ageDays = Number.isFinite(pubDate.getTime()) ? Math.max(0, Math.floor((now - pubDate.getTime()) / (1000 * 60 * 60 * 24))) : null;
+    const views = metricValue(v.statistics?.viewCount);
+    const comments = metricValue(v.statistics?.commentCount);
+    const viewsPerDay = views === null || ageDays === null ? null : Math.round(views / Math.max(1, ageDays));
     const hashtags = extractHashtags(v.snippet.title, v.snippet.description, v.snippet.tags);
-    const chanSub = channelSubMap.get(v.snippet.channelId) || 0;
+    const chanSub = channelSubMap.get(v.snippet.channelId);
     // Outlier: views >= 2 * subscribers
-    const isOutlier = chanSub > 0 && views >= (2 * chanSub);
+    const isOutlier = chanSub == null || views === null ? null : chanSub > 0 && views >= (2 * chanSub);
 
     return {
       id: v.id,
@@ -1265,7 +1343,7 @@ Usage:
       views,
       comments,
       viewsPerDay,
-      date: v.snippet.publishedAt.slice(0, 10),
+      date: ageDays === null ? 'N/A' : v.snippet.publishedAt.slice(0, 10),
       day: ageDays,
       isOutlier,
       hashtags,
@@ -1286,14 +1364,12 @@ Usage:
 
   // Process Table 1: Channels Overview
   const channelData = rawChannels.map(c => {
-    const subCount = parseInt(c.statistics?.subscriberCount || '0', 10);
-    const viewCount = parseInt(c.statistics?.viewCount || '0', 10);
+    const subCount = c.statistics?.hiddenSubscriberCount ? null : metricValue(c.statistics?.subscriberCount);
+    const viewCount = metricValue(c.statistics?.viewCount);
     
     // Sum video comments and calculate Outliers
     const chanVideos = videosByChannel.get(c.id) || [];
-    const sumAllVideoComments = chanVideos.reduce((acc, v) => acc + v.comments, 0);
-    const channelApiComments = parseInt(c.statistics?.commentCount || '0', 10);
-    const totalComments = channelApiComments > 0 ? channelApiComments : sumAllVideoComments;
+    const totalComments = chanVideos.length && chanVideos.every(v => v.comments !== null) ? chanVideos.reduce((acc, v) => acc + v.comments, 0) : null;
 
     // Outlier: videos with views >= 2 * subscriberCount
     const outlierVideos = chanVideos.filter(v => v.isOutlier);
@@ -1301,9 +1377,9 @@ Usage:
     totalOutliersAcrossChannels += outlierCount;
 
     const publishedAt = new Date(c.snippet.publishedAt).getTime();
-    const ageDays = Math.max(1, Math.floor((now - publishedAt) / (1000 * 60 * 60 * 24)));
-    const viewsPerDay = Math.round(viewCount / ageDays);
-    const commentViewRatio = viewCount > 0 ? ((totalComments / viewCount) * 100).toFixed(4) : '0';
+    const ageDays = Number.isFinite(publishedAt) ? Math.max(1, Math.floor((now - publishedAt) / (1000 * 60 * 60 * 24))) : null;
+    const viewsPerDay = viewCount === null || ageDays === null ? null : Math.round(viewCount / ageDays);
+    const commentViewRatio = viewCount > 0 && totalComments !== null ? ((totalComments / viewCount) * 100).toFixed(4) : null;
 
     return {
       id: c.id,
@@ -1315,7 +1391,7 @@ Usage:
       comments: totalComments,
       viewsPerDay,
       commentViewRatio,
-      outlierCount,
+      outlierCount: chanVideos.some(v => v.isOutlier === null) || !chanVideos.length ? null : outlierCount,
       avatar: c.snippet.thumbnails?.default?.url || '',
       scannedVideoCount: chanVideos.length
     };
@@ -1335,7 +1411,20 @@ Usage:
     totalOutliers: totalOutliersAcrossChannels,
     topSubChannel,
     topGrowthChannel,
-    topVpdVideo
+    topVpdVideo,
+    coverage: {
+      requested: totalAllVideoIds.length,
+      collected: allRawVideos.length,
+      failed: seedVideos.coverage.failed + rawChannels.coverage.failed + allRawVideos.coverage.failed + playlistCoverage.reduce((n, p) => n + p.failed, 0),
+      truncated: playlistCoverage.some(p => p.truncated),
+      complete: seedVideos.coverage.complete && rawChannels.coverage.complete && allRawVideos.coverage.complete && playlistCoverage.every(p => p.complete),
+      missing_metrics: [...rawChannels.coverage.missing_metrics, ...allRawVideos.coverage.missing_metrics],
+      seeds: seedVideos.coverage,
+      channels: rawChannels.coverage,
+      videos: allRawVideos.coverage,
+      playlists: playlistCoverage,
+      max_videos_per_channel: maxVideosPerChannel
+    }
   };
 
   console.log('🎨 Bước 3: Đang kết xuất Dashboard HTML trực quan...');
@@ -1348,7 +1437,9 @@ Usage:
   console.log(`👉 ${outputFile}\n`);
 }
 
-main().catch(err => {
+module.exports = {generateHtmlDashboard, fetchVideos, fetchChannels, fetchAllVideoIdsFromUploads, escapeHtml, safeUrl, scriptJson, metricValue, csvCell, getRequest};
+
+if (require.main === module) main().catch(err => {
   console.error('❌ Lỗi xử lý:', err);
   process.exit(1);
 });

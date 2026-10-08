@@ -2,7 +2,7 @@
 name: yt-competitor-analyzer
 description: >
   Phân tích, đánh giá các kênh YouTube đối thủ từ danh sách URL video đầu vào.
-  Tự động convert URL video sang kênh tương ứng, quét TOÀN BỘ video của mỗi kênh từ uploads playlist,
+  Tự động convert URL video sang kênh tương ứng, phân trang video mỗi kênh từ uploads playlist (mặc định tối đa 1000),
   thu thập dữ liệu thống kê toàn diện kênh (Subscribers, Views, Comments, View/day, Comment/View, Outlier)
   và dữ liệu chi tiết toàn bộ video (Views, Comments, Views/Day, Date, Day, Hashtag, Description),
   sau đó xuất ra Dashboard HTML trực quan có bộ lọc từng cột và chức năng xuất CSV linh hoạt theo tất cả hoặc từng kênh.
@@ -11,7 +11,7 @@ description: >
 
 # YouTube Competitor Analyzer Skill (`/yt-competitor-analyzer`)
 
-Kỹ năng chuyên sâu dành cho **SubAgent Phân tích Kênh Đối thủ (YouTube Competitor Auditor)**. Chịu trách nhiệm nhận diện kênh từ video đầu vào, quét sạch **toàn bộ kho video** của các kênh đối thủ, đối soát chỉ số và trực quan hóa dữ liệu thành Dashboard HTML tương tác cao.
+Kỹ năng nhận diện kênh từ video đầu vào và trực quan hóa phần dữ liệu API lấy được. Mặc định tối đa **1000 video/kênh**; có thể đặt `--maxPerChannel N`. Giới hạn, video không khả dụng, quota và lỗi phân trang có thể làm dữ liệu thiếu. Chỉ gọi đầy đủ theo API khi coverage.complete=true; điều này không bao gồm video riêng tư hoặc không được API trả về.
 
 ---
 
@@ -20,7 +20,7 @@ Kỹ năng chuyên sâu dành cho **SubAgent Phân tích Kênh Đối thủ (You
 ```mermaid
 graph TD
     A["Danh sách URL Video (File / Text)"] --> B["BƯỚC 1: Trích xuất Video ID & Nhận diện Kênh"]
-    B --> C["BƯỚC 2: Quét TOÀN BỘ video của mỗi kênh qua Uploads Playlist"]
+    B --> C["BƯỚC 2: Phân trang Uploads Playlist trong giới hạn đã chọn"]
     C --> D1["Bảng 1: Thông tin Chung Kênh<br/>(Subs, Views, Comments, View/day, Comment/View, Outlier)"]
     C --> D2["Bảng 2: Chi tiết Toàn bộ Video Kênh<br/>(Title, Views, Comments, Views/Day, Date, Day, Hashtag, Description)"]
     D1 --> E["BƯỚC 3: Tổng hợp & Tạo Dashboard HTML"]
@@ -34,8 +34,8 @@ graph TD
 
 Skill này xuất ra SỐ LIỆU, nên tuyệt đối không được mô tả thứ mình không có.
 
-1. **Script báo lỗi** (HTTP error, quota vượt hạn mức, thiếu `YOUTUBE_API_KEY`, kênh ẩn/bị xoá):
-   báo **nguyên văn lỗi** cho Sếp + nguyên nhân khả dĩ. KHÔNG tạo dashboard, KHÔNG bịa bảng số liệu,
+1. **Không lấy được video mẫu/kênh hoặc thiếu API key**:
+   báo lỗi đã loại bỏ secret cho Sếp + nguyên nhân khả dĩ. KHÔNG tạo dashboard, KHÔNG bịa bảng số liệu,
    KHÔNG ước lượng kiểu "khoảng X view".
 2. **Lấy được một phần** (kênh này OK, kênh khác lỗi): ghi rõ **phạm vi thật** — quét được bao nhiêu kênh/video
    trên tổng bao nhiêu; ô nào thiếu ghi `N/A`, không điền số suy diễn.
@@ -43,6 +43,8 @@ Skill này xuất ra SỐ LIỆU, nên tuyệt đối không được mô tả t
    hashtag, description.
 4. **Outlier** chỉ tính khi có đủ `Views` **và** `Subscribers` thật. Thiếu một trong hai → không kết luận outlier.
 5. **Tự kiểm trước khi gửi:** mọi con số trong báo cáo phải truy được về output thật của script.
+6. **Coverage bắt buộc:** JSON xuất có requested/collected/failed/truncated/complete, missing_ids, missing_metrics và coverage từng playlist/kênh/video mẫu. Requested ở playlist là giới hạn đã yêu cầu, không phải tổng kho video. failed là yêu cầu chi tiết thất bại hoặc trang lỗi; missing_ids gồm cả video không khả dụng. UI hiển thị rõ dữ liệu một phần và chỉ số thiếu `N/A`.
+7. **Dashboard bảo vệ dữ liệu:** JSON nhúng thoát `<`, `>`, `&`, U+2028/U+2029; HTML thoát mọi chuỗi bên ngoài; URL chỉ http/https; không ghép dữ liệu vào inline event. Import module không chạy CLI hoặc gọi API.
 
 ---
 
@@ -54,7 +56,7 @@ Skill này xuất ra SỐ LIỆU, nên tuyệt đối không được mô tả t
 | **Tên kênh** | `snippet.title` kèm hyperlink tới `customUrl` hoặc `channelId` | Định danh kênh đối thủ |
 | **Subscribers** | `statistics.subscriberCount` | Quy mô tệp người theo dõi |
 | **Views** | `statistics.viewCount` | Tổng lượt xem toàn bộ kênh từ ngày thành lập |
-| **Comments** | Tổng comment của toàn bộ video đã quét trên kênh | Mức độ tương tác bình luận thực tế toàn kênh |
+| **Comments** | Tổng comment của video lấy được; `N/A` nếu có chỉ số thiếu | Đại diện mẫu video đã thu thập, không phải toàn kênh |
 | **View/day** | $\frac{\text{Tổng View}}{\text{Số ngày từ khi lập kênh đến nay}}$ | Tốc độ tăng trưởng lượt xem trung bình mỗi ngày |
 | **Comment/View** | $\frac{\text{Tổng Comments}}{\text{Tổng Views}} \times 100\%$ | Tỷ lệ chuyển đổi người xem thành người bình luận |
 | **Outlier** | Số lượng video có $\text{Views} \ge 2 \times \text{Subscribers}$ | **Hint:** *"Đây là các video có lượt xem =2 lần số subcriber của kênh"*. Bấm vào để lọc video outlier của kênh. |

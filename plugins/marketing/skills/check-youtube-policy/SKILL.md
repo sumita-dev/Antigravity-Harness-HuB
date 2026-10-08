@@ -2,17 +2,17 @@
 name: check-youtube-policy
 description: >
   Chuyên gia Trọng tài Chính sách YouTube Cấp cao (YouTube Trust & Safety & Policy Auditor).
-  Kiểm tra, rà soát toàn diện kịch bản video YouTube đối soát với 50 tài liệu chính sách
-  và Nguyên tắc cộng đồng của YouTube. Phát hiện chính xác các vi phạm tiềm ẩn về
+  Sàng lọc kịch bản video YouTube theo từ khóa và đối soát thủ công tài liệu tham chiếu
+  và Nguyên tắc cộng đồng của YouTube. Đánh dấu tín hiệu rủi ro tiềm ẩn về
   bản quyền, bạo lực, 18+, thông tin sai lệch, lừa đảo, quy tắc 7 giây đầu tiên của nhà quảng cáo (YPP),
   và thiếu bối cảnh ngoại lệ EDSA. Lập báo cáo chi tiết theo từng dòng/câu, trích dẫn ID chính sách,
-  và cung cấp bản Kịch bản Viết lại Hoàn chỉnh (Safe Script Rewrite) sạch bóng vi phạm mà vẫn giữ 100% độ hấp dẫn.
+  và đề nghị Creator viết lại để giảm rủi ro. Không chứng nhận bản quyền, tuân thủ hoặc YPP.
   Kích hoạt bằng lệnh: /check-youtube-policy, /check-policy, /audit-script hoặc khi Sếp yêu cầu kiểm tra vi phạm/chính sách kịch bản YouTube.
 ---
 
 # YouTube Policy Auditor Skill (`/check-youtube-policy`)
 
-Kỹ năng chuyên sâu dành cho **Trọng tài Kiểm định Chính sách YouTube Cấp cao (YouTube Trust & Safety & Policy Specialist)**. Kỹ năng này đóng vai trò như một màng lọc an toàn tối thượng, rà soát từng câu chữ, tình tiết trong kịch bản video YouTube (video dài, Shorts, Livestream) trước khi tiến hành thu âm, quay dựng, nhằm đảm bảo kịch bản **100% tuân thủ toàn bộ 50 chính sách cốt lõi của YouTube**, đạt trạng thái **Bật kiếm tiền Đô la Xanh**, giữ vững kênh an toàn không bao giờ bị dính gậy bản quyền, gậy cộng đồng hay bị bóp tương tác.
+Kỹ năng hỗ trợ sàng lọc rủi ro văn bản trước sản xuất. Script dùng regex cục bộ: có thể báo nhầm hoặc bỏ sót, không đánh giá hình ảnh, âm thanh, giấy phép tài sản, Content ID, tính nguyên bản của kênh hoặc quyết định kiếm tiền. Không có phát hiện không có nghĩa là tuân thủ; điểm số không phải xác suất an toàn. Checker độc lập phải xem ngữ cảnh và tài liệu chính sách hiện hành. Bản dựng thực tế và quyết định của YouTube vẫn cần được kiểm tra.
 
 ---
 
@@ -72,20 +72,18 @@ flowchart TD
   * `references/safe_vocabulary_dictionary.md`: Tra cứu từ ngữ thay thế an toàn.
 
 ### BƯỚC 3: ĐÁNH GIÁ PHÂN TẦNG RỦI RO & DỰ BÁO KIẾM TIỀN
-- **Tính điểm An toàn Chính sách (Policy Safety Score)** từ 0 đến 100 điểm.
-- Xác định cấp độ chế tài cao nhất mà video có nguy cơ phải nhận:
-  * 🔴 **CRITICAL**: Vi phạm Nguyên tắc cộng đồng (CSAE, tự tử, hate speech, chế tạo vũ khí, thuốc cấm, y tế nguy hiểm) -> Nguy cơ Xóa video & Nhận gậy cảnh cáo.
-  * 🟠 **HIGH**: Bị giới hạn độ tuổi 18+ (Age-restricted) hoặc Tắt kiếm tiền hoàn toàn -> Bóp 90% view đề xuất.
-  * 🟡 **MEDIUM**: Hạn chế nhà quảng cáo (Đô la Vàng) -> Thất thu doanh thu quảng cáo AdSense.
-  * 🟢 **SAFE**: Đạt chuẩn YPP Đô la Xanh -> Phân phối tối đa, an toàn tuyệt đối.
+- **Điểm sàng lọc heuristic** từ 0 đến 100 chỉ phản ánh số từ khóa regex và trọng số cục bộ.
+- Nhãn **CRITICAL/HIGH/MEDIUM** là mức ưu tiên thẩm định, không phải quyết định vi phạm hoặc chế tài thực tế.
+- Không có từ khóa: ghi **Chưa phát hiện trong bộ quy tắc hiện có**. Kiếm tiền/YPP và bản quyền: **NOT_VERIFIED**.
+- 20 từ đầu chỉ ước tính khoảng thời gian; thêm disclaimer hoặc đổi từ không tự tạo ngoại lệ EDSA, không bảo đảm quảng cáo.
 
 ### BƯỚC 4: LẬP BÁO CÁO KIỂM ĐỊNH VI PHẠM CHI TIẾT
 Báo cáo gửi cho Sếp PHẢI bao gồm 4 phần chuẩn hóa (xem Mục 3 dưới đây).
 
 ### BƯỚC 5: GIẢI PHÁP XỬ LÝ & VIẾT LẠI KỊCH BẢN CHUẨN HÓA (SAFE SCRIPT REWRITE)
-- **Không chỉ chỉ ra lỗi rồi để đó**: Bạn BẮT BUỘC phải viết lại **Bản Kịch Bản Hoàn Chỉnh Đã Chuẩn Hóa (Full Safe Script Rewrite)**.
+- Checker báo lỗi và bằng chứng; Creator độc lập viết lại bản nháp khi được yêu cầu, rồi chuyển Checker thẩm định lại. Checker không tự sửa bản của mình để phê duyệt.
 - **Nguyên tắc viết lại**:
-  * Giữ nguyên 100% cốt truyện, nhân vật, nhịp điệu dồn dập, độ kịch tính và tỷ lệ giữ chân người xem (Retention).
+  * Giữ mục đích và diễn biến phù hợp; không hứa tỷ lệ giữ chân người xem hoặc kết quả nền tảng.
   * Thay thế toàn bộ từ ngữ độc hại bằng các từ ngữ thay thế an toàn (Euphemisms) theo Từ điển.
   * Cấy đoạn Disclaimer tuyên bố mục đích giáo dục/phòng ngừa tội phạm (EDSA) vào 5 giây đầu tiên.
   * Tinh chỉnh câu thoại giang hồ/bạo lực thành ngôn ngữ đấu trí, ám chỉ nghệ thuật, hoặc chỉ định rõ ghi chú hậu kỳ: `[Lồng tiếng: Tiếng BEEP]`.
@@ -102,9 +100,9 @@ Khi trả kết quả cho Sếp, báo cáo BẮT BUỘC tuân thủ định dạ
 ## 1. BẢNG TỔNG QUAN ĐIỂM SỐ & DỰ BÁO TRẠNG THÁI
 | Chỉ số kiểm tra | Kết quả đánh giá | Diễn giải kỹ thuật của Trọng tài |
 |:---|:---:|:---|
-| **Điểm An toàn Chính sách** | **[Điểm số]/100** | [Đạt chuẩn xuất bản / Cần sửa đổi trước khi quay dựng] |
-| **Đánh giá Trạng thái** | [🟢 AN TOÀN / 🟡 CẦN LƯU Ý / 🟠 RỦI RO CAO / 🔴 NGUY HIỂM] | [Tóm tắt nguyên nhân cốt lõi] |
-| **Dự báo Kiếm tiền** | **[ĐÔ LA XANH / ĐÔ LA VÀNG / TẮT KIẾM TIỀN / NGUY CƠ GẬY]** | [Ảnh hưởng AdSense & Thuật toán đề xuất] |
+| **Điểm sàng lọc heuristic** | **[Điểm số]/100** | [Điểm quy ước regex; không chứng nhận] |
+| **Tín hiệu rủi ro** | [Chưa phát hiện / MEDIUM / HIGH / CRITICAL] | [Ngữ cảnh cần kiểm tra] |
+| **Kiếm tiền/YPP/bản quyền** | **NOT_VERIFIED** | [Cần bản dựng, giấy phép và đánh giá của YouTube] |
 | **Quy mô Kịch bản** | [Số từ] từ | Ước tính thời lượng giọng đọc: [Số phút] phút |
 | **Bối cảnh Ngoại lệ EDSA** | [✅ Đã có / ❌ Chưa có Disclaimer] | Căn cứ Chính sách EDSA (ID: 6345162) |
 | **Phát hiện Vi phạm** | [Tổng số] điểm | 🔴 Critical: [x] | 🟠 High: [y] | 🟡 Medium: [z] |
@@ -121,7 +119,7 @@ Khi trả kết quả cho Sếp, báo cáo BẮT BUỘC tuân thủ định dạ
 ## 3. BẢNG HOÁN ĐỔI TỪ NGỮ AN TOÀN (SAFE VOCABULARY MAPPING)
 | Từ khóa gốc vi phạm | Từ ngữ thay thế an toàn đề xuất | Lý do chuyển đổi ngữ nghĩa |
 |:---|:---|:---|
-| `[Từ khóa gốc]` | **[Từ an toàn]** | [Tránh quét Speech-to-Text mà vẫn giữ đúng nghĩa] |
+| `[Từ khóa gốc]` | **[Mô tả trung lập đề xuất]** | [Giảm rủi ro ngữ nghĩa; vẫn cần xem ngữ cảnh] |
 
 ---
 
@@ -132,9 +130,12 @@ Khi trả kết quả cho Sếp, báo cáo BẮT BUỘC tuân thủ định dạ
 ---
 
 ## 5. BẢN KỊCH BẢN HOÀN CHỈNH ĐÃ ĐƯỢC CHUẨN HÓA (SAFE SCRIPT REWRITE)
-*(Toàn bộ kịch bản đã được viết lại 100%, thay thế toàn bộ từ ngữ độc hại, cấy bối cảnh EDSA, bổ sung ghi chú chỉ đạo hậu kỳ âm thanh/hình ảnh để đảm bảo an toàn tuyệt đối và đạt Đô la Xanh)*
+*(Bản nháp do Creator chỉnh sửa để giảm rủi ro, cần Checker độc lập xem lại; không bảo đảm kiếm tiền hay tuân thủ.)*
 
 [Toàn văn kịch bản an toàn...]
+
+## 6. GIỚI HẠN
+Regex chỉ xét văn bản; có thể báo nhầm/bỏ sót, không xác minh bản quyền hoặc YPP. Bối cảnh EDSA và mốc thời gian phải xem bản dựng. Tài liệu cục bộ không tự cập nhật; kiểm tra nguồn chính thức hiện hành trước khi kết luận.
 ```
 
 ---

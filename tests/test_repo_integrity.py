@@ -45,7 +45,8 @@ def _skill_dirs():
 
 def _doc_files():
     for p in REPO.rglob("*"):
-        if not p.is_file() or ".git" in p.parts or ".venv" in p.parts or ".gitnexus" in p.parts:
+        parts = p.relative_to(REPO).parts
+        if not p.is_file() or ".git" in parts or ".venv" in parts or ".gitnexus" in parts or ".brain" in parts:
             continue
         if ".pytest" in str(p):
             continue
@@ -244,5 +245,4 @@ def test_no_phantom_python_scripts_in_skill_codeblocks():
                     if not (skill / script_rel).exists() and not (REPO / script_rel).exists():
                         missing.append(f"{skill.relative_to(REPO).as_posix()}: {script_rel}")
     assert not missing, f"Script python ảo trong code block SKILL.md: {missing}"
-
 

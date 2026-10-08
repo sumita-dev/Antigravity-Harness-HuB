@@ -20,7 +20,7 @@ Tạo task checkpoint cho project mục tiêu, giữ task ID. Mỗi lượt gọ
 
 Gọi Architect theo `agents/app/architect.md`: Spec năm mục scope/design/contracts/acceptance_criteria có ID/description/ui/risks. Kê khai source/test/config, preview và cách kiểm AC. Lưu JSON và nộp `--workflow spec` với actor Architect.
 
-Gọi Design Reviewer context độc lập theo `agents/app/design_reviewer.md` và `rubrics/design_review_rubric.md`; actor khác Architect. Reviewer kiểm tra 8 Trụ cột bằng chứng (StatusIntegrity, Error Contract Testability, Responsive Parity, DOM-Free Core, Anti-XSS, ID Integrity, Strict Schema Guard, MutationResult) và lập Bảng Evidence 10 mục. Ghi report tại `.brain/artifacts/<task-id>/design-review.md`, verdict gắn `spec_sha256`, nộp `--workflow design-review`. REJECT trả Architect; REJECT thứ hai ESCALATED. Không sửa source trước reviewer APPROVE.
+Gọi Design Reviewer context độc lập theo `agents/app/design_reviewer.md` và rubric chung `rubrics/design_review_rubric.md`; actor khác Architect. Kiểm hợp đồng, lỗi, AC, testability/security/snapshot/gates phù hợp CLI/backend/UI. Task Board profile `rubrics/task-board-design-profile.md` chỉ khi brief chọn benchmark. Ghi report thật, app payload report TEXT gắn `spec_sha256`; REJECT thứ hai pha design ESCALATED. Design PARTIAL_APPROVE không hợp lệ.
 
 ## SIGN_OFF
 
@@ -32,7 +32,7 @@ CLI nhận nguyên câu `Duyệt`, `Duyệt Spec này`, `Duyệt bản đặc t�
 
 ## IMPLEMENTATION
 
-Gọi Builder theo `agents/app/builder.md`, TDD/Karpathy và branch/worktree thực tế; không vượt Spec. Chạy test/build thật, giữ command/cwd/exit/output artifact. Nộp `--workflow implementation`; store snapshot bytes source/test/config gồm untracked thuộc project, không chỉ HEAD. Runtime/log/dependency/cache không thuộc manifest.
+Gọi Builder theo `agents/app/builder.md`, TDD/Karpathy và branch/worktree thực tế; không vượt Spec. Chạy test/build thật; Spec verification_commands có ID/command/root-relative cwd/ac_ids, QA command cwd absolute trong project. Nộp implementation report TEXT; snapshot includes staged/unstaged/untracked source/test/config, không chỉ HEAD. Mặc định chỉ loại exact root runtime/dependency/cache theo store; build/dist/.next và generated outputs khác chỉ loại khi signed snapshot_exclusions kê khai. Không blanket loại suffix .log hoặc nested source collisions.
 
 Với UI chạy local preview theo Spec, giữ process và bàn giao URL/lệnh/session. Không deploy. Source đổi khi đang AUDIT: QA nộp REJECT gắn hashes checkpoint và report lý do, quay Builder rồi nộp implementation mới; counter tăng. Đổi kiến trúc dùng `--workflow revise` với reason để quay DESIGN, Reviewer và Sếp duyệt lại.
 
@@ -40,7 +40,9 @@ Với UI chạy local preview theo Spec, giữ process và bàn giao URL/lệnh/
 
 Gọi QA context độc lập theo `agents/app/qa_auditor.md` và `rubrics/code_quality_rubric.md`; actor khác Builder. QA tự rerun test, đối soát diff/manifest/spec và kiểm local preview từng AC. Browser evidence là kết quả kiểm thực tế, không phải cờ auto-verified.
 
-Nộp `--workflow audit`: verdict/spec hash/manifest hash/report/command-cwd-exit-log/preview checks theo AC ID. UI có local URL và bằng chứng; non-UI có N/A reason. CLI validate dữ liệu/hash, không tự xác thực browser/log. Test exit 0 không thay audit toàn bộ AC.
+Nộp audit verdict/spec hash/manifest hash/report TEXT/commands/preview checks đúng mỗi AC ID một lần. Mọi applicable AC kể cả non-UI cần PASS evidence; N/A chỉ khi signed applicable false có na_reason. Evidence/log paths absolute trong project/brain artifacts/signed evidence_root, cấm traversal/symlink/junction. UI có local URL/browser evidence. CLI validate hash không xác thực browser/log execution. Test exit 0 không thay toàn bộ AC.
+
+PARTIAL_APPROVE yêu cầu >=1 applicable UI AC NOT_VERIFIED, mọi non-UI PASS và command/log hợp lệ; giữ AUDIT_PENDING_BROWSER. Request/promotion chỉ từ valid partial audit, kiểm cùng local URL, đúng pending UI IDs và old source/log/evidence hashes. Không tự biến NOT_VERIFIED thành PASS. Xem payload/migrate-legacy/schema 2 trong docs/app-workflow-guide.md.
 
 REJECT quay Builder; REJECT thứ hai pha audit ESCALATED, không reset sau resubmit/resume. APPROVE bàn giao URL còn hoạt động, cách chạy và evidence. Source đổi làm revision cũ stale. Không tuyên bố hoàn tất chỉ vì simulator APPROVE hoặc Stop hook pytest xanh.
 

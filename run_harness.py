@@ -22,6 +22,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from harness.orchestrator import ChiefOrchestrator
 from harness.app_workflow import AppWorkflowStore, WorkflowError
+from harness.marketing_workflow import MarketingWorkflowStore
 from pathlib import Path
 
 
@@ -39,6 +40,8 @@ def workflow_action(args):
         return store.status(args.task_id)
     if args.workflow == "revise":
         return store.revise(args.task_id, payload.get("reason"))
+    if args.workflow == "migrate-legacy":
+        return store.migrate_legacy(args.task_id, payload.get("reason"))
     if args.workflow == "spec":
         return store.submit_spec(args.task_id, payload, args.actor)
     if args.workflow == "design-review":
@@ -55,10 +58,41 @@ def workflow_action(args):
     return store.audit(args.task_id, payload.get("verdict"), args.actor, payload)
 
 
+def marketing_workflow_action(args):
+    """Record marketing evidence; never execute agents or external publishing."""
+    store = MarketingWorkflowStore()
+    payload = json.loads(Path(args.payload).read_text(encoding="utf-8")) if args.payload else {}
+    if not isinstance(payload, dict):
+        raise WorkflowError("Payload must be a JSON object")
+    action = args.marketing_workflow
+    if action == "init":
+        return store.create(args.task_id, args.task, args.marketing_mode)
+    if action == "status":
+        return store.status(args.task_id)
+    if action == "revise":
+        return store.revise(args.task_id, payload.get("reason"))
+    if action == "research":
+        return store.submit_dossier(args.task_id, args.actor, payload)
+    if action == "content":
+        return store.submit_content(args.task_id, args.actor, payload)
+    if action == "audit":
+        return store.audit(args.task_id, args.actor, payload)
+    if action == "publish-prepare":
+        store.prepare_publish(args.task_id, args.actor, payload)
+    elif action == "publish-authorize":
+        store.authorize_publish(args.task_id, payload.get("publish_id"), payload.get("raw_authorization"))
+    elif action == "publish-reconcile":
+        store.reconcile_publish(args.task_id, payload.get("publish_id"), args.actor, payload)
+    return store.status(args.task_id)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Antigravity Harness CLI")
     parser.add_argument("--task", default=None, help="Mô tả nhiệm vụ")
-    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "audit-pending-browser", "verify-browser", "revise"],
+    parser.add_argument("--marketing-workflow", choices=["init", "status", "research", "content", "audit", "revise", "publish-prepare", "publish-authorize", "publish-reconcile"],
+                        help="Native marketing evidence checkpoints; no agents or external writes executed")
+    parser.add_argument("--marketing-mode", choices=["content", "research-only"], default="content")
+    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "audit-pending-browser", "verify-browser", "revise", "migrate-legacy"],
                         help="Checkpoint thật cho native agents; không tự gọi LLM hoặc chạy test")
     parser.add_argument("--project-root", help="Thư mục app local (workflow init)")
     parser.add_argument("--actor", help="ID phiên tác tử do runtime cung cấp")
@@ -87,9 +121,11 @@ def main(argv=None) -> int:
                         help="Từ chối một kỹ năng trong staging theo ID")
 
     args = parser.parse_args(argv)
-    if args.workflow:
+    if args.workflow and args.marketing_workflow:
+        parser.error("Choose only one checkpoint workflow")
+    if args.workflow or args.marketing_workflow:
         try:
-            state = workflow_action(args)
+            state = marketing_workflow_action(args) if args.marketing_workflow else workflow_action(args)
         except (WorkflowError, OSError, ValueError, TypeError) as exc:
             print(json.dumps({"error": str(exc)}, ensure_ascii=False) if args.json else f"Workflow error: {exc}")
             return 1

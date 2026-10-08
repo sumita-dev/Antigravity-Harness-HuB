@@ -1,49 +1,18 @@
-# Rubric Thẩm Định Thiết Kế (Design Review Rubric)
+# Rubric Thẩm Định Thiết Kế
 
-Design Reviewer độc lập kiểm tra Spec 5 mục trước cổng Sếp duyệt. Không chấm bằng lời cam kết suông của Architect.
+Áp dụng cho Python CLI, backend, thư viện và UI. Design Reviewer độc lập đọc Spec năm mục scope/design/contracts/acceptance_criteria/risks; mọi kết luận có section/AC ID/artifact làm evidence.
 
----
+1. Scope: files/symbols và blast radius rõ; không thêm tính năng ngoài brief.
+2. Design: kiến trúc phù hợp hệ thống hiện hữu; không bắt mọi stack dùng DOM, Node hoặc storage browser.
+3. Contracts: input/output/schema, lỗi và side effects có cách kiểm; command/cwd/dependencies khả thi.
+4. Acceptance: ID duy nhất, description kiểm được, ui boolean; applicable false phải có na_reason. AC bắt buộc không được né bằng N/A.
+5. Verification: test/build commands có ID, command, cwd root-relative và ac_ids. UI có kế hoạch browser/local preview, viewport và interactions phù hợp sản phẩm. CLI/backend có terminal/API evidence.
+6. Security/data: input validation, secret handling, authorization, integrity/race risks theo bề mặt thật.
+7. Snapshot: project checkout chính xác; staged/unstaged/untracked source được giữ; snapshot_exclusions chỉ path root-relative đã kê khai, evidence_root nếu cần là absolute directory.
+8. Gates: Reviewer khác Architect, review gắn đúng Spec SHA256 trước Sếp duyệt; Spec đổi vô hiệu approval; REJECT thứ hai pha design → ESCALATED, counters giữ nguyên.
 
-## 1. Tiêu Chí Thẩm Định 8 Trụ Cột Bằng Chứng (8 Evidence Pillars)
+Task Board có profile riêng tại `rubrics/task-board-design-profile.md`; chỉ áp dụng khi brief chọn benchmark đó. Không ép các điều kiện của profile lên CLI/backend.
 
-1. **Status Integrity:** Spec cấm tự ghi `SIGN_OFF: approved`. Human approval không bị giả lập. Có checkpoint chờ Human Sign-off rõ ràng. Builder bị chặn chạy trước sign-off.
-2. **Error Contract Testability:** Mọi API error code (`ERR_TITLE_REQUIRED`, `ERR_INVALID_STATUS`, `ERR_TASK_NOT_FOUND`, `ERR_STORAGE_FAIL`...) phải có ánh xạ trực tiếp sang AC ID và phương pháp test.
-3. **Responsive Parity:** Mô tả cụ thể sự khác biệt giữa Desktop (1280px, layout 3 cột, Modal) và Mobile (390px, Group list, Full-screen/Bottom sheet, Touch-safe dialog). Spec ghi chung chung "responsive" mà không phân định rõ $\rightarrow$ **REJECT**.
-4. **DOM-Free Core:** Core module không import `window`/`document`, có thể chạy Node.js thuần (`node_import_check: PASS`). Storage adapter hỗ trợ mock injection.
-5. **Anti-XSS:** Cấm `innerHTML` thô với dữ liệu user. Title & Description có AC test XSS với payload cụ thể (`<script>alert(1)</script>`, `<img src=x onerror=alert(1)>`, `<svg onload=alert(1)>`). Render bằng phương thức an toàn (`textContent`/`createElement`).
-6. **ID Integrity:** Thuật toán sinh ID cụ thể (`crypto.randomUUID` + collision guard), có test sinh 10,000 IDs. Không tuyên bố "tuyệt đối" nếu dùng random thuần.
-7. **Strict Schema Guard:** Lập bảng Schema fields (`id`, `title`, `description`, `status`, `createdAt`, `updatedAt`). Phải có test cases cho JSON hỏng, JSON không phải array, id/title sai kiểu, status sai enum, timestamp sai định dạng, phần tử null.
-8. **MutationResult Contract:** Tách biệt rõ `success: true, persisted: true` vs `success: true, persisted: false, warning: "ERR_STORAGE_UNAVAILABLE"` vs `success: false, persisted: false, code: "ERR_INVALID_STATUS"`. CẤM trả `success: true` cho lỗi nghiệp vụ.
+Report ghi finding ID/severity/location/problem/impact/evidence/required fix/status. Mục không kiểm được ghi NOT_VERIFIED và lý do; không đổi thành PASS mặc định. APPROVE chỉ khi Spec đầy đủ, kiểm được và không còn blocker; REJECT nêu lỗi cụ thể; ESCALATE khi yêu cầu mâu thuẫn hoặc thiếu capability thiết yếu. Design không có PARTIAL_APPROVE.
 
----
-
-## 2. Bảng Evidence Bắt Buộc 10 Mục (10-Item Evidence Manifest)
-
-Report bắt buộc phải chứa bảng evidence 10 mục với dẫn chứng `file:section`, `AC ID`, hoặc `artifact path`:
-1. **Scope / Blast Radius:** Spec §1, file list.
-2. **Architecture:** Spec §2, data-flow diagram.
-3. **API / Schema:** Spec §3, contract table.
-4. **Error Contracts:** AC mapping table.
-5. **Testability:** Node import & storage mock plan.
-6. **Security:** XSS / storage / input validation rules.
-7. **Responsive Behavior:** Desktop / mobile layout & interaction matrix.
-8. **Preview Plan:** Server start & browser verification commands.
-9. **Risks:** Mitigation plan & verification steps.
-10. **Human Gate:** Checkpoint stage, SHA256 spec hash, sign-off state.
-
-*Lưu ý:* Mục không thể kiểm tra phải ghi `status: NOT_VERIFIED` và lý do. Không được tự động chuyển `NOT_VERIFIED` thành `PASS`.
-
----
-
-## 3. Cấu Trúc Finding & Quy Tắc Verdict
-
-- **Finding Format:** Mỗi lỗi phải có `Finding ID`, `Severity` (`BLOCKER` | `HIGH` | `MEDIUM` | `LOW`), `Location`, `Problem`, `Impact`, `Evidence`, `Required fix`, `Status`. Không dùng câu nhận xét mơ hồ.
-- **VERDICT: APPROVE:** Chỉ khi không có finding `BLOCKER`/`HIGH`, mọi error code có AC, mọi UI AC có kế hoạch browser check, Spec SHA256 khớp, Reviewer độc lập với Architect, không có mục bắt buộc nào bị `NOT_VERIFIED`.
-- **VERDICT: REJECT:** Thiếu 1 trong 5 mục Spec, error contract không test được, UI không phân biệt Desktop/Mobile, rủi ro XSS/storage không có mitigation, AC không kiểm chứng được, thay đổi ngoài blast radius, hoặc mục bắt buộc chưa xác minh.
-- **VERDICT: ESCALATE:** Yêu cầu Sếp mâu thuẫn, phạm vi không rõ ràng, Spec hash bị đổi trong khi review, runtime thiếu công cụ kiểm chứng, hoặc có dấu hiệu tác tử khác sửa Spec.
-
-Report phải lưu tại `.brain/artifacts/<task-id>/design-review.md` và kết thúc bằng đúng một dòng:
-```text
-VERDICT: APPROVE
-```
-hoặc `VERDICT: REJECT` / `VERDICT: ESCALATE`.
+Report lưu dưới brain artifact root của task; app payload `report` nhận TEXT (nội dung report), không tự đọc path. Kết thúc bằng đúng một dòng `VERDICT: APPROVE`, `VERDICT: REJECT` hoặc `VERDICT: ESCALATE`.

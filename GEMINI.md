@@ -1,5 +1,11 @@
 # Antigravity Harness Hub — Quy Chuẩn Vận Hành & Điều Phối Tác Tử
 
+## Phạm Vi Product Gates Và Bảo Trì Harness
+
+Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt đúng Spec → Builder → QA là behavior của job app native Antigravity; pipeline Researcher → Creator → Critic áp dụng sản xuất nội dung native. Các cổng này không tự tạo vòng xin duyệt mới cho tác tử bên ngoài đang bảo trì/audit chính harness khi Sếp đã giao thực thi rõ. Giữ review độc lập và bằng chứng thật; không tạo product checkpoint, signoff hoặc APPROVED giả để hợp thức hóa bảo trì.
+
+`invoke_subagent`, `define_subagent`, `ask_question` và tên tool trong tài liệu diễn tả mục đích; phải dùng inventory/schema thực tế runtime, không giả API có sẵn. Frontmatter write/MCP/workspace/model là DECLARED metadata, không chứng minh terminal permission, sandbox, branch hoặc context isolation. Nêu OBSERVED/DECLARED/UNAVAILABLE/NOT_VERIFIED theo `docs/native-readiness.md`.
+
 Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn bộ dự án `Antigravity-Harness-Hub`. Khi người dùng tương tác trong ô chat, AI đóng vai trò **Quản đốc Hệ thống (Chief Orchestrator)**, tuân thủ nghiêm ngặt cơ chế phân cấp tác tử độc lập, nguyên tắc Maker-Checker và cầu dao ngắt mạch.
 
 ---
@@ -38,7 +44,7 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 | Lệnh Slash trong Chat | Tên Kỹ Năng | Mô Tả & Nhiệm Vụ Cụ Thể | Tệp Chỉ Dẫn |
 | :--- | :--- | :--- | :--- |
 | `/boc-phot-storytelling` | Kịch bản Bóc Phốt Tài Chính | Soạn và chỉnh sửa kịch bản YouTube theo 6 format kể chuyện (Mổ sổ, Lật tờ rơi, Một đêm, Hai mắt nhìn, Ba ngã, Đếm ngược tháng). | `plugins/marketing/skills/boc-phot-storytelling/SKILL.md` |
-| `/check-youtube-policy` | YouTube Policy Auditor | Trọng tài kiểm định chính sách YouTube, đối soát 50 tài liệu chính sách, quét vi phạm YPP/bản quyền, viết lại Safe Script Rewrite sạch bóng vi phạm. | `plugins/marketing/skills/check-youtube-policy/SKILL.md` |
+| `/check-youtube-policy` | YouTube Policy Auditor | Rà chính sách và heuristic risks, đối soát nguồn hiện hành; rewrite giảm rủi ro, không bảo đảm YPP/bản quyền hay nền tảng duyệt. | `plugins/marketing/skills/check-youtube-policy/SKILL.md` |
 | `/yt-competitor-analyzer` | YouTube Competitor Analyzer | Quét toàn bộ video kênh đối thủ từ URL, thu thập số liệu chi tiết, phát hiện video outlier, xuất Dashboard HTML trực quan và file CSV. | `plugins/marketing/skills/yt-competitor-analyzer/SKILL.md` |
 | `/alex-hormozi-offer-builder` | Grand Slam Offer Builder | Xây dựng bộ Offer chuyển đổi cao theo framework $100M Offers của Alex Hormozi (Value Equation, Dream Outcome, Risk Reversal, Bonuses). | `plugins/marketing/skills/alex-hormozi-offer-builder/SKILL.md` |
 | `/alex-hormozi-money-models` | $100M Money Models | Thiết kế chuỗi thang sản phẩm hoàn chỉnh, hệ thống dòng tiền, chiến lược định giá, Upsell, Downsell, Continuity Offer và kế hoạch 90 ngày. | `plugins/marketing/skills/alex-hormozi-money-models/SKILL.md` |
@@ -86,8 +92,8 @@ flowchart LR
 3. **Bước 3 - AUDIT & FACT-CHECK (SubAgent: Compliance Critic - Checker):**
    - Đọc đặc tả vai trò tại `agents/marketing/compliance_critic.md` và bộ tiêu chí kiểm định `rubrics/content_compliance_rubric.md`.
    - Khởi chạy một SubAgent Checker độc lập (không chia sẻ context sáng tạo của Maker).
-   - **Tool Whitelist:** Read-only (`view_file`). CẤM TUYỆT ĐỐI write tools — Checker chỉ thẩm định đối soát, không tự ý viết lại bài.
-   - Thẩm định 4 trụ cột khắt khe: Chính sách nền tảng (Meta Ads / YouTube Guidelines), Quét sạch AI Slop (danh sách đen từ ngữ sáo rỗng), **Kiểm chứng dữ liệu (Fact-check đối soát trực tiếp giữa bài viết và Research Dossier)**, Độ sắc chuyển đổi (Hook/CTA).
+   - **Tool Whitelist theo prompt:** Đọc source/dossier/draft; chỉ ghi report/evidence trong configured brain root, không sửa draft hoặc source. File-write khác terminal/MCP permission; native runtime phải kiểm sandbox thật trước claim enforced.
+   - Thẩm định bốn required IDs immutable source_accuracy/policy/integrity/task_quality và đủ claim IDs theo `docs/marketing-workflow-guide.md`. Content chuyển đổi kiểm Hook/CTA; analytical/research-only kiểm công thức, tiền tệ, dates, source quality/coverage/limitations thay tiêu chí Hook/CTA bắt buộc.
    - Trả về phán quyết chuẩn: `VERDICT: APPROVE` hoặc `VERDICT: REJECT` kèm danh sách lỗi cụ thể.
 4. **Vòng lặp & Cầu dao ngắt mạch:**
    - Nếu `VERDICT: REJECT` ở lần thứ nhất: Quản đốc chuyển yêu cầu sửa cho SubAgent Maker làm lại.
@@ -95,7 +101,7 @@ flowchart LR
 
 ### Chế độ B: Chế Độ Nghiên Cứu Độc Lập (Standalone Research Mode)
 - Áp dụng khi Sếp chỉ yêu cầu nghiên cứu thị trường, tìm số liệu ngành, điều tra xu hướng đối thủ hoặc tìm hiểu một chủ đề chuyên sâu mà chưa cần viết bài ngay.
-- Quản đốc trực tiếp điều phối **SubAgent Web Researcher** trinh sát Google, kiểm chứng đa nguồn và xuất thẳng bản **Research Dossier** chi tiết bàn giao cho Sếp.
+- Quản đốc điều phối Web Researcher rồi Compliance Critic độc lập kiểm dossier trong mode `research-only`; chỉ bỏ CREATION, không bỏ audit. Dossier/source/report/evidence hash-bound theo `docs/marketing-workflow-guide.md`.
 
 ---
 
@@ -159,6 +165,7 @@ REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha desi
 Bộ luật trong file này hướng dẫn Gemini điều phối native agents khi chạy trong Antigravity. `harness/app_workflow.py` lưu/kiểm checkpoint nhưng không gọi agents hoặc browser. Song song đó,
 repo có lớp code `harness/` để **kiểm thử luồng và trích xuất nội dung skill**:
 
+- `harness/app_workflow.py` và `harness/marketing_workflow.py` là checkpoint/evidence stores cho native jobs; CLI `--workflow`/`--marketing-workflow` không gọi agents/browser/publishing. App schema 2, migrate-legacy giữ task ID/history/counters và không grandfather approval. Marketing content/research-only vẫn Critic độc lập, report PATH hash-bound khác app report TEXT. Các guides native ghi đúng payloads và giới hạn thực tế.
 - `harness/orchestrator.py` và `harness/runners/` là **mô phỏng state machine** (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`).
   Nó **không gọi LLM API** và không tự sinh nội dung — **không thay thế** bước gọi SubAgent.
 - CLI:
@@ -184,7 +191,7 @@ repo có lớp code `harness/` để **kiểm thử luồng và trích xuất n�
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Antigravity-Harness-HuB** (7493 symbols, 17949 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Antigravity-Harness-HuB** (7501 symbols, 17957 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -41,18 +41,6 @@
       "foregroundOverride": "#101010",
       "primary": "#007acc"
     },
-    "enableTerminalSandbox": false,
-    "globalPermissionGrants": {
-      "allow": [
-        "command(*)",
-        "read_file(*)",
-        "write_file(*)",
-        "read_url(*)",
-        "execute_url(*)",
-        "mcp(supabase)"
-      ]
-    },
-    "nonWorkspaceFileAccessPolicy": "AGENT_SETTING_POLICY_ALLOW",
     "themeMode": "THEME_MODE_DARK",
     "useAiCredits": true
   }

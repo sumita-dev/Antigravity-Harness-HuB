@@ -20,23 +20,23 @@ Script Python nằm cạnh skill: `plugins/marketing/skills/fb-admin/scripts/fb_
 
 ### Danh sách lệnh (Commands):
 - **Đăng bài mới (Post):**
-  `python plugins/marketing/skills/fb-admin/scripts/fb_api.py post "Nội dung bài viết"`
+  `python plugins/marketing/skills/fb-admin/scripts/fb_api.py post "Nội dung bài viết" --task-id TASK --publish-id PUBLISH --brain .brain`
 - **Xem các bài viết gần đây (List Posts):**
   `python plugins/marketing/skills/fb-admin/scripts/fb_api.py list_posts`
 - **Đọc bình luận của một bài viết (List Comments):**
   `python plugins/marketing/skills/fb-admin/scripts/fb_api.py list_comments <POST_ID>`
 - **Trả lời bình luận (Reply Comment):**
-  `python plugins/marketing/skills/fb-admin/scripts/fb_api.py reply_comment <COMMENT_ID> "Nội dung câu trả lời"`
+  `python plugins/marketing/skills/fb-admin/scripts/fb_api.py reply_comment <COMMENT_ID> "Nội dung câu trả lời" --task-id TASK --publish-id PUBLISH --brain .brain`
 
 ## 4. Quy trình hoạt động (Workflow)
 Khi User gọi `/fb-admin` kèm theo yêu cầu (ví dụ: "Kiểm tra bài mới", "Viết bài giảm giá"):
 1. Phân tích yêu cầu của User.
-2. Nếu User muốn tạo nội dung mới: Luôn soạn thảo bản nháp (Draft) và xuất ra cửa sổ chat. Chờ User gõ chữ "Đồng ý" hoặc "Đăng đi" thì mới dùng lệnh `post` để đẩy lên Facebook.
+2. Nội dung mới cần dossier/draft/artifact và audit APPROVED còn hiệu lực trong `MarketingWorkflowStore`. Chuẩn bị `prepare_publish(task_id, actor, payload)`; ghi đúng câu xác nhận của User bằng `authorize_publish(task_id, publish_id, raw_authorization)`. Không tự tạo xác nhận. Payload gồm action (`post|reply_comment|schedule`), destination (Page ID hoặc Comment ID), content khớp artifact đã duyệt, media (đường dẫn tuyệt đối tới tệp trong brain), schedule (`null` hoặc chuỗi Unix time). CLI kiểm đúng task/publish record và hash nội dung, media, thời điểm, đích đến trước gửi. Actor/hash không xác thực danh tính con người.
 3. Nếu User muốn kiểm tra bài/comment: Dùng lệnh `list_posts` hoặc `list_comments`, sau đó tóm tắt lại bằng tiếng Việt cho User dễ đọc (không in nguyên cục JSON ra màn hình).
 4. Nếu có lỗi API trả về, thông báo rõ ràng cho User (ví dụ: Token hết hạn, ID không tồn tại).
 
 ## 5. Nguyên tắc an toàn
-- Tuyệt đối không tự động đăng bài lên Fanpage nếu chưa có sự đồng ý (Approve) từ User, trừ khi User yêu cầu rõ ràng "Đăng thẳng lên luôn".
+- Mọi lệnh ghi kể cả trả lời/lên lịch phải có bản duyệt hiện hành và xác nhận gắn đúng payload; yêu cầu đăng trực tiếp vẫn phải lưu xác nhận này. Thay nội dung, media, lịch, đích đến hoặc artifact làm binding cũ vô hiệu.
 - Không để lộ Access Token trong phản hồi chat và không in ra log.
 - Token chỉ đọc từ biến môi trường / `.env`; nếu nghi ngờ lộ, thu hồi và cấp lại token mới.
 
@@ -63,9 +63,9 @@ Mỗi lệnh phải trả về đúng cấu trúc sau, không mô tả chung chu
 | `100` | Tham số sai / ID không tồn tại | Kiểm lại `POST_ID`/`comment_id`, báo nguyên văn lỗi. |
 
 **Chống đăng trùng (bắt buộc):** khi lỗi mạng/timeout ở bước đăng bài, **không** đăng lại ngay.
-Gọi `list_posts` để kiểm tra bài đã lên chưa; chỉ đăng lại khi chắc chắn chưa có.
+Checkpoint được đặt `UNKNOWN` trước network. Gọi lệnh đọc để đối chiếu; lưu bằng chứng qua `reconcile_publish(task_id, publish_id, actor, {status: SUCCEEDED|FAILED, evidence: đường_dẫn_tuyệt_đối, external_id: ID_nếu_thành_công})` trước lần gửi mới. UNKNOWN/SUCCEEDED chặn gửi lại; không auto retry. Hash/record cục bộ không bảo đảm exactly-once trên Meta.
 
-**Luôn dán nguyên văn `message` + `code` mà Graph API trả về** khi báo lỗi — không diễn giải thay.
+**Báo `message` + `code` thật sau redaction**; không in token từ response, exception hoặc URL. Mã thoát: `0` API thành công; `1` lỗi HTTP/API/network/JSON/upload/gate; `2` tham số sai. Upload/lệnh ghi thiếu ID là lỗi, không báo thành công. HTTP 5xx/JSON lỗi/network sau gửi giữ UNKNOWN.
 
 ## Route trước khi làm — khi nào KHÔNG dùng skill này
 
