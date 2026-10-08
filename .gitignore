@@ -2,7 +2,9 @@ __pycache__/
 *.py[cod]
 *.class
 .pytest_cache/
-.pytest_temp/
+.pytest_temp*
+.agy_*
+pytest-cache-files*
 .env*
 # Ngoại lệ: file MẪU không chứa secret thật, cần commit để người khác biết cần biến nào
 !.env.example
