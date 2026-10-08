@@ -375,3 +375,27 @@ python run_harness.py --workflow status --task-id task-board-01
   Mỗi SKILL.md tương ứng đã có ghi chú **TRẠNG THÁI SKILL**; `tests/test_repo_integrity.py` giữ danh sách trong `KNOWN_GAPS` để không phát sinh con trỏ gãy mới.
 - `setup.ps1` hỗ trợ đích portable, merges defaults giữ config user, kiểm resolved paths/symlink/junction và cấm repo/ancestor hoặc đích nằm trong packaged source dirs trước cleanup; repeat copy không tạo nesting. Không chạy default global install trong tests.
 - `configs/harness_config.json` khai báo model `Gemini 3.1 Pro` / `Gemini 3.8 Flash` — **chưa xác minh** 2 ID này tồn tại, và không code nào resolve chúng. Cần Sếp xác nhận hoặc thay bằng ID thật khi viết adapter LLM.
+
+---
+
+## 7. Tối Ưu Hóa Ngân Sách Token (Customization Token Budget Optimization cho Antigravity 2.0)
+
+Để đảm bảo hiệu năng vận hành mượt mà và tránh cạn kiệt cửa sổ ngữ cảnh (context window), hệ thống áp dụng cơ chế tối ưu hóa ngân sách token nghiêm ngặt theo đặc tả kiến trúc Antigravity 2.0:
+
+### 7.1. Cơ Chế Ngân Sách Kép (Dual 20,000 Token Budget Invariant)
+Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lập:
+1. **Rules Budget (20,000 tokens):** Dành riêng cho các quy tắc điều phối cốt lõi (`GEMINI.md`, `AGENTS.md`, các quy chuẩn vận hành hệ thống). Nếu vượt quá 20,000 tokens, các quy tắc dài sẽ bị hạ cấp (demoted), chỉ được nạp qua con trỏ file gián tiếp khiến tác tử mất đi các chỉ dẫn quan trọng.
+2. **Customizations / Skills Budget (20,000 tokens):** Dành cho metadata của toàn bộ danh mục kỹ năng (skills metadata & system triggers). Khi danh mục phình to vượt ngưỡng, hệ thống sẽ cảnh báo tràn ngân sách và làm chậm quá trình lập luận của tác tử.
+
+### 7.2. Khử Trùng Lặp 34 Kỹ Năng Kép (Plugins vs Standalone Skills)
+- Hệ thống phát hiện và dọn sạch tình trạng phân mảnh định nghĩa khi 34 skills vừa tồn tại trong `plugins/code/skills/` hoặc `plugins/marketing/skills/`, vừa bị sao chép trùng lặp ở thư mục kỹ năng rời `skills/`.
+- Chuẩn hóa toàn bộ: kỹ năng đóng gói theo plugin chính quy được ưu tiên, loại bỏ toàn bộ bản sao dư thừa tại thư mục rời, triệt tiêu xung đột định tuyến và tiết kiệm token metadata.
+
+### 7.3. Dọn Dẹp Kỹ Năng Cũ (Nhóm 3 Cleanup) & Rút Gọn Danh Mục Kỹ Năng
+- Rà soát và loại bỏ 14 kỹ năng thuộc Nhóm 3 gồm các AWF sessions cũ và các kỹ năng trùng lặp/thực nghiệm không cần thiết: `fable-thinking`, `doubt-driven`, `lazy-senior-dev`, `codebase-design`, `taste`, `canary-watch`, `liquid-glass`...
+- Kết quả: Danh mục kỹ năng được tinh gọn từ **134 skills xuống còn 86 skills** chuẩn mực, giải phóng xấp xỉ **40% dung lượng context window**, giúp tác tử phản hồi nhanh và chuẩn xác hơn.
+
+### 7.4. Khử Trùng Lặp Rules & Xóa Sạch Cảnh Báo Demoted
+- Tinh gọn mối liên kết giữa `GEMINI.md` và `AGENTS.md`: Chuyển `AGENTS.md` thành con trỏ tham chiếu ngắn gọn về `GEMINI.md`, tập trung toàn bộ quy chuẩn điều phối tối cao tại một nguồn duy nhất.
+- Đưa tổng dung lượng Rules về an toàn dưới ngưỡng 20,000 tokens, xóa sạch hoàn toàn cảnh báo `Rules token budget exceeded / demoted`, bảo toàn 100% chỉ dẫn điều phối của Quản đốc trong mọi phiên tương tác.
+
