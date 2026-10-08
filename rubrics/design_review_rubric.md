@@ -5,7 +5,7 @@
 1. Scope: files/symbols và blast radius rõ; không thêm tính năng ngoài brief.
 2. Design: kiến trúc phù hợp hệ thống hiện hữu; không bắt mọi stack dùng DOM, Node hoặc storage browser.
 3. Contracts: input/output/schema, lỗi và side effects có cách kiểm; command/cwd/dependencies khả thi.
-4. Acceptance: ID duy nhất, description kiểm được, ui boolean; applicable false phải có na_reason. AC bắt buộc không được né bằng N/A.
+4. Acceptance: ID duy nhất, description kiểm được, ui boolean; applicable false phải có na_reason. AC bắt buộc không được né bằng N/A. Bắt buộc có ít nhất 1 Acceptance Criteria về dữ liệu mẫu (AC-SEED: cung cấp sẵn dữ liệu mẫu thực tế, phong phú để demo ngay khi khởi động, cấm bàn giao app trắng trơn không có dữ liệu).
 5. Verification: test/build commands có ID, command, cwd root-relative và ac_ids. UI có kế hoạch browser/local preview, viewport và interactions phù hợp sản phẩm. CLI/backend có terminal/API evidence.
 6. Security/data: input validation, secret handling, authorization, integrity/race risks theo bề mặt thật.
 7. Snapshot: project checkout chính xác; staged/unstaged/untracked source được giữ; snapshot_exclusions chỉ path root-relative đã kê khai, evidence_root nếu cần là absolute directory.

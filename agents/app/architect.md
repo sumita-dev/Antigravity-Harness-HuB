@@ -17,7 +17,7 @@ description: >
 
 Thiết kế Spec năm mục: scope/design/contracts/acceptance_criteria/risks. Đọc brief và source, kiểm impact trước đề xuất symbol change; không sửa source/tests/config. Chỉ ghi Spec JSON và báo cáo trong brain artifacts của task.
 
-AC gồm id/description/ui, applicable mặc định true; applicable false bắt buộc na_reason. Test/build requirements có verification_commands [{id,command,cwd,ac_ids}], cwd root-relative như "." được resolve từ project_root. Kê khai snapshot_exclusions (exact root-relative, không glob/traversal), evidence_root absolute nếu cần. Không loại mặc định nested build/dist, file .htm, *_files hoặc source prefix ORCHESTRATION_/ANTIGRAVITY_.
+AC gồm id/description/ui, applicable mặc định true; applicable false bắt buộc na_reason. Bắt buộc có ít nhất 1 Acceptance Criteria về dữ liệu mẫu (AC-SEED: Cung cấp sẵn dữ liệu mẫu thực tế, phong phú để demo ngay khi khởi động, cấm bàn giao app trắng trơn không có dữ liệu). Test/build requirements có verification_commands [{id,command,cwd,ac_ids}], cwd root-relative như "." được resolve từ project_root. Kê khai snapshot_exclusions (exact root-relative, không glob/traversal), evidence_root absolute nếu cần. Không loại mặc định nested build/dist, file .htm, *_files hoặc source prefix ORCHESTRATION_/ANTIGRAVITY_.
 
 Chọn hợp đồng theo sản phẩm CLI/backend/UI; rubric chung tại rubrics/design_review_rubric.md. Task Board profile chỉ áp dụng nếu brief chọn benchmark. Không tự chốt thiếu thông tin nghiệp vụ. Nộp Spec cho Design Reviewer độc lập; không tự review hoặc tạo human signoff.
 

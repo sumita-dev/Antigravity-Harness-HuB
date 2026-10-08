@@ -36,7 +36,9 @@ Antigravity-Harness-Hub/
 │   │   ├── architect.md                    # System Architect (Thiết kế hệ thống & Spec 5 mục)
 │   │   ├── design_reviewer.md              # Design Reviewer (Thẩm định độc lập Spec kiến trúc)
 │   │   ├── builder.md                      # Developer (Lập trình mã nguồn & unit test)
-│   │   └── qa_auditor.md                   # QA Reviewer (Kiểm thử độc lập, bảo mật & browser evidence)
+│   │   ├── qa_auditor.md                   # QA Reviewer (Kiểm thử độc lập, bảo mật & browser evidence)
+│   │   ├── e2e_engineer.md                 # E2E Automation Engineer (Kịch bản Playwright E2E)
+│   │   └── e2e_critic.md                   # E2E Test Critic (Thẩm định kịch bản E2E độc lập)
 │   ├── marketing/                          # Tác tử khối Tăng trưởng / Nội dung (Marketing)
 │   │   ├── web_researcher.md               # Web & Market Intelligence Researcher
 │   │   ├── creator.md                      # Content Creator (Soạn kịch bản & copy chuyển đổi cao)
@@ -44,13 +46,15 @@ Antigravity-Harness-Hub/
 │   ├── registry.md                         # Bảng đăng ký định danh & quyền hạn tác tử
 │   └── synthesizer.md                      # Tác tử tổng hợp tri thức & giải pháp
 ├── docs/                                   # Tài liệu hướng dẫn & quy chuẩn vận hành
-│   └── app-workflow-guide.md               # Cẩm nang Gemini Native App Workflow & Checkpoint Guide
+│   ├── app-workflow-guide.md               # Cẩm nang Gemini Native App Workflow & Checkpoint Guide
+│   ├── intake-protocol.md                  # Giao thức phỏng vấn Intake 3 câu hỏi trước khi lập Spec
+│   └── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
 ├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
 │   ├── code/skills/                        # 22 skill kỹ thuật (SKILL.md + references/ + scripts/)
 │   └── marketing/skills/                   # 12 skill marketing / nội dung
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
-├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py, auto_harvest_global.py, dispatch_subagents.py
+├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py, run_dev_logger.py, generate_launcher.py...
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
 │   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (34 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
@@ -67,11 +71,11 @@ Antigravity-Harness-Hub/
 │   ├── design_review_rubric.md             # Tiêu chuẩn thẩm định thiết kế kiến trúc & Spec 5 mục
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (16 files)
+├── tests/                                  # Bộ kiểm thử tự động (22 files)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
 │   ├── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
-│   ├── test_harness_learning.py            # Trajectory + Learning Harvester
+│   ├── test_launcher_and_dev_logger.py     # Kiểm thử tiện ích dev logger & 1-click launcher generator
 │   ├── test_marketing_skills.py            # Frontmatter & loader của skill
 │   ├── test_session_manager.py             # Portable session sync
 │   ├── test_skill_router.py                # Keyword routing
@@ -89,6 +93,12 @@ Antigravity-Harness-Hub/
 | :--- | :--- |
 | `harness/app_workflow.py` | Quản lý vòng đời Checkpoint cho nhánh App (`WorkflowStore`): kiểm soát chuyển trạng thái, thẩm định chữ ký SHA256 Spec/Manifest, tự động khử trùng lặp bằng chứng (evidence deduplication) và quét sạch trạng thái cũ (consistency auto-sweep). |
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
+| `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
+| `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
+| `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
+| `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. |
+| `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
+| `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
@@ -106,42 +116,44 @@ Hệ thống hoạt động theo nguyên tắc tách biệt vai trò (Maker-Chec
 
 ### 2.1. Nhánh 1: Phát Triển Phần Mềm (`app`) — Gemini Native App Workflow
 
-Quy trình phát triển phần mềm tuân thủ nghiêm ngặt mô hình Gemini Native App Workflow 7 bước với cơ chế Maker-Checker 2 tầng (Kiến trúc & Mã nguồn):
+Quy trình phát triển phần mềm tuân thủ nghiêm ngặt mô hình Gemini Native App Workflow 7 pha toàn diện với cơ chế Maker-Checker 2 tầng (Kiến trúc & Mã nguồn), kiểm thử tự động E2E Playwright và đóng gói 1-Click:
 
 ```mermaid
 flowchart TD
-    A["INTAKE"] --> B["BƯỚC 1: DESIGN<br/>(SubAgent: Architect)<br/><i>Spec 5 mục</i>"]
-    B --> C["BƯỚC 2: DESIGN REVIEW<br/>(SubAgent: Design Reviewer)<br/><i>Đối soát design rubric</i>"]
-    C -->|"VERDICT: APPROVE"| D["BƯỚC 3: HUMAN SIGN-OFF<br/>(Sếp duyệt khóa SHA256 Spec)"]
+    A["PHA 0: INTAKE & SCOPE ALIGNMENT<br/><i>Phỏng vấn 3 câu hỏi cốt lõi</i>"] --> B["PHA 1: DESIGN<br/>(SubAgent: Architect)<br/><i>Spec 5 mục + AC-SEED dữ liệu mẫu</i>"]
+    B --> C["PHA 2: DESIGN REVIEW<br/>(SubAgent: Design Reviewer)<br/><i>Đối soát design rubric độc lập</i>"]
+    C -->|"VERDICT: APPROVE"| D["PHA 3: HUMAN SIGN-OFF<br/>(Sếp duyệt khóa SHA256 Spec)"]
     C -->|"VERDICT: REJECT lần 1"| B
     C -->|"VERDICT: REJECT lần 2"| ESC1["ESCALATED (Báo cáo Sếp)"]
-    D --> E["BƯỚC 4: IMPLEMENTATION<br/>(SubAgent: Builder)<br/><i>Viết mã, tests & snapshot manifest</i>"]
-    E --> F["BƯỚC 5: AUDIT<br/>(SubAgent: QA Auditor)<br/><i>Đối soát code rubric, re-run tests</i>"]
+    D --> E["PHA 4: IMPLEMENTATION<br/>(SubAgent: Builder)<br/><i>TDD + Nạp mockData.json + Snapshot manifest</i>"]
+    E --> F["PHA 5: AUDIT & E2E TESTING<br/>(QA Auditor + E2E Playwright Engineer & Critic)<br/><i>Dev Logger + Port Check + Playwright E2E</i>"]
     F -->|"VERDICT: REJECT lần 1"| E
     F -->|"VERDICT: REJECT lần 2"| ESC2["ESCALATED (Báo cáo Sếp)"]
-    F -->|"Cần kiểm chứng UI"| G["BƯỚC 6: BROWSER VERIFICATION<br/>(AUDIT_PENDING_BROWSER)<br/><i>Local preview + Browser evidence từng AC</i>"]
-    F -->|"Non-UI / Đạt chuẩn"| H["BƯỚC 7: APPROVED<br/>(Nghiệm Thu Thành Công)"]
-    G -->|"verify-browser PASS"| H
+    F -->|"VERDICT: APPROVE"| G["PHA 6: UAT & 1-CLICK PACKAGING<br/>(Sếp UAT Test Sheet + 1-Click Launcher)<br/><i>start-app.bat + HDSD-NHANH.md</i>"]
+    G --> H["APPROVED / BÀN GIAO TOÀN DIỆN"]
 ```
 
-1. **Bước 1 - DESIGN (Architect):**
+1. **Pha 0 - INTAKE & SCOPE ALIGNMENT (Phỏng vấn 3 câu hỏi cốt lõi):**
+   - **Tài liệu quy chuẩn:** `docs/intake-protocol.md`.
+   - **Nhiệm vụ:** Trước khi viết một dòng Spec nào, Quản đốc bắt buộc dừng lại phỏng vấn Sếp 3 câu hỏi cốt lõi: (1) Mục tiêu & Người dùng chính, (2) Khung công nghệ & Phạm vi (Scope In/Out), (3) Ràng buộc kỹ thuật & Tiêu chí nghiệm thu (Acceptance Criteria). Tránh tuyệt đối bệnh "giả định ngầm" và lập trình sai hướng.
+2. **Pha 1 - DESIGN (Architect + AC-SEED dữ liệu mẫu bắt buộc):**
    - **Tác tử:** `agents/app/architect.md` (System Architect).
-   - **Nhiệm vụ:** Tiếp nhận yêu cầu nghiệp vụ, phân tích ranh giới chức năng (blast radius), thiết kế kiến trúc phân lớp, Schema dữ liệu, hợp đồng API và danh sách Acceptance Criteria có ID rõ ràng. Không được trực tiếp sửa đổi source code.
-2. **Bước 2 - DESIGN REVIEW (Design Reviewer độc lập):**
+   - **Nhiệm vụ:** Tiếp nhận Intake, phân tích ranh giới chức năng (blast radius), thiết kế kiến trúc phân lớp, Schema dữ liệu, hợp đồng API và danh sách Acceptance Criteria có ID rõ ràng. BẮT BUỘC thiết kế tối thiểu 1 tiêu chí `AC-SEED` chỉ định cấu trúc và nội dung dữ liệu mẫu phong phú ban đầu (`mockData.json` / seeds) để người dùng mở app lên là thấy dữ liệu sống ngay lập tức, không để màn hình trắng (empty state).
+3. **Pha 2 - DESIGN REVIEW (Design Reviewer độc lập):**
    - **Tác tử:** `agents/app/design_reviewer.md` (Design Reviewer).
-   - **Nhiệm vụ:** Thẩm định độc lập bản Spec đối chiếu với `rubrics/design_review_rubric.md`. Kiểm tra tính khả thi, độ hoàn thiện của AC, rủi ro bảo mật và hiệu năng. Phán quyết chuẩn `VERDICT: APPROVE` hoặc `VERDICT: REJECT`.
-3. **Bước 3 - HUMAN SIGN-OFF (Phê duyệt của Sếp):**
-   - **Thao tác:** Khóa cố định mã băm `spec_sha256`. Chỉ khi Sếp xác nhận rõ ràng, hệ thống mới ghi nhận sign-off và cho phép chuyển sang bước triển khai. Mọi sửa đổi vào Spec sau sign-off sẽ tự động vô hiệu hóa phê duyệt cũ.
-4. **Bước 4 - IMPLEMENTATION (Builder):**
+   - **Nhiệm vụ:** Thẩm định độc lập bản Spec đối chiếu với `rubrics/design_review_rubric.md`. Kiểm tra tính khả thi, độ hoàn thiện của AC (bao gồm kiểm tra AC-SEED), rủi ro bảo mật và hiệu năng. Phán quyết chuẩn `VERDICT: APPROVE` hoặc `VERDICT: REJECT`.
+4. **Pha 3 - HUMAN SIGN-OFF (Sếp duyệt khóa SHA256 Spec):**
+   - **Thao tác:** Khóa cố định mã băm `spec_sha256`. Chỉ khi Sếp xác nhận rõ ràng ("Duyệt", "Triển khai"), hệ thống mới ghi nhận sign-off và cho phép chuyển sang bước triển khai. Mọi sửa đổi vào Spec sau sign-off sẽ tự động vô hiệu hóa phê duyệt cũ.
+5. **Pha 4 - IMPLEMENTATION (Builder TDD + Nạp dữ liệu mẫu mockData.json):**
    - **Tác tử:** `agents/app/builder.md` (Developer / Maker).
-   - **Nhiệm vụ:** Viết mã nguồn phân lập và kiểm thử tương ứng bám sát Spec đã khóa; ghi nhận snapshot bytes toàn bộ source/test/config vào manifest SHA256. Phải chạy tests xanh trước khi bàn giao.
-5. **Bước 5 - AUDIT (QA Auditor độc lập):**
-   - **Tác tử:** `agents/app/qa_auditor.md` (QA Reviewer / Checker).
-   - **Nhiệm vụ:** Đối soát mã nguồn với `rubrics/code_quality_rubric.md`, xác minh `spec_sha256` và `manifest_sha256`, tự mình chạy lại toàn bộ test suite. Nếu là ứng dụng Web/UI cần bằng chứng trực quan, chuyển trạng thái sang `AUDIT_PENDING_BROWSER`.
-6. **Bước 6 - BROWSER VERIFICATION (Kiểm chứng giao diện thực tế):**
-   - **Thao tác:** QA Auditor khởi chạy local preview, tương tác browser thực tế qua DevTools MCP, thu thập ảnh chụp màn hình/console log chứng minh từng UI AC. Gọi lệnh `verify-browser` để tự động khử trùng lặp evidence và kích hoạt cơ chế Consistency Auto-Sweep dọn sạch toàn bộ trạng thái cũ.
-7. **Bước 7 - APPROVED (Nghiệm thu):**
-   - Nhiệm vụ hoàn thành với đầy đủ bằng chứng thực chứng, checkpoint nhất quán và bàn giao báo cáo minh bạch cho Sếp.
+   - **Nhiệm vụ:** Triển khai theo quy trình TDD (Test-Driven Development) bám sát Spec đã khóa; nạp sẵn dữ liệu mẫu thực tế phong phú (`mockData.json` / seed script); ghi nhận snapshot bytes toàn bộ source/test/config vào manifest SHA256. Phải chạy tests xanh trước khi bàn giao.
+6. **Pha 5 - AUDIT & E2E TESTING (QA Auditor + E2E Playwright Engineer & Critic + Dev Logger & Pre-flight Port/Health Check):**
+   - **Tác tử:** `agents/app/qa_auditor.md` (QA Auditor / Checker), phối hợp cặp đôi Maker-Checker E2E: `agents/app/e2e_engineer.md` (viết kịch bản Playwright E2E) và `agents/app/e2e_critic.md` (thẩm định độc lập kịch bản test E2E).
+   - **Hạ tầng kiểm thử & Ghi log:** Khởi chạy `scripts/run_dev_logger.py` để stream background dev server ra file log (`logs/dev-server.log`), thực hiện Pre-flight Check (kiểm tra port khả dụng, quét dọn tiến trình mồ côi, health-check HTTP 200 trước khi test). Chạy toàn bộ unit test, integration test và Playwright E2E test; thu thập screenshot/video/console log chứng minh từng UI AC.
+7. **Pha 6 - UAT & 1-CLICK PACKAGING (Sếp UAT Test với Human Test Sheet + Tự động sinh start-app.bat 1-click và HDSD-NHANH.md):**
+   - **Tài liệu & Kịch bản:** Sử dụng mẫu `docs/human-test-sheet-template.md` để lập bảng kiểm thử UAT rõ ràng (bước thực hiện, kết quả mong đợi, checkbox) cho Sếp nghiệm thu thực tế bằng tay trong 3 phút.
+   - **Đóng gói 1-Click:** Chạy `scripts/generate_launcher.py` để tự động dò tìm cấu hình dự án, kiểm tra port/process, tạo file khởi chạy 1-click `start-app.bat` và tài liệu hướng dẫn nhanh `HDSD-NHANH.md` giúp Sếp hay bất kỳ ai nhấp đúp là dùng được ngay.
+   - **Bàn giao:** Nhiệm vụ hoàn thành với đầy đủ bằng chứng thực chứng, checkpoint nhất quán và báo cáo minh bạch cho Sếp.
 
 ---
 
@@ -232,8 +244,9 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 16 file:
+Bộ test gồm 22 file:
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
+- `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
 - `test_curator.py` — Đánh giá vòng đời skill, phát hiện trùng lặp & curation
 - `test_distiller.py` — Chưng cất trajectory thành kỹ năng mới
@@ -242,17 +255,22 @@ Bộ test gồm 16 file:
 - `test_harness_e2e.py` — Luồng 2 nhánh, escalate sau 2 vòng REJECT
 - `test_harness_learning.py` — Trajectory store + learning harvester
 - `test_harness_live.py` — Kiểm thử live harness orchestration
+- `test_launcher_and_dev_logger.py` — Kiểm thử tiện ích dev logger & trình sinh 1-click launcher
 - `test_marketing_skill_quality.py` — Kiểm định chất lượng nội dung skill marketing
 - `test_marketing_skills.py` — Frontmatter & loader của skill marketing
+- `test_marketing_tools.py` — Kiểm thử công cụ marketing
+- `test_marketing_workflow.py` — Workflow marketing checkpoint & audit
+- `test_native_contracts.py` — Kiểm thử hợp đồng native agent & vai trò
 - `test_repo_integrity.py` — Chặn hồi quy cấu trúc/secret/path cá nhân/ref gãy
 - `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
 - `test_session_manager.py` — Portable session sync
+- `test_setup.py` — Kiểm thử setup script & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
 - `test_skill_router.py` — Keyword routing (34 skill)
 
 ```text
 $ pytest -q
-187 passed, 1 skipped
+374 passed, 7 skipped
 ```
 
 ---

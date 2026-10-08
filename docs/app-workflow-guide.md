@@ -2,13 +2,30 @@
 
 Antigravity gọi tác tử thật; CLI chỉ lưu/kiểm checkpoint/hash, không gọi LLM, chạy test hay browser. Simulation không có `--workflow` không chứng minh app đạt. Các gate này áp dụng app native; bảo trì harness đã được Sếp giao không tạo thêm product task hoặc human signoff giả.
 
+## Quy trình 7 pha toàn diện (End-to-End App Development Workflow)
+
+Toàn bộ quy trình phát triển ứng dụng tuân thủ nghiêm ngặt 7 pha tuần tự:
+
+| Pha | Tên pha | Tác tử / Vai trò | Nhiệm vụ chính & Tiêu chí nghiệm thu |
+| :--- | :--- | :--- | :--- |
+| **Pha 0** | **INTAKE** | Quản đốc (Orchestrator) | Phỏng vấn làm rõ 3 tham số cốt lõi (Tech Stack, Lưu trữ dữ liệu, Top 3-5 User Stories) theo `docs/intake-protocol.md`. Cấm tự tiện code bừa bãi khi chưa chốt ý định. |
+| **Pha 1** | **DESIGN** | System Architect (`agents/app/architect.md`) | Lập Spec 5 mục (scope, design, contracts, acceptance criteria, risks). **Bắt buộc có tiêu chí dữ liệu mẫu AC-SEED**. |
+| **Pha 2** | **DESIGN_REVIEW** | Design Reviewer (`agents/app/design_reviewer.md`) | Thẩm định độc lập theo `rubrics/design_review_rubric.md`. Phán quyết APPROVE / REJECT gắn Spec SHA256. |
+| **Pha 3** | **SIGN_OFF** | Sếp (Human Gate) | Trình đúng Spec SHA256 đã duyệt cho Sếp. Nhận lệnh phê duyệt rõ ràng ("Duyệt", "Bắt đầu code đi"). |
+| **Pha 4** | **IMPLEMENTATION** | Developer / Builder (`agents/app/builder.md`) | Lập trình theo TDD & Karpathy, **bắt buộc tạo file seed data (mockData.json hoặc seed script)**, cấm app trắng trơn. Chạy test/build và local preview. |
+| **Pha 5** | **AUDIT & E2E** | QA Auditor (`agents/app/qa_auditor.md`), E2E Engineer & Critic | Kiểm thử unit/integration độc lập; E2E Playwright POM Desktop/Mobile; giám sát dev server qua `scripts/run_dev_logger.py` (port check & HTTP health check); bàn giao bảng UAT `docs/human-test-sheet-template.md`. |
+| **Pha 6** | **PACKAGING** | Packaging Script (`scripts/generate_launcher.py`) | Tự động sinh launcher 1-click `start-app.bat` và tài liệu hướng dẫn nhanh `HDSD-NHANH.md`, sẵn sàng bàn giao cho người dùng cuối chạy ngay. |
+
 ## Smoke local trong Antigravity
 
 1. Cài Python dependencies bằng `py -3.12 -m pip install -r requirements.txt`. Mở workspace harness trong Antigravity, kiểm tool inventory và ghi OBSERVED/DECLARED/UNAVAILABLE/NOT_VERIFIED theo `docs/native-readiness.md`.
-2. Gửi brief có project directory riêng: “/app Xây Task Board local, thêm/sửa/xóa, title bắt buộc, todo/doing/done, filter, lưu localStorage, desktop/mobile. Dùng Architect → Design Reviewer → trình anh duyệt đúng Spec → Builder → QA test và browser thật. Không deploy.” Đây là benchmark tùy chọn, chưa phải app được triển khai.
-3. Gemini quản lý checkpoint/artifacts, gọi Architect và Reviewer độc lập. Sếp đọc Spec và chỉ duyệt đúng bản đã review; Gemini giữ nguyên raw human_message/spec_sha256, không giả approval.
-4. Builder sửa đúng Spec trong checkout thật, chạy test/build và preview. QA nhận cùng checkout, tự rerun commands và kiểm từng AC qua browser. Bàn giao URL còn chạy, evidence, defects/limitations. Thiếu browser giữ NOT_VERIFIED; không suy từ trang đầu rằng luồng chính đã đúng.
-5. Resume cùng task ID bằng status; route stage/next_agent trước keyword. REJECT đầu trả Maker, REJECT thứ hai cùng pha design/code ESCALATED ngay. Counters tồn tại qua replacement/restart/revise.
+2. Pha 0 INTAKE: Phỏng vấn làm rõ 3 tham số cốt lõi (Tech Stack, Lưu trữ, MVP Stories) theo `docs/intake-protocol.md`. Chỉ khi Sếp xác nhận mới chuyển sang Architect.
+3. Gửi brief có project directory riêng: “/app Xây Task Board local, thêm/sửa/xóa, title bắt buộc, todo/doing/done, filter, lưu localStorage, desktop/mobile. Dùng Architect → Design Reviewer → trình anh duyệt đúng Spec → Builder → QA test và browser thật. Không deploy.” Đây là benchmark tùy chọn, chưa phải app được triển khai.
+4. Gemini quản lý checkpoint/artifacts, gọi Architect và Reviewer độc lập. Spec bắt buộc có AC-SEED dữ liệu mẫu. Sếp đọc Spec và chỉ duyệt đúng bản đã review; Gemini giữ nguyên raw human_message/spec_sha256, không giả approval.
+5. Builder sửa đúng Spec trong checkout thật, bắt buộc tạo mockData/seed script, chạy test/build và preview. QA nhận cùng checkout, tự rerun commands và kiểm từng AC qua browser. Bàn giao URL còn chạy, evidence, defects/limitations. Thiếu browser giữ NOT_VERIFIED; không suy từ trang đầu rằng luồng chính đã đúng.
+6. Chạy E2E Playwright, giám sát dev server qua `scripts/run_dev_logger.py` (pre-flight port check & HTTP health check), xuất bảng UAT `docs/human-test-sheet-template.md`.
+7. Đóng gói launcher 1-click bằng `scripts/generate_launcher.py` sinh `start-app.bat` và `HDSD-NHANH.md`.
+8. Resume cùng task ID bằng status; route stage/next_agent trước keyword. REJECT đầu trả Maker, REJECT thứ hai cùng pha design/code ESCALATED ngay. Counters tồn tại qua replacement/restart/revise.
 
 ## CLI
 
@@ -28,14 +45,14 @@ Architect/Reviewer/QA không sửa source. Frontmatter tool permissions chỉ DE
 
 ## Spec và payload
 
-Spec năm mục `scope/design/contracts/acceptance_criteria/risks`; scope/design/contracts/risks là nonempty strings. AC có id/description/ui, `applicable` default true; false cần `na_reason`. Mọi applicable AC kể cả non-UI phải PASS có evidence. N/A chỉ khi Spec đánh dấu false, reason khớp signed na_reason.
+Spec năm mục `scope/design/contracts/acceptance_criteria/risks`; scope/design/contracts/risks là nonempty strings. AC có id/description/ui, `applicable` default true; false cần `na_reason`. **Bắt buộc có ít nhất 1 Acceptance Criteria về dữ liệu mẫu (AC-SEED)** cung cấp sẵn dữ liệu mẫu thực tế, phong phú để demo ngay khi khởi động. Mọi applicable AC kể cả non-UI phải PASS có evidence. N/A chỉ khi Spec đánh dấu false, reason khớp signed na_reason.
 
 Spec mới có yêu cầu test/build phải kê khai `verification_commands`: nonempty list {id,command,cwd,ac_ids}, cwd exact root-relative (bao gồm ".") resolve theo project_root. QA commands là {id,command,cwd,ac_ids,exit_code,log}; cwd ABSOLUTE nằm trong project, exit_code integer 0, command và AC IDs khớp Spec. Legacy Spec chưa có command list vẫn phải có command/log hợp lệ và evidence mỗi applicable AC.
 
 Ví dụ schema dưới chỉ minh họa; thay command/AC theo stack thật và paths bằng file evidence đã quan sát, không nộp placeholder:
 
 ```json
-{"scope":"Python CLI source/tests","design":"Existing parser and pure command handler","contracts":"Invalid input exits nonzero","acceptance_criteria":[{"id":"AC1","description":"Valid and invalid input regression tests pass","ui":false}],"risks":"No external writes","verification_commands":[{"id":"tests","command":"python -m pytest -q","cwd":".","ac_ids":["AC1"]}],"snapshot_exclusions":["coverage"]}
+{"scope":"Python CLI source/tests","design":"Existing parser and pure command handler","contracts":"Invalid input exits nonzero","acceptance_criteria":[{"id":"AC1","description":"Valid and invalid input regression tests pass","ui":false},{"id":"AC-SEED","description":"Seed data file mockData.json provided and loaded successfully on startup","ui":false}],"risks":"No external writes","verification_commands":[{"id":"tests","command":"python -m pytest -q","cwd":".","ac_ids":["AC1","AC-SEED"]}],"snapshot_exclusions":["coverage"]}
 ```
 
 Review {verdict APPROVE|REJECT|ESCALATE,spec_sha256,report TEXT}; design PARTIAL_APPROVE forbidden. Signoff {spec_sha256,human_message raw}. CLI accepts whole phrase Duyệt / Duyệt Spec này / Duyệt bản đặc tả này / SIGN_OFF: approved / Bắt đầu code đi, case-insensitive, trim ngoài, optional prefix Sếp:. Không dấu câu cuối hoặc câu điều kiện; không sửa raw message để hợp grammar.
@@ -43,7 +60,7 @@ Review {verdict APPROVE|REJECT|ESCALATE,spec_sha256,report TEXT}; design PARTIAL
 Implementation {report TEXT}; ghi checkout, diff và test/build/preview evidence. Audit {verdict,spec_sha256,manifest_sha256,report TEXT,commands,preview:{url,checks}}. `report` app là TEXT, không tự đọc path. Hash lấy từ checkpoint hiện tại.
 
 ```json
-{"verdict":"APPROVE","spec_sha256":"FROM_CURRENT_CHECKPOINT","manifest_sha256":"FROM_CURRENT_CHECKPOINT","report":"QA independently reran commands and checked AC1","commands":[{"id":"tests","command":"python -m pytest -q","cwd":"ABSOLUTE_APP_DIRECTORY","ac_ids":["AC1"],"exit_code":0,"log":"ABSOLUTE_EVIDENCE_FILE"}],"preview":{"checks":[{"id":"AC1","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"}]}}
+{"verdict":"APPROVE","spec_sha256":"FROM_CURRENT_CHECKPOINT","manifest_sha256":"FROM_CURRENT_CHECKPOINT","report":"QA independently reran commands and checked AC1 and AC-SEED","commands":[{"id":"tests","command":"python -m pytest -q","cwd":"ABSOLUTE_APP_DIRECTORY","ac_ids":["AC1","AC-SEED"],"exit_code":0,"log":"ABSOLUTE_EVIDENCE_FILE"}],"preview":{"checks":[{"id":"AC1","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"},{"id":"AC-SEED","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"}]}}
 ```
 
 `preview.checks` bao gồm mỗi AC đúng một lần cả UI/non-UI. UI applicable cần local URL hợp lệ (localhost/127.0.0.1/::1), PASS evidence. Non-UI không cần URL nhưng vẫn PASS có evidence. Optional `functional/http_smoke/browser` records có status và evidence/log khi PASS, reason khi NOT_VERIFIED. functional_status dựa commands và non-UI checks hợp lệ; explicit functional NOT_VERIFIED không bị tự nâng. HTTP thiếu evidence vẫn NOT_VERIFIED; browser_status theo applicable UI AC, không biến thiếu kiểm thành PASS.
@@ -74,10 +91,30 @@ py -3.12 run_harness.py --workflow migrate-legacy --task-id legacy-app --payload
 
 Schema 2 hardened. Pristine v1 DESIGN/DESIGN_REVIEW/SIGN_OFF/IMPLEMENTATION tự migration khi không có prior implementation/audit/manifest/browser history, giữ task ID/counters/events/raw signoff và kiểm hash/actors. v1 AUDIT/AUDIT_PENDING_BROWSER/APPROVED fail closed; migrate-legacy {reason} archive old authority trong legacy_revalidation, giữ identity/history/counters/actors, về DESIGN cần review/human signoff/implementation/QA mới. Corrupt state không được đoán sửa; không grandfather approval hoặc tạo task mới để xóa counter.
 
+## Giai đoạn E2E Playwright & UAT
+
+Sau khi hoàn thành Unit/Integration test ở pha AUDIT, các dự án có giao diện người dùng chuyển sang giai đoạn E2E & UAT:
+- **E2E Automation (`E2E_Engineer`):** Viết kịch bản Playwright theo chuẩn Page Object Model (POM), kiểm thử responsive trên Desktop (1280x720) và Mobile (390x844), chạy headless/headed, thu thập screenshots và traces cho từng AC.
+- **E2E Independent Audit (`E2E_Critic`):** Thẩm định độc lập độ phủ 100% AC, phát hiện flaky tests (chặn sleep mù), kiểm tra screenshots và log console của trình duyệt.
+- **Giám sát Dev Server (`scripts/run_dev_logger.py`):** Sử dụng helper script để chạy dev server và tự động bắt lỗi runtime/crash vào `runtime-crash.log`. Tích hợp pre-flight port check và HTTP health check (`wait_for_http_ok`).
+- **Bàn giao UAT (Human Test Sheet):** Xuất bảng nghiệm thu người dùng thực tế theo mẫu `docs/human-test-sheet-template.md` để Sếp trực tiếp kiểm tra các luồng nghiệp vụ trên URL local.
+
+## Pha 6: Đóng gói 1-Click Launcher (Packaging & Handoff)
+
+Sau khi AUDIT và E2E được thông qua, kích hoạt script `scripts/generate_launcher.py`:
+
+```powershell
+py -3.12 scripts/generate_launcher.py --app-dir ./app-path --port 3000 --start-cmd "npm run dev" --title "My App" --data-file "mockData.json"
+```
+
+Script tự động sinh 2 file trong thư mục ứng dụng:
+1. **`start-app.bat`**: Script 1-click kiểm tra môi trường Node/Python, khởi chạy dev server ở background và tự động mở trình duyệt `http://localhost:<port>`.
+2. **`HDSD-NHANH.md`**: Hướng dẫn sử dụng nhanh tóm tắt cách chạy 1-click, cách đóng server và vị trí file dữ liệu seed data.
+
 ## Benchmark và handoff
 
 Task Board tùy chọn dùng `rubrics/task-board-design-profile.md`: CRUD/filter/error/storage/responsive, desktop 1280 và mobile 390, browser tương tác và console evidence từng AC. Architect chốt stack/AC/commands trước review; không áp profile này lên backend/CLI.
 
 Probe local task riêng: Builder trước signoff, cùng actor Maker/Checker, source/untracked/log đổi, duplicate/unknown AC và hai REJECT đều phải bị chặn theo hợp đồng. Probe không thay browser acceptance.
 
-Stop hook pytest chỉ kiểm harness, không thay app test/build/browser. Bàn giao nêu URL/cách chạy, hashes, command logs, AC results và giới hạn. Antigravity E2E chưa được quan sát phải ghi NOT_VERIFIED. Xem smoke marketing tại `docs/marketing-workflow-guide.md`.
+Stop hook pytest chỉ kiểm harness, không thay app test/build/browser. Bàn giao nêu URL/cách chạy, hashes, command logs, AC results, seed data và giới hạn. Antigravity E2E chưa được quan sát phải ghi NOT_VERIFIED. Xem smoke marketing tại `docs/marketing-workflow-guide.md`.

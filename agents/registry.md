@@ -8,6 +8,8 @@ Bảng này là metadata và hợp đồng prompt, không phải schema API Anti
 | `Design_Reviewer` | app | DESIGN_REVIEW | agents/app/design_reviewer.md | Đọc Spec/source; ghi report |
 | `Builder` | app | IMPLEMENTATION | agents/app/builder.md | Sửa source/tests theo Spec đã duyệt |
 | `QA_Auditor` | app | AUDIT | agents/app/qa_auditor.md | Đọc source; terminal test/browser; ghi evidence/report |
+| `E2E_Engineer` | app | E2E | agents/app/e2e_engineer.md | Chạy/ghi kịch bản Playwright POM; chụp screenshots/traces |
+| `E2E_Critic` | app | E2E_REVIEW | agents/app/e2e_critic.md | Đọc kịch bản/screenshots/traces; kiểm 100% AC, không sửa file |
 | `Web_Researcher` | marketing | RESEARCH | agents/marketing/web_researcher.md | Đọc/search; ghi dossier/evidence |
 | `Creator` | marketing | CREATION | agents/marketing/creator.md | Đọc dossier; ghi draft/artifacts |
 | `Compliance_Critic` | marketing | AUDIT | agents/marketing/compliance_critic.md | Đọc artifacts; ghi report/evidence, không sửa draft/source |
