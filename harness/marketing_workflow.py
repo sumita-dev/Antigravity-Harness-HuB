@@ -36,9 +36,24 @@ def _publish_consent(raw_authorization):
         raise WorkflowError('Explicit whole publish approval required: Duy\u1ec7t \u0111\u0103ng b\u00e0i n\u00e0y / PUBLISH: approved')
 
 
+def _is_junction(path):
+    if hasattr(path, "is_junction"):
+        try:
+            return path.is_junction()
+        except OSError:
+            pass
+    if os.name == "nt" and path.exists():
+        try:
+            st = os.lstat(path)
+            return bool(getattr(st, "st_file_attributes", 0) & 1024)
+        except OSError:
+            pass
+    return False
+
+
 def _safe_path(value):
     path = Path(value).absolute()
-    if '..' in path.parts or any(part.is_symlink() or (hasattr(part, 'is_junction') and part.is_junction())
+    if '..' in path.parts or any(part.is_symlink() or _is_junction(part)
                                for part in (path, *path.parents)):
         raise WorkflowError('Traversal, symlink or junction path is forbidden')
     return path.resolve()

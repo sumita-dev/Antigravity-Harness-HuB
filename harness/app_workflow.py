@@ -31,8 +31,23 @@ def _canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
+def _is_junction(path):
+    if hasattr(path, "is_junction"):
+        try:
+            return path.is_junction()
+        except OSError:
+            pass
+    if os.name == "nt" and path.exists():
+        try:
+            st = os.lstat(path)
+            return bool(getattr(st, "st_file_attributes", 0) & 1024)
+        except OSError:
+            pass
+    return False
+
+
 def _is_link(path):
-    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+    return path.is_symlink() or _is_junction(path)
 
 
 class AppWorkflowStore:
