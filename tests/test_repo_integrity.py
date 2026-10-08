@@ -48,7 +48,7 @@ def _doc_files():
         parts = p.relative_to(REPO).parts
         if not p.is_file() or ".git" in parts or ".venv" in parts or ".gitnexus" in parts or ".brain" in parts:
             continue
-        if ".pytest" in str(p):
+        if any(part.startswith(".pytest") for part in parts):
             continue
         if p.suffix.lower() in DOC_SUFFIXES:
             yield p

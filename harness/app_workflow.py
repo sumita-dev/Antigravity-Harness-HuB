@@ -235,7 +235,11 @@ class AppWorkflowStore:
                 json.dump(state, stream, ensure_ascii=False, indent=2)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, path)
+            try:
+                os.replace(temporary, path)
+            except PermissionError:
+                time.sleep(0.02)
+                os.replace(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
         return state
