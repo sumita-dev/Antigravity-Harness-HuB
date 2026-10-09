@@ -36,6 +36,7 @@ Antigravity-Harness-Hub/
 │   │   ├── architect.md                    # System Architect (Thiết kế hệ thống & Spec 5 mục)
 │   │   ├── design_reviewer.md              # Design Reviewer (Thẩm định độc lập Spec kiến trúc)
 │   │   ├── builder.md                      # Developer (Lập trình mã nguồn & unit test)
+│   │   ├── code_critic.md                  # Code Critic (Soi Spec GAP, boundary logic, anti-patterns, dirty mocks)
 │   │   ├── qa_auditor.md                   # QA Reviewer (Kiểm thử độc lập, bảo mật & browser evidence)
 │   │   ├── e2e_engineer.md                 # E2E Automation Engineer (Kịch bản Playwright E2E)
 │   │   └── e2e_critic.md                   # E2E Test Critic (Thẩm định kịch bản E2E độc lập)
@@ -74,6 +75,7 @@ Antigravity-Harness-Hub/
 │       └── marketing_runner.py             # Luồng vận hành nhánh Marketing
 ├── rubrics/                                # Bộ tiêu chí đánh giá nghiệm thu chuẩn hóa
 │   ├── design_review_rubric.md             # Tiêu chuẩn thẩm định thiết kế kiến trúc & Spec 5 mục
+│   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
 ├── tests/                                  # Bộ kiểm thử tự động (25 files, 401 tests)
@@ -106,22 +108,40 @@ Antigravity-Harness-Hub/
 | `scripts/run_security_audit.py` | Quét bảo mật toàn diện: phát hiện hardcoded secrets (API keys, Tokens, Private Keys, DB URLs) và kiểm tra lỗ hổng dependency (`npm audit`, `pip-audit`). Hỗ trợ cờ `--fail-on-critical` và xuất báo cáo JSON/Markdown. |
 | `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
 | `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. Hỗ trợ tùy chọn `--docker` để sinh trọn bộ Dockerfile, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example` và `ARCHITECTURE.md`. |
+| `agents/app/code_critic.md` | Tác tử phản biện mã nguồn độc lập (Code Critic): chuyên sâu soi rọi Spec GAP, boundary logic, anti-patterns, dirty mocks trước khi chuyển sang QA. |
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
-| `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
-| `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`) và đếm số vòng lặp critique. |
+| `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `CRITIQUE`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
+| `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`); cung cấp phương thức `evaluate_critique`, `evaluate_audit` cùng các bộ đếm độc lập `critique_rounds`, `qa_rounds`, `total_cycles` phục vụ Decoupled Circuit Breakers. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
-| `harness/runners/` | Đóng gói chu trình 3 bước cho từng nhánh: `app_runner.py` (Architect → Builder → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Compliance Critic). Runner là nơi ghi trace từng bước. |
+| `harness/runners/` | Đóng gói chu trình 4 bước gồm Maker ➔ Critic ➔ QA Auditor cho từng nhánh (hỗ trợ cờ `fast_track` cho Tier 2 / Hotfix): `app_runner.py` (Architect → Builder → Code Critic → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Content Critic → Compliance Critic/QA). Runner là nơi ghi trace từng bước. |
 | `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
 | `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
 | `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (34 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
-| `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá (`design_review_rubric.md`, `code_quality_rubric.md`, `content_compliance_rubric.md`). |
+| `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic. |
+| `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá (`design_review_rubric.md`, `code_critique_rubric.md`, `code_quality_rubric.md`, `content_compliance_rubric.md`). |
 
 ---
 
 ## 2. Luồng Điều Phối Theo Phân Nhánh
 
-Hệ thống hoạt động theo nguyên tắc tách biệt vai trò (Maker-Checker Invariant): Tác tử tạo nội dung/code không bao giờ tự duyệt sản phẩm của mình.
+Hệ thống hoạt động theo **Cơ Chế Bộ Ba Tác Tử Linh Hoạt (Dynamic Triad Protocol: Maker ➔ Critic ➔ QA Auditor)**, nâng cấp từ nguyên tắc Maker-Checker kinh điển nhằm phân định tuyệt đối giữa thực thi, phản biện sâu logic và kiểm định động khách quan:
+
+1. **Phân định 3 vai trò độc lập:**
+   - **Maker (Thực thi - Builder / Content Creator):** Trực tiếp viết mã nguồn, hiện thực hóa tính năng, viết tests hoặc soạn bản thảo. Maker tuyệt đối không tự phê duyệt sản phẩm của mình.
+   - **Critic (Phản biện sâu - Code Critic / Content Critic):** Soi rọi chuyên sâu vào logic, boundary conditions, anti-patterns, dirty mocks, spec GAP, Voice of Customer và sự toàn vẹn trước khi cho phép chuyển tiếp. Critic không sửa code hay chạy test môi trường động.
+   - **QA Auditor (Kiểm định khách quan):** Kiểm định động, tự chạy lại toàn bộ test suite, rà soát an toàn bảo mật (Zero hardcoded secrets, Zero critical vulnerabilities), kiểm tra endpoint `/health`, thu thập browser evidence và local preview thực tế.
+2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):**
+   - Hạn ngạch phản biện Critic: `critic_rounds <= 2`.
+   - Hạn ngạch kiểm định QA: `qa_rounds <= 2`.
+   - Tổng chu trình toàn cục: `total_cycles <= 3`.
+   - Vượt quá bất kỳ hạn ngạch nào ở trên, hệ thống lập tức kích hoạt ngắt mạch, chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp để xin chỉ đạo.
+3. **Vòng lặp phản hồi thông minh (Smart Feedback Loop):**
+   - **Lỗi kỹ thuật / test fail / secret leak:** Maker sửa và trả thẳng cho QA Auditor test lại mà không cần qua lại Critic.
+   - **Lỗi sai lệch kiến trúc / logic / Spec GAP:** Maker sửa và bắt buộc qua Critic duyệt lại trước khi chuyển sang QA Auditor.
+4. **Phân tầng nhiệm vụ linh hoạt (Task Tiering):**
+   - **Tier 1 (Core Task / App / Feature lớn):** Bắt buộc chạy đầy đủ chu trình Bộ Ba Tác Tử: Maker ➔ Critic ➔ QA Auditor.
+   - **Tier 2 (Minor Task / Hotfix cấp tốc):** Chạy Fast-Track tinh gọn: Maker ➔ QA Auditor (cờ `fast_track=True`, vẫn đảm bảo kiểm định động và quét bảo mật nghiêm ngặt).
 
 ### 2.1. Nhánh 1: Phát Triển Phần Mềm (`app`) — Gemini Native App Workflow
 
@@ -193,23 +213,29 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A["INTAKE"] --> B["RESEARCH<br/>(Researcher)"]
-    B --> C["CREATION<br/>(Creator)"]
-    C --> D["AUDIT<br/>(Compliance Critic)"]
+    A["INTAKE"] --> B["BƯỚC 1: RESEARCH<br/>(SubAgent: Researcher)<br/><i>Cào Google, số liệu, case study</i>"]
+    B --> C["BƯỚC 2: CREATION<br/>(SubAgent: Creator / Maker)<br/><i>Cấy số liệu thật vào Hook/Story/Body</i>"]
+    C --> CRIT["BƯỚC 2.5: CRITIQUE<br/>(SubAgent: Content Critic)<br/><i>Soi GAP, văn phong, luận điểm</i>"]
+    CRIT -->|"VERDICT: REJECT (sửa GAP/văn phong)"| C
+    CRIT -->|"VERDICT: APPROVE"| D["BƯỚC 3: AUDIT<br/>(SubAgent: Compliance Critic / QA)<br/><i>Chính sách, fact-check, format</i>"]
     D -->|"VERDICT: APPROVE"| E["APPROVED"]
-    D -->|"VERDICT: REJECT lần 1"| C
-    D -->|"VERDICT: REJECT lần 2"| F["ESCALATED"]
+    D -->|"VERDICT: REJECT lần 1 (lỗi format/chính sách)"| C
+    D -->|"VERDICT: REJECT (sai lệch logic)"| CRIT
+    D -->|"VERDICT: REJECT lần 2"| F["ESCALATED (Báo cáo Sếp)"]
 ```
 
-1. **Bước 1 - RESEARCH (Researcher):**
-   - **Tác tử:** `agents/marketing/web_researcher.md` (Web & Market Intelligence Researcher).
-   - **Nhiệm vụ:** Nghiên cứu insight khách hàng mục tiêu, tìm kiếm từ khóa ngách, nắm bắt xu hướng thị trường và giải phẫu đối thủ cạnh tranh.
-2. **Bước 2 - CREATION (Creator):**
-   - **Tác tử:** `agents/marketing/creator.md` (Content Creator).
-   - **Nhiệm vụ:** Soạn thảo kịch bản video, bài viết mạng xã hội hoặc sales copy chuyển đổi cao dựa trên insight từ Researcher.
-3. **Bước 3 - AUDIT (Compliance Critic):**
-   - **Tác tử:** `agents/marketing/compliance_critic.md` (Policy Reviewer).
-   - **Nhiệm vụ:** Thẩm định nội dung đối soát với `rubrics/content_compliance_rubric.md`. Rà soát vi phạm chính sách nền tảng (Facebook Community Standards, YouTube Trust & Safety, TikTok Policy), loại bỏ sáo rỗng AI (AI slop) và ngụy biện logic.
+1. **Bước 1 - RESEARCH (Researcher - Web & Market Intelligence Researcher):**
+   - **Tác tử:** `agents/marketing/web_researcher.md`.
+   - **Nhiệm vụ:** Nghiên cứu insight khách hàng mục tiêu, tìm kiếm từ khóa ngách, nắm bắt xu hướng thị trường, giải phẫu đối thủ và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer). Đóng gói và bàn giao bản Research Dossier hoàn chỉnh.
+2. **Bước 2 - CREATION (Content Creator / Maker):**
+   - **Tác tử:** `agents/marketing/creator.md`.
+   - **Nhiệm vụ:** Tiếp nhận Research Dossier từ Bước 1, cấy trực tiếp số liệu thật và case study vào cấu trúc bài viết (Hook, Body, Story, CTA) theo đúng framework (AIDA, PAS, Hormozi, Kahneman...). Maker tuyệt đối không tự phê duyệt, bàn giao bản thảo hoàn chỉnh cho Content Critic.
+3. **Bước 2.5 - CRITIQUE (Content Critic):**
+   - **Tác tử:** Content Critic (phản biện sâu độc lập).
+   - **Nhiệm vụ:** Soi rọi chuyên sâu vào Spec GAP, tính chặt chẽ của luận điểm, sự tự nhiên của văn phong, tính xác thực của Voice of Customer và khả năng giữ chân người đọc trước khi chuyển sang rà soát chính sách. Nếu phát hiện lỗ hổng logic hoặc văn phong gượng gạo, trả về `VERDICT: REJECT` chuyển Maker sửa đổi.
+4. **Bước 3 - AUDIT & COMPLIANCE (Compliance Critic / QA Auditor):**
+   - **Tác tử:** `agents/marketing/compliance_critic.md` (Policy Reviewer / QA Auditor).
+   - **Nhiệm vụ:** Thẩm định độc lập đối soát với `rubrics/content_compliance_rubric.md`. Rà soát vi phạm chính sách nền tảng (Facebook Community Standards, YouTube Trust & Safety, TikTok Policy), đối chiếu fact-check nguồn số liệu với Research Dossier, kiểm tra format chuẩn, loại bỏ sáo rỗng AI (AI slop) và ngụy biện logic. Trả về `VERDICT: APPROVE` hoặc `VERDICT: REJECT`.
 
 Mode `research-only` bỏ CREATION, vẫn independent Critic audit. Bốn required IDs source_accuracy/policy/integrity/task_quality và đủ claim IDs được hash-bound; analytical task kiểm số liệu/công thức/tiền tệ/dates/source quality thay Hook/CTA bắt buộc. Hướng dẫn payload trong docs/marketing-workflow-guide.md.
 
