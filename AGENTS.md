@@ -45,6 +45,13 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
      + *Tính ĐÚNG:* Có mâu thuẫn hay xung đột logic/kiến trúc hiện hữu không.
      + *Tính ĐỦ:* Đã đủ thông tin, tham số, bối cảnh và tiêu chí nghiệm thu để triển khai chưa.
    - **Phỏng vấn chủ động — Cấm tự suy đoán:** Nếu phát hiện thiếu thông tin, tham số chưa rõ hoặc tiềm ẩn rủi ro logic, BẮT BUỘC dừng lại phỏng vấn Sếp ngay (qua câu hỏi trực tiếp hoặc công cụ `ask_question`). Tuyệt đối không tự suy đoán hay tự tiện đưa ra giả định ngầm.
+8. **Quy Chuẩn Biên Bản Giao Nhận (Standard Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):**
+   - **Tôn chỉ chống thất thoát ngữ cảnh (Zero Context Loss):** Mọi lượt chuyển giao nhiệm vụ, bàn giao bản thảo/mã nguồn hoặc phản hồi kết quả kiểm định giữa các tác tử bắt buộc phải tuân theo cấu trúc **Biên Bản Giao Nhận Handoff Document** chuẩn mực:
+     + **Metadata:** Người gửi (`From`), Người nhận (`To`), Pha/Chặng (`Phase`), Mã tác vụ (`Task Reference/ID`), Mức độ ưu tiên (`Priority`), Mốc thời gian (`Timestamp`).
+     + **Ngữ cảnh thực tế (Context):** Hiện trạng hoàn thành chi tiết (`Current State`), Danh sách file liên quan (`Relevant Files`), Phụ thuộc (`Dependencies`), Ràng buộc kỹ thuật (`Constraints`).
+     + **Yêu cầu & Tiêu chí nghiệm thu (Deliverable & Acceptance Criteria Checklist):** Mô tả rõ ràng sản phẩm bàn giao, danh sách các tiêu chí nghiệm thu dạng checklist `[ ] Criterion` có thể đo lường và kiểm chứng độc lập.
+     + **Bằng chứng thực chứng bắt buộc (Empirical Evidence):** File diffs, logs thực thi lệnh, screenshots đa thiết bị (desktop/tablet/mobile), kết quả test suite — tuyệt đối cấm bàn giao hay phê duyệt suông mà không có bằng chứng đính kèm.
+     + **Trạng thái phán quyết (Verdict & Feedback Loop):** Bàn giao kết quả kiểm định với phán quyết rõ ràng: `PASS` (kèm chứng cứ xác thực) hoặc `FAIL` (kèm Issue description, Expected vs Actual, Evidence, file cần sửa và hướng dẫn retry giới hạn tối đa 2 lần trước khi kích hoạt ngắt mạch).
 
 ---
 
@@ -64,6 +71,7 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 | `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 | Soạn thảo content bán hàng và quảng cáo chuyển đổi cao theo 14 công thức kinh điển (AIDA, PAS, 4Cs, FAB, ACC, SLAP, BAB, Storytelling, SSS, PPPP...) tích hợp NLP. | `plugins/marketing/skills/cong-thuc-viet-content-by-noti-v4/SKILL.md` |
 | `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 | Nhận bài viết có sẵn, chấm điểm và tối ưu lại đạt chuẩn SEO (Search Engine), AEO (Answer Engine / Snippet) và GEO (Generative Engine Optimization / AI trích dẫn). | `plugins/marketing/skills/viet-content-seo-geo-v5/SKILL.md` |
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất tài khoản quảng cáo Meta (Facebook/Instagram), phân tích CPA/ROAS/CPM, Breakdown Effect, đề xuất phương án scale/pause. | `plugins/marketing/skills/meta-ads-analyzer-mod-by-noti/SKILL.md` |
+| `/paid-media-auditor` | Paid Media Auditor | Kiểm định quảng cáo trả phí đa kênh (Google Ads, Meta Ads, Microsoft Ads) qua khung 200+ checkpoints: cấu trúc, tracking CAPI/GA4, đấu thầu, creative fatigue và lãng phí ngân sách. | `plugins/marketing/skills/paid-media-auditor/SKILL.md` |
 | `/fb-admin` | Facebook Fanpage Manager | Trợ lý quản lý Fanpage thông qua Meta Graph API (đăng bài mới, đọc danh sách bài viết, đọc và trả lời bình luận tự động). | `plugins/marketing/skills/fb-admin/SKILL.md` |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá toàn diện hành trình khách hàng 6 pha, kết nối ma trận kênh, truy vấn 8 công cụ MCP của Noti và tối ưu luồng chuyển đổi. | `plugins/marketing/skills/framework-marketing-da-kenh/SKILL.md` |
 
@@ -88,11 +96,11 @@ flowchart LR
 
 1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web & Market Intelligence Researcher):**
    - Đọc đặc tả vai trò tại `agents/marketing/web_researcher.md`.
-   - **Tool Whitelist:** Read tools (`view_file`, tìm kiếm), Web search (`search_web`, `read_url_content`), Terminal (`run_command` chỉ để chạy script crawler `scripts/apify_crawler.py` nếu có token). CẤM write tools sửa code hệ thống.
+   - **Tool Whitelist:** Read tools (`view_file`, tìm kiếm), Web search (`search_web`, `read_url_content`), Terminal (`run_command` chỉ để chạy script crawler được phê duyệt `scripts/social_reach.py` hoặc `scripts/apify_crawler.py` nếu có token). CẤM write tools sửa code hệ thống.
    - Vận hành **Kiến Trúc Lai Đa Tầng (Multi-Tier Social & Web Intel)**:
      + *Tầng 1:* Google Dorking không cần key (`site:facebook.com`, `site:instagram.com`, `site:x.com`).
      + *Tầng 2:* Meta Graph API kết nối qua skill `fb-admin` đọc comment/bài viết thật.
-     + *Tầng 3:* Cổng X/Twitter API mở rộng có cơ chế tự động fallback về Dorking nếu không có token.
+     + *Tầng 3:* Social Reach Adapter (`scripts/social_reach.py`) kết nối Agent Reach, xreach, yt-dlp và Jina Reader fallback (có cơ chế tự động fallback về Dorking/Jina nếu thiếu token hoặc CLI offline).
    - Thu thập tin tức thời sự, số liệu thống kê có kiểm chứng nguồn, case study người thật việc thật, và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer).
    - Đóng gói và bàn giao bản **Research Dossier** hoàn chỉnh cho Quản đốc.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):**

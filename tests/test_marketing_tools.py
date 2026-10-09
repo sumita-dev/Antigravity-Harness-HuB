@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -239,3 +240,135 @@ def test_marketing_rejects_real_windows_junction():
 def test_analyzer_offline_node_regressions():
     result = subprocess.run(["node", "tests/marketing_analyzer.test.js"], cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_social_reach_redaction_comprehensive(monkeypatch):
+    from scripts.social_reach import redact_sensitive_data
+
+    secret_auth = "qa-dummy-auth-token-999"
+    secret_ct0 = "qa-dummy-ct0-xyz"
+    secret_session = "qa-dummy-session-123"
+    secret_cookie = "qa-dummy-cookie-abc"
+    secret_key = "qa-dummy-key-456"
+    secret_bearer = "qa-dummy-bearer-789"
+    env_secret = "qa-dummy-env-secret-999"
+
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", env_secret)
+
+    raw_text = (
+        f"auth_token={secret_auth}; ct0={secret_ct0}; sessionid={secret_session}; "
+        f"cookie: {secret_cookie}\napi_key={secret_key}; Bearer {secret_bearer} and env={env_secret}"
+    )
+    redacted_text = redact_sensitive_data(raw_text)
+
+    for secret in (secret_auth, secret_ct0, secret_session, secret_cookie, secret_key, secret_bearer, env_secret):
+        assert secret not in redacted_text
+    assert "[REDACTED]" in redacted_text
+
+    raw_dict = {
+        "auth_token": secret_auth,
+        "nested": {
+            "ct0": secret_ct0,
+            "sessionid": secret_session,
+            "cookie": secret_cookie,
+            "api_key": secret_key,
+            "safe_value": "hello world",
+        },
+        "list_items": [
+            f"auth_token={secret_auth}",
+            {"bearer_token": secret_bearer},
+        ],
+    }
+    redacted_dict = redact_sensitive_data(raw_dict)
+    serialized = json.dumps(redacted_dict)
+    for secret in (secret_auth, secret_ct0, secret_session, secret_cookie, secret_key, secret_bearer):
+        assert secret not in serialized
+    assert redacted_dict["nested"]["safe_value"] == "hello world"
+
+
+def test_social_reach_cli_doctor_json():
+    script_path = ROOT / "scripts" / "social_reach.py"
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--platform", "doctor", "--json"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ok"
+    assert payload["doctor"] is True
+    assert "binaries" in payload
+    assert "platforms" in payload
+    for platform in ("twitter", "reddit", "youtube", "web", "jina"):
+        assert platform in payload["platforms"]
+
+
+def test_social_reach_fallback_uninstalled_platform_no_crash(monkeypatch):
+    import shutil
+    from scripts.social_reach import run_reach, main
+
+    # Giả lập không tìm thấy binary nào
+    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+
+    # 1. Gọi run_reach trực tiếp
+    res_tw = run_reach("twitter", query="test")
+    assert res_tw["status"] == "unavailable"
+    assert "limitations" in res_tw
+    assert "fallback_suggested" in res_tw
+
+    res_rd = run_reach("reddit", query="test")
+    assert res_rd["status"] == "unavailable"
+    assert "limitations" in res_rd
+
+    res_yt = run_reach("youtube", url="https://youtube.com/watch?v=123")
+    assert res_yt["status"] == "unavailable"
+    assert "limitations" in res_yt
+
+    # 2. Gọi main CLI với platform chưa cài đặt phải trả về exit code 0 thay vì crash
+    exit_code = main(["--platform", "twitter", "--json"])
+    assert exit_code == 0
+
+
+def test_social_reach_jina_fallback_mock_and_offline(monkeypatch):
+    import urllib.request
+    from scripts.social_reach import fetch_jina_fallback, run_reach
+
+    # Test trường hợp thiếu tham số
+    missing_res = fetch_jina_fallback()
+    assert missing_res["status"] == "unavailable"
+
+    # Test thành công với mocked urllib
+    class DummyResponse:
+        def __init__(self, data: bytes):
+            self._data = data
+
+        def read(self):
+            return self._data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda req, timeout=30: DummyResponse(b"# Mocked Jina Article\n\nContent extracted cleanly."),
+    )
+
+    success_res = run_reach("jina", url="https://example.com/test")
+    assert success_res["status"] == "success"
+    assert "Mocked Jina Article" in success_res["content_preview"]
+
+    # Test lỗi mạng không gây crash
+    def raise_network_err(*args, **kwargs):
+        raise ConnectionResetError("Connection reset by peer")
+
+    monkeypatch.setattr(urllib.request, "urlopen", raise_network_err)
+    err_res = run_reach("jina", url="https://offline-target.test")
+    assert err_res["status"] == "unavailable"
+    assert "limitations" in err_res
+    assert "fallback_suggested" in err_res
+
