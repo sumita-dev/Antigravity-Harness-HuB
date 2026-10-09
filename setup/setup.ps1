@@ -103,6 +103,10 @@ foreach ($name in $fileNames) {
     $source = Join-Path $repoRoot $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $targetDir $name) -Force }
 }
+$staleRules = @((Join-Path $targetDir "rules\AGENTS.md"), (Join-Path $targetDir "rules\GEMINI.md"))
+foreach ($stale in $staleRules) {
+    if (Test-Path -LiteralPath $stale) { Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue }
+}
 $hooksSource = Join-Path $repoRoot ".agent\hooks.json"
 if (Test-Path -LiteralPath $hooksSource) { Copy-Item -LiteralPath $hooksSource -Destination (Join-Path $targetDir "hooks.json") -Force }
 # Portable destinations never import sessions into the user's global profile.
