@@ -13,6 +13,7 @@ Toàn bộ quy trình phát triển ứng dụng tuân thủ nghiêm ngặt các
 | **Pha 2** | **DESIGN_REVIEW** | Design Reviewer (`agents/app/design_reviewer.md`) | Thẩm định độc lập theo `rubrics/design_review_rubric.md`. Phán quyết APPROVE / REJECT gắn Spec SHA256. |
 | **Pha 3** | **SIGN_OFF** | Sếp (Human Gate) | Trình đúng Spec SHA256 đã duyệt cho Sếp. Nhận lệnh phê duyệt rõ ràng ("Duyệt", "Bắt đầu code đi"). |
 | **Pha 4** | **IMPLEMENTATION** | Developer / Builder (`agents/app/builder.md`) | Lập trình theo TDD & Karpathy, **bắt buộc tạo file seed data (mockData.json hoặc seed script) và endpoint /health**, cấm app trắng trơn. Chạy test/build và local preview. |
+| **Pha 4.5** | **CRITIQUE** | Code Critic (`agents/app/code_critic.md`) | Soi Spec GAP, boundary conditions, anti-patterns, dirty mocks theo `rubrics/code_critique_rubric.md`. REJECT trả Builder sửa lại trước khi chuyển sang QA. |
 | **Pha 5** | **AUDIT & E2E** | QA Auditor (`agents/app/qa_auditor.md`), E2E Engineer & Critic | Kiểm thử unit/integration độc lập; E2E Playwright POM Desktop/Mobile; giám sát dev server qua `scripts/run_dev_logger.py` (port check & HTTP health check); bàn giao bảng UAT `docs/human-test-sheet-template.md`. |
 | **Pha 5.5** | **SECURITY_AUDIT** | Security Auditor (`scripts/run_security_audit.py`) | Quét an toàn bảo mật tự động: Zero hardcoded secrets, Zero critical dependencies vulnerabilities. Bắt buộc vượt qua trước khi release/đóng gói. |
 | **Pha 6** | **PACKAGING & OPS** | Packaging Script (`scripts/generate_launcher.py`) | Tự động sinh launcher 1-click `start-app.bat`, tài liệu `HDSD-NHANH.md`, cùng cấu hình production: `Dockerfile` multi-stage (non-root), `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example`, và `ARCHITECTURE.md`. |
@@ -21,13 +22,13 @@ Toàn bộ quy trình phát triển ứng dụng tuân thủ nghiêm ngặt các
 
 1. Cài Python dependencies bằng `py -3.12 -m pip install -r requirements.txt`. Mở workspace harness trong Antigravity, kiểm tool inventory và ghi OBSERVED/DECLARED/UNAVAILABLE/NOT_VERIFIED theo `docs/native-readiness.md`.
 2. Pha 0 INTAKE: Phỏng vấn làm rõ 3 tham số cốt lõi (Tech Stack, Lưu trữ, MVP Stories) theo `docs/intake-protocol.md`. Chỉ khi Sếp xác nhận mới chuyển sang Architect.
-3. Gửi brief có project directory riêng: “/app Xây Task Board local, thêm/sửa/xóa, title bắt buộc, todo/doing/done, filter, lưu localStorage, desktop/mobile. Dùng Architect → Design Reviewer → trình anh duyệt đúng Spec → Builder → QA test và browser thật. Không deploy.” Đây là benchmark tùy chọn, chưa phải app được triển khai.
+3. Gửi brief có project directory riêng: “/app Xây Task Board local, thêm/sửa/xóa, title bắt buộc, todo/doing/done, filter, lưu localStorage, desktop/mobile. Dùng Architect → Design Reviewer → trình anh duyệt đúng Spec → Builder → Code Critic → QA test và browser thật. Không deploy.” Đây là benchmark tùy chọn, chưa phải app được triển khai.
 4. Gemini quản lý checkpoint/artifacts, gọi Architect và Reviewer độc lập. Spec bắt buộc có AC-SEED dữ liệu mẫu và AC-HEALTH endpoint kiểm tra trạng thái. Sếp đọc Spec và chỉ duyệt đúng bản đã review; Gemini giữ nguyên raw human_message/spec_sha256, không giả approval.
-5. Builder sửa đúng Spec trong checkout thật, bắt buộc tạo mockData/seed script, triển khai /health, chạy test/build và preview. QA nhận cùng checkout, tự rerun commands và kiểm từng AC qua browser. Bàn giao URL còn chạy, evidence, defects/limitations. Thiếu browser giữ NOT_VERIFIED; không suy từ trang đầu rằng luồng chính đã đúng.
+5. Builder sửa đúng Spec trong checkout thật, bắt buộc tạo mockData/seed script, triển khai /health, chạy test/build và preview. Code Critic soi GAP/logic. QA nhận cùng checkout, tự rerun commands và kiểm từng AC qua browser. Bàn giao URL còn chạy, evidence, defects/limitations. Thiếu browser giữ NOT_VERIFIED; không suy từ trang đầu rằng luồng chính đã đúng.
 6. Chạy E2E Playwright, giám sát dev server qua `scripts/run_dev_logger.py` (pre-flight port check & HTTP health check), xuất bảng UAT `docs/human-test-sheet-template.md`.
 7. Chạy Pha 5.5 Security Audit qua `scripts/run_security_audit.py --fail-on-critical` đảm bảo Zero Secrets & Zero Critical Vulnerabilities.
 8. Đóng gói launcher 1-click và bộ cấu hình Production qua `scripts/generate_launcher.py --docker`.
-9. Resume cùng task ID bằng status; route stage/next_agent trước keyword. REJECT đầu trả Maker, REJECT thứ hai cùng pha design/code ESCALATED ngay. Counters tồn tại qua replacement/restart/revise.
+9. Resume cùng task ID bằng status; route stage/next_agent trước keyword. REJECT đầu trả Maker, REJECT thứ hai cùng pha design/critique/audit ESCALATED ngay (Decoupled Circuit Breakers: critic_rounds <= 2, qa_rounds <= 2, total_cycles <= 3). Counters tồn tại qua replacement/restart/revise.
 
 ## CLI
 

@@ -76,7 +76,7 @@ Antigravity-Harness-Hub/
 │   ├── design_review_rubric.md             # Tiêu chuẩn thẩm định thiết kế kiến trúc & Spec 5 mục
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (24 files, 393 tests)
+├── tests/                                  # Bộ kiểm thử tự động (25 files, 401 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
@@ -86,6 +86,7 @@ Antigravity-Harness-Hub/
 │   ├── test_run_security_audit.py          # Kiểm thử quét bảo mật dependencies & secret leak
 │   ├── test_session_manager.py             # Portable session sync
 │   ├── test_skill_router.py                # Keyword routing
+│   ├── test_triad_protocol.py              # Kiểm chứng Dynamic Triad, Smart Feedback Loop, Circuit Breakers
 │   └── test_repo_integrity.py              # Chặn lỗi: thư mục lồng, file rác, secret, path cá nhân, ref gãy
 ├── setup/                                  # Cài đặt cấu hình môi trường mới
 │   ├── config.json                         # Cấu hình Antigravity plugins & userSettings chuẩn
@@ -134,9 +135,11 @@ flowchart TD
     C -->|"VERDICT: REJECT lần 1"| B
     C -->|"VERDICT: REJECT lần 2"| ESC1["ESCALATED (Báo cáo Sếp)"]
     D --> E["PHA 4: IMPLEMENTATION<br/>(SubAgent: Builder)<br/><i>TDD + Nạp mockData.json + Snapshot manifest</i>"]
-    E --> F["PHA 5: AUDIT & E2E TESTING<br/>(QA Auditor + E2E Playwright Engineer & Critic)<br/><i>Dev Logger + Port Check + Playwright E2E</i>"]
-    F -->|"VERDICT: REJECT lần 1"| E
-    F -->|"VERDICT: REJECT lần 2"| ESC2["ESCALATED (Báo cáo Sếp)"]
+    E --> CRIT["PHA 4.5: CRITIQUE<br/>(SubAgent: Code Critic)<br/><i>Soi Spec GAP, boundary logic, anti-patterns, dirty mocks</i>"]
+    CRIT -->|"VERDICT: REJECT (sửa GAP/logic)"| E
+    CRIT -->|"VERDICT: APPROVE"| F["PHA 5: AUDIT & E2E TESTING<br/>(QA Auditor + E2E Playwright Engineer & Critic)<br/><i>Kiểm định động, dev logger, pre-flight check, Playwright E2E</i>"]
+    F -->|"VERDICT: REJECT (lỗi kỹ thuật/test fail)"| E
+    F -->|"VERDICT: REJECT (sai lệch logic sâu)"| CRIT
     F -->|"VERDICT: APPROVE"| SEC["PHA 5.5: SECURITY AUDIT<br/>(scripts/run_security_audit.py)<br/><i>Quét secret leak & lỗ hổng dependencies</i>"]
     SEC -->|"VERDICT: REJECT"| E
     SEC -->|"VERDICT: APPROVE"| G["PHA 6: PACKAGING & PRODUCTION OPS<br/>(1-Click Launcher + Docker + CI/CD + UAT)<br/><i>start-app.bat + Docker + CI/CD + ARCHITECTURE.md</i>"]
@@ -157,16 +160,19 @@ flowchart TD
 5. **Pha 4 - IMPLEMENTATION (Builder TDD + Nạp dữ liệu mẫu mockData.json):**
    - **Tác tử:** `agents/app/builder.md` (Developer / Maker).
    - **Nhiệm vụ:** Triển khai theo quy trình TDD (Test-Driven Development) bám sát Spec đã khóa; nạp sẵn dữ liệu mẫu thực tế phong phú (`mockData.json` / seed script); ghi nhận snapshot bytes toàn bộ source/test/config vào manifest SHA256. Phải chạy tests xanh trước khi bàn giao.
-6. **Pha 5 - AUDIT & E2E TESTING (QA Auditor + E2E Playwright Engineer & Critic + Dev Logger & Pre-flight Port/Health Check):**
+6. **Pha 4.5 - CRITIQUE (Code Critic — Soi Spec GAP & Boundary Logic):**
+   - **Tác tử:** `agents/app/code_critic.md` (Code Critic), thẩm định theo `rubrics/code_critique_rubric.md`.
+   - **Nhiệm vụ:** Rà soát sâu vào tính đúng đắn logic, boundary conditions, anti-patterns, dirty mocks và lỗ hổng đặc tả (Spec GAP). Nếu phát hiện sai sót, trả về `VERDICT: REJECT` chuyển Builder sửa và duyệt lại trước khi cho phép sang QA.
+7. **Pha 5 - AUDIT & E2E TESTING (QA Auditor + E2E Playwright Engineer & Critic + Dev Logger & Pre-flight Port/Health Check):**
    - **Tác tử:** `agents/app/qa_auditor.md` (QA Auditor / Checker), phối hợp cặp đôi Maker-Checker E2E: `agents/app/e2e_engineer.md` (viết kịch bản Playwright E2E) và `agents/app/e2e_critic.md` (thẩm định độc lập kịch bản test E2E).
    - **Hạ tầng kiểm thử & Ghi log:** Khởi chạy `scripts/run_dev_logger.py` để stream background dev server ra file log (`logs/dev-server.log`), thực hiện Pre-flight Check (kiểm tra port khả dụng, quét dọn tiến trình mồ côi, health-check HTTP 200 trước khi test). Chạy toàn bộ unit test, integration test và Playwright E2E test; thu thập screenshot/video/console log chứng minh từng UI AC.
-7. **Pha 5.5 - SECURITY AUDIT (Quét an toàn bảo mật & Lỗ hổng phụ thuộc):**
+8. **Pha 5.5 - SECURITY AUDIT (Quét an toàn bảo mật & Lỗ hổng phụ thuộc):**
    - **Công cụ & Tiện ích:** `scripts/run_security_audit.py` (hỗ trợ cờ `--fail-on-critical`, `--json`).
    - **Nhiệm vụ:** Kiểm tra an toàn bảo mật tự động trước khi đóng gói release:
      1. Quét rò rỉ secret nhạy cảm (API Keys, Tokens, Private Keys, Database credentials).
      2. Quét lỗ hổng bảo mật của dependencies (`npm audit` cho Node.js hoặc `pip-audit` cho Python).
      Nếu phát hiện lỗ hổng critical hoặc rò rỉ secret, trả về `VERDICT: REJECT` chuyển ngược Builder xử lý dứt điểm.
-8. **Pha 6 - PACKAGING & PRODUCTION OPS (Đóng gói 1-Click Launcher, Docker, CI/CD & Nghiệm thu UAT):**
+9. **Pha 6 - PACKAGING & PRODUCTION OPS (Đóng gói 1-Click Launcher, Docker, CI/CD & Nghiệm thu UAT):**
    - **Tài liệu & Kịch bản:** Sử dụng mẫu `docs/human-test-sheet-template.md` để lập bảng kiểm thử UAT rõ ràng (bước thực hiện, kết quả mong đợi, checkbox) cho Sếp nghiệm thu thực tế bằng tay trong 3 phút.
    - **Đóng gói Production Ops:** Chạy `scripts/generate_launcher.py --docker` để tự động dò tìm cấu hình dự án, kiểm tra port/process, tạo file khởi chạy 1-click `start-app.bat` và cẩm nang `HDSD-NHANH.md`. Đồng thời sinh trọn bộ artifact chuẩn Production: `Dockerfile`, `docker-compose.yml`, pipeline GitHub Actions `.github/workflows/ci.yml`, `.env.example` và tài liệu kiến trúc kỹ thuật `ARCHITECTURE.md`.
    - **Bàn giao:** Nhiệm vụ hoàn thành với đầy đủ bằng chứng thực chứng, checkpoint nhất quán, artifact Production hoàn chỉnh và báo cáo minh bạch cho Sếp.
@@ -237,12 +243,15 @@ Toàn bộ 12 kỹ năng của nhánh Marketing đã được tích hợp đầy
   - `VERDICT: REJECT`: Công việc có lỗi, thiếu sót hoặc vi phạm chính sách.
   - `VERDICT: ESCALATE` (hoặc `ESCALATE_HUMAN`): Phát hiện lỗi hệ thống, bế tắc hoặc vi phạm nghiêm trọng cần con người can thiệp.
 
-### 3.2. Cầu Dao Ngắt Mạch Sau 2 Vòng Phản Biện (Stagnation Breaker)
-Để ngăn ngừa tình trạng tác tử sửa đổi luẩn quẩn, gây cháy token và suy thoái ngữ cảnh:
-- Khi Checker đưa ra `VERDICT: REJECT`, biến đếm `critique_rounds` của task được tăng thêm 1 đơn vị.
-- REJECT lần đầu: Task quay Maker của pha để sửa theo phản hồi.
-- REJECT thứ hai trong cùng pha: lập tức ESCALATED; app counters design/code riêng, marketing audit counter tồn tại qua restart/resubmit/revise.
-- Khi đã ở trạng thái `ESCALATED`, hệ thống dừng lặp lại và bàn giao cho chuyên gia con người xử lý.
+### 3.2. Cầu Dao Ngắt Mạch Tách Biệt (Decoupled Circuit Breakers)
+Để ngăn ngừa tình trạng tác tử sửa đổi luẩn quẩn, gây cháy token và suy thoái ngữ cảnh, hệ thống phân tách hạn ngạch ngắt mạch độc lập:
+- **Hạn ngạch Critic:** `critic_rounds <= 2` (soi GAP, boundary logic, anti-patterns).
+- **Hạn ngạch QA Auditor:** `qa_rounds <= 2` (kiểm định động, test fail, bảo mật).
+- **Tổng chu trình toàn cục:** `total_cycles <= 3` (tổng số lượt lặp sửa chữa).
+- **Smart Feedback Loop:**
+  - Lỗi kỹ thuật / test fail / secret leak: Maker sửa và trả thẳng cho QA Auditor test lại mà không qua Critic.
+  - Lỗi sai lệch logic / Spec GAP: Maker sửa và bắt buộc qua Critic duyệt lại trước khi sang QA Auditor.
+- Khi vượt quá hạn ngạch (REJECT thứ hai cùng pha hoặc vượt 3 chu trình), hệ thống lập tức chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và bàn giao cho Sếp xử lý.
 
 ---
 

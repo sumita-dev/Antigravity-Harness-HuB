@@ -10,26 +10,37 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 
 ---
 
-## 1. Cơ Chế Phân Cấp & Điều Phối Quản Đốc (Maker-Checker Invariant)
+## 1. Cơ Chế Bộ Ba Tác Tử Linh Hoạt (Dynamic Triad Protocol: Maker ➔ Critic ➔ QA Auditor)
 
-1. **Nguyên tắc Maker-Checker:** Tác tử tạo (Maker) tuyệt đối không tự phê duyệt sản phẩm của mình. Mọi sản phẩm (mã nguồn, kịch bản, nội dung quảng cáo) bắt buộc phải qua thẩm định độc lập của Checker trước khi bàn giao.
-2. **Cầu dao ngắt mạch (Stagnation Circuit Breaker):**
-   - Giới hạn tối đa **2 vòng phản biện** (`critique_rounds <= 2`).
-   - Nếu sau 2 vòng Checker vẫn `VERDICT: REJECT`, hệ thống lập tức kích hoạt ngắt mạch, chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp để xin chỉ đạo.
-3. **Cổng Xác Nhận Ý Định & Chống Tự Động Code Bừa Bãi (Intent Alignment Gate):**
+1. **Phân định rạch ròi 3 vai trò:**
+   - **Maker (Thực thi - Builder / Content Creator):** Trực tiếp viết mã nguồn, hiện thực hóa tính năng, viết tests hoặc soạn bản thảo. Maker tuyệt đối không tự phê duyệt sản phẩm của mình.
+   - **Critic (Phản biện sâu - Code Critic / Content Critic):** Soi rọi chuyên sâu vào logic, boundary conditions, anti-patterns, dirty mocks, spec GAP, Voice of Customer và sự toàn vẹn trước khi cho phép chuyển tiếp. Critic không sửa code hay chạy test môi trường động.
+   - **QA Auditor (Kiểm định khách quan):** Kiểm định động, tự chạy lại toàn bộ test suite, rà soát an toàn bảo mật (Zero hardcoded secrets, Zero critical vulnerabilities), kiểm tra endpoint `/health`, thu thập browser evidence và local preview thực tế.
+2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):**
+   - Hạn ngạch phản biện Critic: `critic_rounds <= 2`.
+   - Hạn ngạch kiểm định QA: `qa_rounds <= 2`.
+   - Tổng chu trình toàn cục: `total_cycles <= 3`.
+   - Vượt quá bất kỳ hạn ngạch nào ở trên, hệ thống lập tức kích hoạt ngắt mạch, chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và báo cáo nguyên nhân/bằng chứng trực tiếp cho Sếp để xin chỉ đạo.
+3. **Vòng lặp phản hồi thông minh (Smart Feedback Loop):**
+   - **Lỗi kỹ thuật / test fail / secret leak:** Maker sửa và trả thẳng cho QA Auditor test lại mà không cần qua lại Critic.
+   - **Lỗi sai lệch kiến trúc / logic / Spec GAP:** Maker sửa và bắt buộc qua Critic duyệt lại trước khi chuyển sang QA Auditor.
+4. **Phân tầng nhiệm vụ linh hoạt (Task Tiering):**
+   - **Tier 1 (Core Task / App / Feature lớn):** Bắt buộc chạy đầy đủ chu trình Bộ Ba Tác Tử: Maker ➔ Critic ➔ QA Auditor.
+   - **Tier 2 (Minor Task / Hotfix cấp tốc):** Chạy Fast-Track tinh gọn: Maker ➔ QA Auditor (vẫn đảm bảo kiểm định động và quét bảo mật nghiêm ngặt).
+5. **Cổng Xác Nhận Ý Định & Chống Tự Động Code Bừa Bãi (Intent Alignment Gate):**
    - **Quy tắc bất biến:** Khi Sếp đưa ra ý tưởng, định hướng mở, yêu cầu tính năng chung chung hoặc chưa chỉ định cụ thể file/dòng code cần can thiệp (ví dụ: *"Anh cần thêm dữ liệu từ mạng xã hội...", "Làm thêm tính năng X", "Nâng cấp Y"*):
      + **CẤM TUYỆT ĐỐI** tự ý kích hoạt các công cụ chỉnh sửa file (`replace_file_content`, `write_to_file`) hoặc chạy các lệnh làm thay đổi mã nguồn/cấu hình hệ thống.
      + **BẮT BUỘC DỪNG LẠI ĐỂ TƯ VẤN & HỎI:** Sử dụng công cụ `ask_question` hoặc phân tích nhanh trong chat để:
        * Làm rõ bối cảnh, bài toán thực tế và mục đích sử dụng dữ liệu/tính năng của Sếp.
        * Đề xuất 2 - 3 phương án kiến trúc/triển khai khả thi kèm ưu/nhược điểm và phương án khuyến nghị.
      + **CHỜ DUYỆT (Explicit Confirmation Gate):** Chỉ khi Sếp xác nhận lựa chọn phương án và có lệnh thực thi rõ ràng ("Duyệt", "Làm phương án 1", "Bắt đầu code đi"), Quản đốc mới được điều phối Maker bắt tay vào sửa đổi file.
-4. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):**
+6. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):**
    - **Tôn chỉ bất biến:** AI trong ô chat chính là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự mình gọi các công cụ sửa code (`replace_file_content`, `write_to_file`) hoặc tự chạy kiểm thử trực tiếp trong thread chính để "tự biên tự diễn".
    - **Bắt buộc phân rã bằng `invoke_subagent`:** Mọi tác vụ triển khai kỹ thuật hoặc sản xuất nội dung đều phải được phân công cho các SubAgent chuyên biệt chạy độc lập:
-     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Spec 5 mục) -> **Design Reviewer** độc lập -> Trình Sếp duyệt đúng Spec -> Khởi chạy SubAgent **Builder** (Maker 2 - IMPLEMENTATION viết mã & test) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT thẩm định độc lập & chạy test).
-     + *Nhánh Marketing:* Khởi chạy SubAgent **Web Researcher** để trinh sát số liệu -> Khởi chạy SubAgent **Creator** (Maker) viết bài -> Khởi chạy SubAgent **Compliance Critic** (Checker) độc lập để thẩm định chính sách & fact-check.
-   - **Trách nhiệm của Quản đốc:** Lắng nghe Sếp, làm rõ yêu cầu, giao việc chính xác cho SubAgent qua `invoke_subagent`, nhận kết quả thẩm định từ Checker, và báo cáo tổng kết ngắn gọn, minh bạch cho Sếp.
-5. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):**
+     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Spec 5 mục) -> **Design Reviewer** độc lập -> Trình Sếp duyệt đúng Spec -> Khởi chạy SubAgent **Builder** (Maker) -> Khởi chạy SubAgent **Code Critic** (Critic - Soi GAP & logic) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT kiểm định động & chạy test).
+     + *Nhánh Marketing:* Khởi chạy SubAgent **Web Researcher** để trinh sát số liệu -> Khởi chạy SubAgent **Creator** (Maker) viết bài -> Khởi chạy SubAgent **Content Critic / Compliance Critic** độc lập để thẩm định chính sách & fact-check.
+   - **Trách nhiệm của Quản đốc:** Lắng nghe Sếp, làm rõ yêu cầu, giao việc chính xác cho SubAgent qua `invoke_subagent`, nhận kết quả thẩm định từ Critic & Checker, và báo cáo tổng kết ngắn gọn, minh bạch cho Sếp.
+7. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):**
    - **Đối soát tính ĐÚNG & ĐỦ:** Khi nhận bất kỳ yêu cầu nào từ Sếp, lập tức đối soát với ngữ cảnh toàn dự án để kiểm tra:
      + *Tính ĐÚNG:* Có mâu thuẫn hay xung đột logic/kiến trúc hiện hữu không.
      + *Tính ĐỦ:* Đã đủ thông tin, tham số, bối cảnh và tiêu chí nghiệm thu để triển khai chưa.
@@ -138,15 +149,15 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 
 Runtime Gemini trong Antigravity gọi tác tử native; `harness/` simulation không thay công việc thật. Đọc `plugins/code/skills/app/SKILL.md` và `docs/app-workflow-guide.md` trước triển khai. Kiểm tools thực tế; không suy ra quyền sandbox/context isolation từ metadata.
 
-Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → Builder → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
+Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → Builder → Code Critic (soi GAP & boundary logic) → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
 
-Spec gồm scope/design/contracts/acceptance_criteria có ID/risks. Reviewer khác Architect, QA khác Builder; actor ID là provenance khai báo, không xác thực identity. Review và human signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ. Sau reviewer APPROVE, Sếp duyệt một lần đúng Spec trước Builder.
+Spec gồm scope/design/contracts/acceptance_criteria có ID/risks. Reviewer khác Architect, Critic khác Builder và QA khác Builder; actor ID là provenance khai báo, không xác thực identity. Review và human signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ. Sau reviewer APPROVE, Sếp duyệt một lần đúng Spec trước Builder.
 
 Implementation snapshot bytes source/test/config gồm untracked; runtime/log/dependencies/cache loại trừ. QA tự rerun command/cwd/exit/log và đối chiếu manifest/spec hiện tại. Source đổi làm audit cũ stale. UI phải có local preview và browser evidence từng AC; non-UI ghi N/A có lý do theo Spec. Không nhận URL, simulator APPROVE hoặc Stop hook pytest là bằng chứng app đạt.
 
-REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha design/audit chuyển ESCALATED ngay. Counters riêng và tồn tại qua resubmit/restart. Resume task ID cũ từ checkpoint, không tạo task mới để bỏ gate. Architect/Reviewer/QA không sửa source; write/terminal quyền native chỉ được giới hạn bằng prompt nếu runtime không có sandbox phù hợp. Không claim cưỡng chế quyền mà chưa kiểm.
+REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha design/critique/audit chuyển ESCALATED ngay (tuân thủ Decoupled Circuit Breakers: critic_rounds <= 2, qa_rounds <= 2, total_cycles <= 3). Counters riêng và tồn tại qua resubmit/restart. Resume task ID cũ từ checkpoint, không tạo task mới để bỏ gate. Architect/Reviewer/Critic/QA không sửa source; write/terminal quyền native chỉ được giới hạn bằng prompt nếu runtime không có sandbox phù hợp. Không claim cưỡng chế quyền mà chưa kiểm.
 
-Đọc role tại `agents/app/architect.md`, `agents/app/design_reviewer.md`, `agents/app/builder.md`, `agents/app/qa_auditor.md`; tiêu chí tại `rubrics/design_review_rubric.md` và `rubrics/code_quality_rubric.md`. Benchmark Task Board trong guide là đề bài kiểm thử, chưa phải app được triển khai. Không deploy khi chỉ yêu cầu local preview.
+Đọc role tại `agents/app/architect.md`, `agents/app/design_reviewer.md`, `agents/app/builder.md`, `agents/app/code_critic.md`, `agents/app/qa_auditor.md`; tiêu chí tại `rubrics/design_review_rubric.md`, `rubrics/code_critique_rubric.md` và `rubrics/code_quality_rubric.md`. Benchmark Task Board trong guide là đề bài kiểm thử, chưa phải app được triển khai. Không deploy khi chỉ yêu cầu local preview.
 
 ---
 ## 5. Nguyên Tắc Trả Lời & Giao Tiếp

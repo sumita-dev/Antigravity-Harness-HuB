@@ -1,9 +1,7 @@
 # Bộ Tiêu Chí Thẩm Định Chất Lượng Mã Nguồn (Code Quality Rubric)
 
-> **Ai dùng:** QA Auditor (`agents/app/qa_auditor.md`) — Checker độc lập của nhánh `app`.
-> **Nguyên tắc:** QA Auditor không tin báo cáo của Builder. Mọi mục dưới đây phải được
-> kiểm bằng **bằng chứng tự chạy lại**, không phải bằng lời mô tả.
-> Rubric này là bản khởi tạo — Sếp có thể siết/thêm mục theo đặc thù dự án.
+> **Ai dùng:** QA Auditor (`agents/app/qa_auditor.md`) — Tác tử kiểm định chất lượng khách quan (Checker) của nhánh `app`.
+> **Nguyên tắc:** QA Auditor tập trung vào kiểm định kỹ thuật khách quan và bằng chứng thực thi động (chạy lại test suite, quét bảo mật OWASP/Secret leak, kiểm tra endpoint /health, browser evidence và local preview). Không tin báo cáo của Builder; mọi phán quyết phải dựa trên bằng chứng tự chạy lại thật.
 
 ---
 

@@ -7,15 +7,19 @@
     "architect": "pro",
     "design_reviewer": "flash",
     "builder": "pro",
+    "code_critic": "flash",
     "qa_auditor": "flash",
     "web_researcher": "pro",
     "creator": "pro",
     "builder_creator": "pro",
     "qa": "flash",
-    "compliance_critic": "flash"
+    "compliance_critic": "flash",
+    "content_critic": "flash"
   },
   "limits": {
-    "max_critique_rounds": 2
+    "max_critique_rounds": 2,
+    "max_qa_rounds": 2,
+    "max_total_cycles": 3
   },
   "logging": {
     "trace": true
