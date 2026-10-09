@@ -52,7 +52,7 @@ Antigravity-Harness-Hub/
 │   └── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
 ├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
 │   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
-│   ├── marketing/skills/                   # 12 skill marketing / nội dung (SKILL.md + references/ + scripts/)
+│   ├── marketing/skills/                   # 13 skill marketing / nội dung (SKILL.md + references/ + scripts/)
 │   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
 │       ├── plugin.json                     # Manifest plugin độc lập
 │       └── skills/impeccable/              # SKILL.md + reference/ (24 commands) + scripts/ (detect.mjs, engines)
@@ -81,7 +81,7 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (25 files, 403 tests)
+├── tests/                                  # Bộ kiểm thử tự động (25 files, 407 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
@@ -123,7 +123,8 @@ Antigravity-Harness-Hub/
 | `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (34 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `plugins/impeccable/` | Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định giao diện Frontend (`plugin.json` + `skills/impeccable/`). Tích hợp 24 lệnh con thiết kế và bộ máy quét 59 detector rules chống AI Slop & lỗi giao diện. |
 | `plugins/impeccable/skills/impeccable/scripts/detect.mjs` | Công cụ CLI kiểm định UI tĩnh độc lập (`impeccable detect`): quét mã nguồn HTML, CSS, JSX, TSX hoặc URL trình duyệt để phát hiện 59 anti-patterns, hỗ trợ output JSON cho QA Auditor tích hợp tự động. |
-| `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic. |
+| `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic; tích hợp nguyên tắc Reality Checker (mặc định 'NEEDS WORK', miễn dịch với fantasy approval, chặn pass ảo/dirty mocks). |
+| `rubrics/design_review_rubric.md` | Tiêu chuẩn thẩm định thiết kế kiến trúc & Spec 5 mục; tích hợp tiêu chuẩn 'UI Finish-Gate & Anti-Generic Contract' (bài trừ generic UI, bắt buộc design contract & bespoke components). |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá (`design_review_rubric.md`, `code_critique_rubric.md`, `code_quality_rubric.md`, `content_compliance_rubric.md`). |
 
 ---
@@ -147,6 +148,13 @@ Hệ thống hoạt động theo **Cơ Chế Bộ Ba Tác Tử Linh Hoạt (Dyna
 4. **Phân tầng nhiệm vụ linh hoạt (Task Tiering):**
    - **Tier 1 (Core Task / App / Feature lớn):** Bắt buộc chạy đầy đủ chu trình Bộ Ba Tác Tử: Maker ➔ Critic ➔ QA Auditor.
    - **Tier 2 (Minor Task / Hotfix cấp tốc):** Chạy Fast-Track tinh gọn: Maker ➔ QA Auditor (cờ `fast_track=True`, vẫn đảm bảo kiểm định động và quét bảo mật nghiêm ngặt).
+5. **Quy Chuẩn Biên Bản Giao Nhận Chuẩn Hóa (Standard Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):**
+   - **Tôn chỉ chống thất thoát ngữ cảnh (Zero Context Loss):** Mọi lượt chuyển giao nhiệm vụ, bàn giao bản thảo/mã nguồn hoặc phản hồi kết quả kiểm định giữa các tác tử bắt buộc phải tuân theo cấu trúc Biên Bản Giao Nhận chuẩn mực gồm 5 thành phần:
+     + **Metadata:** Người gửi (`From`), Người nhận (`To`), Pha/Chặng (`Phase`), Mã tác vụ (`Task Reference/ID`), Mức độ ưu tiên (`Priority`), Mốc thời gian (`Timestamp`).
+     + **Ngữ cảnh thực tế (Context):** Hiện trạng hoàn thành chi tiết (`Current State`), Danh sách file liên quan (`Relevant Files`), Phụ thuộc (`Dependencies`), Ràng buộc kỹ thuật (`Constraints`).
+     + **Yêu cầu & Tiêu chí nghiệm thu (Deliverable & Acceptance Criteria Checklist):** Mô tả rõ ràng sản phẩm bàn giao, danh sách các tiêu chí nghiệm thu dạng checklist `[ ] Criterion` có thể đo lường và kiểm chứng độc lập.
+     + **Bằng chứng thực chứng bắt buộc (Empirical Evidence):** File diffs, logs thực thi lệnh, screenshots đa thiết bị (desktop/tablet/mobile), kết quả test suite — tuyệt đối cấm bàn giao hay phê duyệt suông mà không có bằng chứng đính kèm.
+     + **Trạng thái phán quyết (Verdict & Feedback Loop):** Bàn giao kết quả kiểm định với phán quyết rõ ràng: `PASS` (kèm chứng cứ xác thực) hoặc `FAIL` (kèm Issue description, Expected vs Actual, Evidence, file cần sửa và hướng dẫn retry giới hạn tối đa 2 lần trước khi kích hoạt ngắt mạch).
 
 ### 2.1. Nhánh 1: Phát Triển Phần Mềm (`app`) — Gemini Native App Workflow
 
@@ -246,7 +254,7 @@ Mode `research-only` bỏ CREATION, vẫn independent Critic audit. Bốn requir
 
 ### 2.3. Gọi Trực Tiếp Kỹ Năng Nhánh Marketing Trong Ô Chat (Slash Commands)
 
-Toàn bộ 12 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
+Toàn bộ 13 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
 
 | Lệnh Slash trong Chat | Kỹ Năng | Trọng Tâm Xử Lý |
 | :--- | :--- | :--- |
@@ -260,6 +268,7 @@ Toàn bộ 12 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Content Noti | Viết content/copy ads chuyển đổi cao theo 14 công thức tâm lý + NLP |
 | `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO | Tối ưu bài viết đạt chuẩn SEO, trích dẫn AEO/GEO cho AI Search |
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất quảng cáo Meta, CPA/ROAS/CPM |
+| `/paid-media-auditor` | Paid Media Auditor | Kiểm định quảng cáo trả phí đa kênh (Google Ads, Meta Ads, Microsoft Ads) qua khung 200+ checkpoints: cấu trúc, tracking CAPI/GA4, đấu thầu, creative fatigue và lãng phí ngân sách |
 | `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage (đăng bài, đọc/trả lời comment) |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
 
@@ -399,7 +408,7 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 25 file (403 tests):
+Bộ test gồm 25 file (407 tests):
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
@@ -428,7 +437,7 @@ Bộ test gồm 25 file (403 tests):
 
 ```text
 $ pytest -q
-403 passed in 28.20s
+407 passed in 35.57s
 ```
 
 ---
