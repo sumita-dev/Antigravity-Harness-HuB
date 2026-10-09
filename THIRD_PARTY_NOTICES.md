@@ -8,7 +8,7 @@ giấy phép MIT áp cho mã nguồn gốc của repo (xem `LICENSE`).
 
 | Nhóm skill | Vị trí | Ghi chú |
 | :--- | :--- | :--- |
-| `impeccable` (+ `scripts/`, `reference/`) | `plugins/code/skills/impeccable/` | Bộ công cụ thiết kế/UI lớn, có script JS và agent `.toml` — nhiều khả năng đến từ một bộ nguồn riêng |
+| `impeccable` (+ `scripts/`, `reference/`) | `plugins/impeccable/skills/impeccable/` | Bộ công cụ thiết kế/UI lớn, có script JS và agent `.toml` — nhiều khả năng đến từ một bộ nguồn riêng |
 | `gitnexus-plan`, `gitnexus-work`, `gitnexus-review` | `plugins/code/skills/gitnexus-*` | Kèm `scripts/evidence-provenance.mjs` |
 | `systematic-debugging`, `test-driven-development`, `verification-before-completion`, `condition-based-waiting*` | `plugins/code/skills/*` | Nhóm skill mang phong cách "superpowers"/obra |
 | `traffic-secrets-playbook` | `plugins/marketing/skills/` | Nội dung trích từ sách của Russell Brunson — cần cân nhắc bản quyền nội dung |

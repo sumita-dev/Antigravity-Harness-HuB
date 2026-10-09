@@ -50,9 +50,12 @@ Antigravity-Harness-Hub/
 │   ├── app-workflow-guide.md               # Cẩm nang Gemini Native App Workflow & Checkpoint Guide
 │   ├── intake-protocol.md                  # Giao thức phỏng vấn Intake 3 câu hỏi trước khi lập Spec
 │   └── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
-├── plugins/                                # Skills đóng gói theo plugin (Antigravity đọc trực tiếp)
-│   ├── code/skills/                        # 22 skill kỹ thuật (SKILL.md + references/ + scripts/)
-│   └── marketing/skills/                   # 12 skill marketing / nội dung
+├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
+│   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
+│   ├── marketing/skills/                   # 12 skill marketing / nội dung (SKILL.md + references/ + scripts/)
+│   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
+│       ├── plugin.json                     # Manifest plugin độc lập
+│       └── skills/impeccable/              # SKILL.md + reference/ (24 commands) + scripts/ (detect.mjs, engines)
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
 ├── scripts/                                # Tiện ích tự động hóa & vận hành Production
@@ -78,7 +81,7 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (25 files, 401 tests)
+├── tests/                                  # Bộ kiểm thử tự động (25 files, 403 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
@@ -118,6 +121,8 @@ Antigravity-Harness-Hub/
 | `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
 | `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
 | `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (34 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `plugins/impeccable/` | Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định giao diện Frontend (`plugin.json` + `skills/impeccable/`). Tích hợp 24 lệnh con thiết kế và bộ máy quét 59 detector rules chống AI Slop & lỗi giao diện. |
+| `plugins/impeccable/skills/impeccable/scripts/detect.mjs` | Công cụ CLI kiểm định UI tĩnh độc lập (`impeccable detect`): quét mã nguồn HTML, CSS, JSX, TSX hoặc URL trình duyệt để phát hiện 59 anti-patterns, hỗ trợ output JSON cho QA Auditor tích hợp tự động. |
 | `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic. |
 | `rubrics/` | Định nghĩa các checklist khắt khe độc lập mà Checker bắt buộc phải đối chiếu khi đánh giá (`design_review_rubric.md`, `code_critique_rubric.md`, `code_quality_rubric.md`, `content_compliance_rubric.md`). |
 
@@ -260,6 +265,95 @@ Toàn bộ 12 kỹ năng của nhánh Marketing đã được tích hợp đầy
 
 ---
 
+### 2.4. Plugin Độc Lập Impeccable — Hoàn Thiện & Kiểm Định UI Frontend (59 Detector Rules & 24 Commands)
+
+`plugins/impeccable/` là Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định chất lượng giao diện Frontend (Design Quality Gate) dành cho Antigravity. Khác với các tác tử tạo mã thông thường dễ rơi vào bẫy "AI slop" (giao diện đơn điệu, rập khuôn, viền màu dày, bảng màu tím/cyan an toàn), Impeccable mang tư duy của một Giám đốc Thiết kế (Design Director) đoạt giải, kết hợp cùng bộ máy quét tĩnh tất định (Deterministic Detector) 59 quy tắc khắt khe để đảm bảo chuẩn mực thủ công vượt trội (out-of-distribution craft), phân cấp thị giác rõ nét và sẵn sàng cho môi trường Production.
+
+#### 2.4.1. Cấu Trúc Plugin Độc Lập
+- **Manifest Plugin:** `plugins/impeccable/plugin.json` (định danh độc lập, phiên bản 4.0.3).
+- **Kỹ Năng & Chỉ Dẫn:** `plugins/impeccable/skills/impeccable/SKILL.md`.
+- **Hệ Thống Playbooks:** `plugins/impeccable/skills/impeccable/reference/` (chứa 24 playbook chi tiết theo từng lệnh con, hướng dẫn nền tảng native iOS/Android, và `craft-floor.md`).
+- **Bộ Máy Quét & CLI:** `plugins/impeccable/skills/impeccable/scripts/` (bao gồm CLI `detect.mjs`, động cơ phân tích HTML/CSS/Regex, và registry 59 quy tắc anti-patterns).
+
+#### 2.4.2. Danh Mục 24 Lệnh Con (Design Commands)
+Impeccable cung cấp 24 lệnh chuyên biệt bao phủ toàn bộ vòng đời thiết kế từ lập kế hoạch, xây dựng, đánh giá, hoàn thiện, đến chẩn đoán lỗi:
+
+| Nhóm | Lệnh | Mô tả chi tiết & Phạm vi tác vụ |
+| :--- | :--- | :--- |
+| **Build** | `craft [feature]` | Khởi tạo bề mặt thiết kế hoặc tính năng mới (alias cho quy trình new-work). |
+| | `shape [feature]` | Lập kế hoạch kiến trúc UX/UI, phân tích user intent và wireframe trước khi viết mã. |
+| | `init` | Thu thập bối cảnh sản phẩm bền vững và ghi nhận vào `PRODUCT.md`. |
+| | `document` | Phân tích toàn bộ mã nguồn UI hiện có và tự động trích xuất `DESIGN.md`. |
+| | `extract [target]` | Bóc tách tokens, màu sắc, typography và component tái sử dụng vào design system. |
+| **Evaluate** | `critique [target]` | Đánh giá thiết kế UX chuyên sâu đối chiếu với thang điểm heuristic (độ rõ ràng, tải nhận thức). |
+| | `audit [target]` | Kiểm định chất lượng kỹ thuật toàn diện: khả năng tiếp cận (a11y), hiệu năng (CWV), responsive. |
+| **Refine** | `polish [target]` | Vòng rà soát và hoàn thiện chất lượng cuối cùng trước khi bàn giao sản phẩm. |
+| | `bolder [target]` | Gia tăng tương phản, độ đậm nét và cá tính cho các thiết kế mờ nhạt hoặc quá an toàn. |
+| | `quieter [target]` | Tiết chế các thiết kế quá chói, màu sắc gắt gỏng hoặc gây quá tải thị giác cho người dùng. |
+| | `distill [target]` | Rút gọn giao diện về bản chất cốt lõi, loại bỏ thành phần trang trí thừa thãi. |
+| | `harden [target]` | Gia cố UI sẵn sàng cho Production: xử lý error states, empty states, i18n, edge cases. |
+| | `onboard [target]` | Thiết kế luồng trải nghiệm người dùng mới (first-run flows), empty states và kích hoạt tính năng. |
+| **Enhance** | `animate [target]` | Bổ sung chuyển động, animation có mục đích và chuyển cảnh mượt mà (chống giật lag). |
+| | `colorize [target]` | Phối màu chiến lược, thổi sức sống cho các giao diện đơn sắc hoặc nhợt nhạt. |
+| | `typeset [target]` | Tối ưu hóa phân cấp typography, cặp phông chữ, line-height và nhịp điệu đọc. |
+| | `layout [target]` | Tinh chỉnh khoảng cách (spacing), nhịp điệu thị giác và cấu trúc phân cấp khung nhìn. |
+| | `delight [target]` | Bổ sung chi tiết cá tính, micro-interactions tinh tế và nét chạm đáng nhớ. |
+| | `overdrive [target]` | Đẩy thiết kế vượt qua các giới hạn thông thường, thử nghiệm bứt phá sáng tạo. |
+| **Fix** | `clarify [target]` | Chuốt lại UX copy, nhãn nút (labels), thông điệp lỗi và vi mô văn bản giao diện. |
+| | `adapt [target]` | Thích ứng đa thiết bị, responsive đa kích thước màn hình và native platforms (iOS/Android). |
+| | `optimize [target]` | Chẩn đoán và khắc phục hiệu năng UI, render jank, layout thrashing và bộ nhớ. |
+| **Iterate** | `live` | Visual variant mode: chọn phần tử DOM trên trình duyệt và sinh các biến thể thay thế trực tiếp. |
+| **Maintenance** | `doctor` | Báo cáo và sửa chữa độ trôi lệch của các artifacts (`PRODUCT.md`, `DESIGN.md`, surface briefs, hooks). |
+
+#### 2.4.3. Bộ 59 Detector Rules — Chống AI Slop & Lỗi Kỹ Thuật UI
+Bộ máy quét tĩnh của Impeccable tự động phát hiện 59 quy tắc anti-patterns tất định (phân loại thành 33 lỗi AI Slop và 26 lỗi Kỹ thuật/Chất lượng, kèm 1 quy tắc tư vấn Advisory) thông qua 3 engine: Static HTML/CSS cascade, Regex pattern matching trên JSX/TSX/CSS, và Puppeteer Full Browser Rendering trên live URLs:
+
+1. **Nhóm 33 Quy Tắc AI Slop (Dấu hiệu giao diện sáo rỗng do AI sinh ra):**
+   - **Thẻ & Viền (Cards & Borders):** `side-tab` (viền màu dày một bên card), `border-accent-on-rounded` (viền accent xung đột với góc bo tròn), `nested-cards` (thẻ lồng trong thẻ gây nhiễu chiều sâu), `gpt-border-shadow` (viền mỏng kết hợp bóng đổ quá rộng đặc trưng GPT).
+   - **Typography & Font:** `overused-font` (lạm dụng phông AI mặc định: Inter, Roboto, Geist, Space Grotesk không cá tính), `single-font` (chỉ dùng duy nhất một phông chữ thiếu phân cấp), `flat-type-hierarchy` (cỡ chữ quá sít sao, tỉ lệ bước nhảy < 1.25), `italic-serif` (lạm dụng serif nghiêng giả tạo sự sang trọng), `gradient-text` (chữ gradient trang trí sáo rỗng).
+   - **Màu sắc & Nền (Color & Surfaces):** `ai-color-palette` (tím/violet kết hợp cyan trên nền tối), `cream-palette` (nền be/cream mặc định phản xạ AI), `radial-spotlight` (spotlight tròn trang trí), `glow` (hiệu ứng phát sáng lạm dụng).
+   - **Bố cục & Nhịp điệu (Layout & Rhythm):** `monotonous-spacing` (một giá trị khoảng cách dùng cho mọi vị trí, thiếu nhịp điệu nhóm), `edge-flush-cards` (card chạm sát mép màn hình thiếu padding), `kicker-above-heading`, `hero-eyebrow`, `icon-tile`, `numbered-section-labels`, `bounce-easing` (chuyển động nảy cục bộ giả tạo).
+
+2. **Nhóm 26 Quy Tắc Quality & Engineering (Lỗi hiển thị & Kỹ thuật giao diện):**
+   - **Tràn viền & Che khuất (Overflow & Occlusion):** `clipped-overflow` (nội dung bị cắt do overflow: hidden thiếu kiểm soát), `text-occlusion` (chữ bị che khuất hoặc đè lên nhau), `first-viewport-column-overflow` (cột tràn khỏi khung nhìn màn hình đầu tiên), `oversized-h1` (tiêu đề H1 quá lớn vỡ bố cục trên mobile).
+   - **Tương phản & Trạng thái (Contrast & States):** `hover-contrast` (trạng thái hover không đạt tỉ lệ tương phản WCAG), `content-hidden-at-rest` (giấu nội dung quan trọng ở trạng thái nghỉ), `repeated-container-text` (trùng lặp văn bản container vô nghĩa), `heading-rhythm` (nhịp điệu tiêu đề lộn xộn).
+   - **Quy tắc Advisory (Tư vấn):** `em-dash-overuse` (lạm dụng dấu gạch ngang dài em-dash) được xếp vào nhóm Advisory — hiển thị cảnh báo để cải thiện văn phong nhưng không làm fail exit code của lệnh kiểm định.
+
+#### 2.4.4. Tích Hợp Kiểm Định Giao Diện Dành Cho QA Auditor (Pha 5: AUDIT)
+Trong chu trình Gemini Native App Workflow, đối với mọi nhiệm vụ liên quan đến giao diện Web / Frontend (HTML, CSS, JSX, TSX), **QA Auditor bắt buộc phải kích hoạt kiểm định UI tĩnh với Impeccable Detector** trước khi đưa ra phán quyết nghiệm thu, tuân thủ Mục 15 trong `rubrics/code_quality_rubric.md`:
+
+```bash
+# 1. Quét toàn bộ thư mục component frontend
+node plugins/impeccable/skills/impeccable/scripts/detect.mjs src/
+
+# 2. Xuất kết quả định dạng JSON để phân tích tự động
+node plugins/impeccable/skills/impeccable/scripts/detect.mjs --json src/
+
+# 3. Quét một file giao diện cụ thể
+node plugins/impeccable/skills/impeccable/scripts/detect.mjs src/components/Dashboard.tsx
+
+# 4. Quét live URL ứng dụng trên trình duyệt (kết hợp Puppeteer đo đạc layout thực tế)
+node plugins/impeccable/skills/impeccable/scripts/detect.mjs http://localhost:3000 --viewport 1280x800
+
+# 5. Bỏ qua các cảnh báo tư vấn (chỉ tập trung vào lỗi chặn)
+node plugins/impeccable/skills/impeccable/scripts/detect.mjs --no-advisory src/
+```
+
+- **Cơ Chế Miễn Trừ Hợp Lệ (Inline Ignores):**
+  Trong trường hợp có quyết định thiết kế chủ ý được Sếp hoặc Brand Guideline chấp thuận (ví dụ: bắt buộc dùng font Inter theo nhận diện thương hiệu), Builder có thể thêm comment miễn trừ hợp lệ tại dòng mã:
+  ```css
+  /* impeccable-disable-line overused-font -- Brand guideline bắt buộc */
+  .brand-header { font-family: 'Inter', sans-serif; }
+  ```
+  hoặc trong tệp HTML:
+  ```html
+  <!-- impeccable-disable side-tab -- Thiết kế tab tài liệu đặc thù -->
+  ```
+- **Tiêu Chuẩn Nghiệm Thu "Zero Primary Anti-Patterns":**
+  Nếu kết quả quét tồn tại bất kỳ lỗi Primary nào (thuộc nhóm Slop hoặc Quality) mà chưa có chú thích miễn trừ hợp lệ, QA Auditor **BẮT BUỘC trả về `VERDICT: REJECT`**, trích dẫn cụ thể tên file, dòng code, mã lỗi (Rule ID) và yêu cầu Builder chỉnh sửa trước khi cấp chứng nhận `APPROVED`.
+
+---
+
 ## 3. Cơ Chế Phản Biện Độc Lập & Cầu Dao Ngắt Mạch (Circuit Breaker)
 
 ### 3.1. Rào Chắn Kiểm Định Độc Lập (Adversarial Quality Gate)
@@ -305,7 +399,7 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 24 file (393 tests):
+Bộ test gồm 25 file (403 tests):
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
@@ -319,7 +413,7 @@ Bộ test gồm 24 file (393 tests):
 - `test_harness_live.py` — Kiểm thử live harness orchestration
 - `test_launcher_and_dev_logger.py` — Kiểm thử tiện ích dev logger & trình sinh 1-click launcher
 - `test_marketing_skill_quality.py` — Kiểm định chất lượng nội dung skill marketing
-- `test_marketing_skills.py` — Frontmatter & loader của skill marketing
+- `test_marketing_skills.py` — Frontmatter & loader của skill marketing (code, marketing, impeccable)
 - `test_marketing_tools.py` — Kiểm thử công cụ marketing
 - `test_marketing_workflow.py` — Workflow marketing checkpoint & audit
 - `test_native_contracts.py` — Kiểm thử hợp đồng native agent & vai trò
@@ -330,10 +424,11 @@ Bộ test gồm 24 file (393 tests):
 - `test_setup.py` — Kiểm thử setup script & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
 - `test_skill_router.py` — Keyword routing (34 skill)
+- `test_triad_protocol.py` — Kiểm chứng Dynamic Triad, Smart Feedback Loop, Circuit Breakers
 
 ```text
 $ pytest -q
-393 passed in 33.03s
+403 passed in 28.20s
 ```
 
 ---

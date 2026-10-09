@@ -127,7 +127,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/systematic-debugging` | Systematic Debugging | Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân |
 | `/karpathy-coder` | Karpathy Coder | Áp dụng 4 nguyên lý lập trình thực dụng, chống over-engineering, thay đổi cục bộ |
 | `/security-review` | Security Review | Quét lỗ hổng bảo mật OWASP, injection, rò rỉ API key |
-| `/impeccable` | Impeccable UI Polish | Tối ưu giao diện, visual hierarchy, typography, micro-interactions |
+| `/impeccable` | Impeccable Frontend Design & Polish | Kiểm định thiết kế với 59 detector rules, 24 design commands, quét anti-pattern và hoàn thiện craft frontend |
 | `/verify-ui` | UI Verification | Kiểm chứng giao diện thực tế qua Chrome DevTools MCP |
 | `/accessibility` | Accessibility (a11y) | Kiểm tra và triển khai chuẩn trợ năng WCAG 2.2 |
 | `/database-migrations` | Database Migrations | Thay đổi schema database an toàn, zero-downtime, rollback |

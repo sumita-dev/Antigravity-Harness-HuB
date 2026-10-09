@@ -436,3 +436,7 @@ async function detectCli() {
 }
 
 export { formatFindings, handleStdin, confirm, printUsage, detectCli };
+
+const isMainModule = process.argv[1]?.endsWith('main.mjs') ||
+  process.argv[1]?.endsWith('main.mjs/');
+if (isMainModule) detectCli();

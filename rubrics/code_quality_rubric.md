@@ -25,6 +25,7 @@
 - Xử lý lỗi tường minh; **không silent failure** (bắt lỗi rồi bỏ qua).
 - Không thêm dependency thừa; dependency mới phải có lý do.
 - Không lặp logic ở mức phải tách hàm.
+- **Kiểm định giao diện Frontend & Anti-patterns (Impeccable 59 Rules):** Đối với các thay đổi liên quan đến giao diện Web / Frontend (HTML, CSS, JSX/TSX), QA Auditor phải chạy bộ công cụ detector của Impeccable (`plugins/impeccable/skills/impeccable/scripts/detect.mjs` hoặc `scripts/detector/cli/main.mjs`) để rà soát bộ 59 detector rules. Đảm bảo Zero Primary Anti-Patterns (không vi phạm nghiêm trọng về typography, contrast, hierarchy, layout, motion). Các cảnh báo advisory được xem xét nhưng không tính là failure chặn.
 
 ### Trụ cột 4: Bảo mật & An toàn Vận hành (Security & Operational Baseline)
 - **Zero Hardcoded Secrets:** Tuyệt đối không hardcode secret/token/mật khẩu/private keys trong mã nguồn (bắt buộc quét sạch qua `scripts/run_security_audit.py`).
@@ -62,6 +63,7 @@
 | 12 | Có test cho luồng lỗi/biên | Nên | Đọc test |
 | 13 | Test không phụ thuộc máy cá nhân | Nên | Grep path tuyệt đối |
 | 14 | Comment giải thích "vì sao" | Tùy | Đọc diff |
+| 15 | Sạch anti-patterns frontend (Impeccable 59 rules) | Bắt buộc (nếu có UI) | Chạy detector Impeccable: `node plugins/impeccable/skills/impeccable/scripts/detect.mjs --json <targets>` |
 
 ---
 
@@ -102,6 +104,7 @@ Kết thúc báo cáo bằng **đúng một** dòng, không thêm chữ nào kh�
 - **APPROVE** chỉ khi mọi mục Bắt buộc PASS và đã tự chạy lại bằng chứng.
 - Native app workflow: Spec/human signoff và manifest source/test/config phải khớp snapshot hiện tại, kể cả thay đổi chưa commit. Actor QA khác Builder; identity khai báo không thay chứng minh context độc lập của runtime.
 - Evidence gồm command ID, command, cwd absolute trong project, ac_ids, exit code, output file/hash; khớp signed verification_commands với cwd root-relative. Exit code 0 không tự suy ra APPROVE. Mọi applicable AC, kể cả non-UI, phải PASS có evidence; N/A chỉ cho Spec applicable false kèm na_reason. UI yêu cầu local preview và browser evidence từng AC.
+- **Frontend UI & Anti-Patterns (Impeccable):** Với task có giao diện Web / Frontend, QA Auditor bắt buộc chạy detector của Impeccable (`node plugins/impeccable/skills/impeccable/scripts/detect.mjs --json <targets>`) để rà soát 59 detector rules. Bất kỳ vi phạm primary anti-pattern nào chưa được cấu hình miễn trừ hợp lệ đều phải bị đánh REJECT.
 - PARTIAL_APPROVE chỉ khi có applicable UI AC NOT_VERIFIED và toàn bộ non-UI PASS/commands hợp lệ. AUDIT_PENDING_BROWSER không được tạo để bỏ QA; verify-browser đối soát pending IDs/URL cũ và cả logs/evidence/source hiện tại. Design không có partial verdict.
 - Git diff chỉ hỗ trợ đọc; QA kiểm cùng checkout chứa staged/unstaged/untracked, không audit mỗi committed HEAD. Runtime/log/cache exclusion theo policy Spec; generated build/dist/.next chỉ loại khi kê khai, nested source collision vẫn included.
 - REJECT thứ hai của pha audit chuyển ESCALATED; counters tồn tại qua resubmit/restart. CLI kiểm dữ liệu checkpoint, không tự xác thực hành động người dùng hay kiểm trình duyệt.

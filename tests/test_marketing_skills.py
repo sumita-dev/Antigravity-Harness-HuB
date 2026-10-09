@@ -22,9 +22,13 @@ MARKETING_SKILLS = [
 CODE_SKILLS = [
     "accessibility", "advisor", "app", "arena", "database-migrations",
     "domain-modeling", "forensics", "gitnexus-plan", "gitnexus-review",
-    "gitnexus-work", "hillclimb", "impeccable", "karpathy-coder", "loop-circuit-breaker",
+    "gitnexus-work", "hillclimb", "karpathy-coder", "loop-circuit-breaker",
     "ponytail-review", "reverse-lab", "security-review", "systematic-debugging",
     "test-driven-development", "verification-before-completion", "verify-ui", "why"
+]
+
+IMPECCABLE_SKILLS = [
+    "impeccable"
 ]
 
 def test_marketing_skills_exist_and_frontmatter_valid():
@@ -89,6 +93,38 @@ def test_skill_loader_loads_all_marketing_skills():
 def test_skill_loader_loads_all_code_skills():
     loader = SkillLoader()
     for skill_name in CODE_SKILLS:
+        instructions = loader.load_instructions(skill_name)
+        assert instructions is not None, f"Failed to load instructions for {skill_name}"
+        assert len(instructions) > 50, f"Instructions too short for {skill_name}"
+
+def test_impeccable_skills_exist_and_frontmatter_valid():
+    for skill_name in IMPECCABLE_SKILLS:
+        skill_file = os.path.join("plugins", "impeccable", "skills", skill_name, "SKILL.md")
+        assert os.path.exists(skill_file), f"Impeccable skill file missing: {skill_file}"
+        
+        with open(skill_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        assert content.startswith("---\n") or content.startswith("---\r\n"), (
+            f"Skill {skill_name} does not start with YAML frontmatter at line 1"
+        )
+
+        parts = content.split("---", 2)
+        assert len(parts) >= 3, f"Skill {skill_name} does not have closing delimiter '---'"
+        
+        frontmatter_raw = parts[1]
+        fm = yaml.safe_load(frontmatter_raw)
+        
+        assert isinstance(fm, dict), f"Frontmatter in {skill_name} is not a valid YAML dict"
+        assert "name" in fm, f"Frontmatter in {skill_name} missing 'name'"
+        assert fm["name"] == skill_name, f"Skill name in frontmatter {fm['name']} != {skill_name}"
+        assert "description" in fm and len(fm["description"].strip()) > 0, (
+            f"Skill {skill_name} missing description in frontmatter"
+        )
+
+def test_skill_loader_loads_impeccable_skills():
+    loader = SkillLoader()
+    for skill_name in IMPECCABLE_SKILLS:
         instructions = loader.load_instructions(skill_name)
         assert instructions is not None, f"Failed to load instructions for {skill_name}"
         assert len(instructions) > 50, f"Instructions too short for {skill_name}"

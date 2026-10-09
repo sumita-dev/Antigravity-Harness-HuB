@@ -14,6 +14,7 @@ DEFAULT_CONFIG = REPO_ROOT / "configs" / "harness_config.json"
 DEFAULT_SKILL_DIRS = (
     REPO_ROOT / "plugins" / "code" / "skills",
     REPO_ROOT / "plugins" / "marketing" / "skills",
+    REPO_ROOT / "plugins" / "impeccable" / "skills",
     REPO_ROOT / "skills",
 )
 
