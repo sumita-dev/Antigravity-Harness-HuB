@@ -1,5 +1,5 @@
 # Antigravity-Harness-Hub
-> **Bộ Harness Đa Nhiệm & Phản Biện Tự Hành 2.0**
+> **Bộ Harness Đa Nhiệm & Phản Biện Tự Động 2.0**
 
 `Antigravity-Harness-Hub` là khung điều phối (harness framework) tự hành chuẩn hóa quy trình phát triển đa lĩnh vực (Phần mềm & Tiếp thị/Nội dung). Hệ thống kết hợp cơ chế phân vai tác tử chuyên môn hóa, cỗ máy trạng thái (State Machine), và rào chắn kiểm định chất lượng đối nghịch (Adversarial Quality Gate) tích hợp cầu dao ngắt mạch (Circuit Breaker) chống kẹt vòng lặp sau tối đa 2 lượt phản biện.
 
