@@ -28,8 +28,10 @@
 - Không thêm dependency thừa; dependency mới phải có lý do.
 - Không lặp logic ở mức phải tách hàm.
 
-### Trụ cột 4: Bảo mật tối thiểu (Baseline Security — OWASP-oriented)
-- Không hardcode secret/token/mật khẩu (phải đọc từ env/.env).
+### Trụ cột 4: Bảo mật & An toàn Vận hành (Security & Operational Baseline)
+- **Zero Hardcoded Secrets:** Tuyệt đối không hardcode secret/token/mật khẩu/private keys trong mã nguồn (bắt buộc quét sạch qua `scripts/run_security_audit.py`).
+- **Zero Critical Vulnerabilities:** Phụ thuộc (dependencies trong package.json / requirements.txt) không chứa lỗ hổng bảo mật mức Critical.
+- **Health Check Readiness:** Hệ thống/ứng dụng phải có endpoint `/health` (tiêu chí AC-HEALTH) trả về trạng thái hoạt động, uptime và version phục vụ giám sát và container orchestration.
 - Kiểm tra & làm sạch đầu vào ở ranh giới hệ thống (chống injection).
 - Không nối chuỗi để tạo câu truy vấn/lệnh hệ thống.
 - Lỗi trả về không rò rỉ thông tin nội bộ (stack trace, đường dẫn, phiên bản).
@@ -52,14 +54,16 @@
 | 2 | Có bằng chứng output thật | Bắt buộc | Xem log/lệnh |
 | 3 | Đúng hợp đồng API/schema | Bắt buộc | Đối chiếu đặc tả |
 | 4 | Không vượt blast radius | Bắt buộc | So danh sách file thay đổi |
-| 5 | Không secret hardcode | Bắt buộc | Quét chuỗi/token trong diff |
-| 6 | Không silent failure | Bắt buộc | Đọc đường xử lý lỗi |
-| 7 | Không mã chết / code comment-out | Nên | Đọc diff |
-| 8 | Đặt tên rõ, hàm một trách nhiệm | Nên | Đọc diff |
-| 9 | Dependency mới có lý do | Nên | So requirements/manifest |
-| 10 | Có test cho luồng lỗi/biên | Nên | Đọc test |
-| 11 | Test không phụ thuộc máy cá nhân | Nên | Grep path tuyệt đối |
-| 12 | Comment giải thích "vì sao" | Tùy | Đọc diff |
+| 5 | Không secret hardcode (Zero Secrets) | Bắt buộc | Quét qua `scripts/run_security_audit.py` & grep diff |
+| 6 | Zero critical vulnerabilities | Bắt buộc | Quét dependency audit (`run_security_audit.py`) |
+| 7 | Đạt tiêu chuẩn kiểm tra sức khỏe (/health) | Bắt buộc | Kiểm tra endpoint `/health` (AC-HEALTH) |
+| 8 | Không silent failure | Bắt buộc | Đọc đường xử lý lỗi |
+| 9 | Không mã chết / code comment-out | Nên | Đọc diff |
+| 10 | Đặt tên rõ, hàm một trách nhiệm | Nên | Đọc diff |
+| 11 | Dependency mới có lý do | Nên | So requirements/manifest |
+| 12 | Có test cho luồng lỗi/biên | Nên | Đọc test |
+| 13 | Test không phụ thuộc máy cá nhân | Nên | Grep path tuyệt đối |
+| 14 | Comment giải thích "vì sao" | Tùy | Đọc diff |
 
 ---
 

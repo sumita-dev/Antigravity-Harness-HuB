@@ -54,7 +54,12 @@ Antigravity-Harness-Hub/
 │   └── marketing/skills/                   # 12 skill marketing / nội dung
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
-├── scripts/                                # Tiện ích: session_manager.py, apify_crawler.py, run_dev_logger.py, generate_launcher.py...
+├── scripts/                                # Tiện ích tự động hóa & vận hành Production
+│   ├── run_security_audit.py               # Quét bảo mật dependency vulnerabilities & secret leak
+│   ├── generate_launcher.py                # 1-click launcher (start-app.bat) + cờ --docker (Dockerfile, docker-compose.yml, .github/workflows/ci.yml, ARCHITECTURE.md)
+│   ├── run_dev_logger.py                   # Quản lý tiến trình nền dev server & Pre-flight check (port, health)
+│   ├── session_manager.py                  # Đồng bộ session di động giữa các máy
+│   └── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
 │   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (34 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
@@ -71,12 +76,14 @@ Antigravity-Harness-Hub/
 │   ├── design_review_rubric.md             # Tiêu chuẩn thẩm định thiết kế kiến trúc & Spec 5 mục
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (22 files)
+├── tests/                                  # Bộ kiểm thử tự động (24 files, 393 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
+│   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
 │   ├── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
 │   ├── test_launcher_and_dev_logger.py     # Kiểm thử tiện ích dev logger & 1-click launcher generator
 │   ├── test_marketing_skills.py            # Frontmatter & loader của skill
+│   ├── test_run_security_audit.py          # Kiểm thử quét bảo mật dependencies & secret leak
 │   ├── test_session_manager.py             # Portable session sync
 │   ├── test_skill_router.py                # Keyword routing
 │   └── test_repo_integrity.py              # Chặn lỗi: thư mục lồng, file rác, secret, path cá nhân, ref gãy
@@ -95,8 +102,9 @@ Antigravity-Harness-Hub/
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
 | `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
 | `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
+| `scripts/run_security_audit.py` | Quét bảo mật toàn diện: phát hiện hardcoded secrets (API keys, Tokens, Private Keys, DB URLs) và kiểm tra lỗ hổng dependency (`npm audit`, `pip-audit`). Hỗ trợ cờ `--fail-on-critical` và xuất báo cáo JSON/Markdown. |
 | `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
-| `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. |
+| `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. Hỗ trợ tùy chọn `--docker` để sinh trọn bộ Dockerfile, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example` và `ARCHITECTURE.md`. |
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
@@ -116,7 +124,7 @@ Hệ thống hoạt động theo nguyên tắc tách biệt vai trò (Maker-Chec
 
 ### 2.1. Nhánh 1: Phát Triển Phần Mềm (`app`) — Gemini Native App Workflow
 
-Quy trình phát triển phần mềm tuân thủ nghiêm ngặt mô hình Gemini Native App Workflow 7 pha toàn diện với cơ chế Maker-Checker 2 tầng (Kiến trúc & Mã nguồn), kiểm thử tự động E2E Playwright và đóng gói 1-Click:
+Quy trình phát triển phần mềm tuân thủ nghiêm ngặt mô hình Gemini Native App Workflow toàn diện với cơ chế Maker-Checker 2 tầng (Kiến trúc & Mã nguồn), kiểm thử tự động E2E Playwright, rà soát an toàn bảo mật (Security Audit) và đóng gói Production Ops (1-Click Launcher, Docker, CI/CD):
 
 ```mermaid
 flowchart TD
@@ -129,7 +137,9 @@ flowchart TD
     E --> F["PHA 5: AUDIT & E2E TESTING<br/>(QA Auditor + E2E Playwright Engineer & Critic)<br/><i>Dev Logger + Port Check + Playwright E2E</i>"]
     F -->|"VERDICT: REJECT lần 1"| E
     F -->|"VERDICT: REJECT lần 2"| ESC2["ESCALATED (Báo cáo Sếp)"]
-    F -->|"VERDICT: APPROVE"| G["PHA 6: UAT & 1-CLICK PACKAGING<br/>(Sếp UAT Test Sheet + 1-Click Launcher)<br/><i>start-app.bat + HDSD-NHANH.md</i>"]
+    F -->|"VERDICT: APPROVE"| SEC["PHA 5.5: SECURITY AUDIT<br/>(scripts/run_security_audit.py)<br/><i>Quét secret leak & lỗ hổng dependencies</i>"]
+    SEC -->|"VERDICT: REJECT"| E
+    SEC -->|"VERDICT: APPROVE"| G["PHA 6: PACKAGING & PRODUCTION OPS<br/>(1-Click Launcher + Docker + CI/CD + UAT)<br/><i>start-app.bat + Docker + CI/CD + ARCHITECTURE.md</i>"]
     G --> H["APPROVED / BÀN GIAO TOÀN DIỆN"]
 ```
 
@@ -150,10 +160,26 @@ flowchart TD
 6. **Pha 5 - AUDIT & E2E TESTING (QA Auditor + E2E Playwright Engineer & Critic + Dev Logger & Pre-flight Port/Health Check):**
    - **Tác tử:** `agents/app/qa_auditor.md` (QA Auditor / Checker), phối hợp cặp đôi Maker-Checker E2E: `agents/app/e2e_engineer.md` (viết kịch bản Playwright E2E) và `agents/app/e2e_critic.md` (thẩm định độc lập kịch bản test E2E).
    - **Hạ tầng kiểm thử & Ghi log:** Khởi chạy `scripts/run_dev_logger.py` để stream background dev server ra file log (`logs/dev-server.log`), thực hiện Pre-flight Check (kiểm tra port khả dụng, quét dọn tiến trình mồ côi, health-check HTTP 200 trước khi test). Chạy toàn bộ unit test, integration test và Playwright E2E test; thu thập screenshot/video/console log chứng minh từng UI AC.
-7. **Pha 6 - UAT & 1-CLICK PACKAGING (Sếp UAT Test với Human Test Sheet + Tự động sinh start-app.bat 1-click và HDSD-NHANH.md):**
+7. **Pha 5.5 - SECURITY AUDIT (Quét an toàn bảo mật & Lỗ hổng phụ thuộc):**
+   - **Công cụ & Tiện ích:** `scripts/run_security_audit.py` (hỗ trợ cờ `--fail-on-critical`, `--json`).
+   - **Nhiệm vụ:** Kiểm tra an toàn bảo mật tự động trước khi đóng gói release:
+     1. Quét rò rỉ secret nhạy cảm (API Keys, Tokens, Private Keys, Database credentials).
+     2. Quét lỗ hổng bảo mật của dependencies (`npm audit` cho Node.js hoặc `pip-audit` cho Python).
+     Nếu phát hiện lỗ hổng critical hoặc rò rỉ secret, trả về `VERDICT: REJECT` chuyển ngược Builder xử lý dứt điểm.
+8. **Pha 6 - PACKAGING & PRODUCTION OPS (Đóng gói 1-Click Launcher, Docker, CI/CD & Nghiệm thu UAT):**
    - **Tài liệu & Kịch bản:** Sử dụng mẫu `docs/human-test-sheet-template.md` để lập bảng kiểm thử UAT rõ ràng (bước thực hiện, kết quả mong đợi, checkbox) cho Sếp nghiệm thu thực tế bằng tay trong 3 phút.
-   - **Đóng gói 1-Click:** Chạy `scripts/generate_launcher.py` để tự động dò tìm cấu hình dự án, kiểm tra port/process, tạo file khởi chạy 1-click `start-app.bat` và tài liệu hướng dẫn nhanh `HDSD-NHANH.md` giúp Sếp hay bất kỳ ai nhấp đúp là dùng được ngay.
-   - **Bàn giao:** Nhiệm vụ hoàn thành với đầy đủ bằng chứng thực chứng, checkpoint nhất quán và báo cáo minh bạch cho Sếp.
+   - **Đóng gói Production Ops:** Chạy `scripts/generate_launcher.py --docker` để tự động dò tìm cấu hình dự án, kiểm tra port/process, tạo file khởi chạy 1-click `start-app.bat` và cẩm nang `HDSD-NHANH.md`. Đồng thời sinh trọn bộ artifact chuẩn Production: `Dockerfile`, `docker-compose.yml`, pipeline GitHub Actions `.github/workflows/ci.yml`, `.env.example` và tài liệu kiến trúc kỹ thuật `ARCHITECTURE.md`.
+   - **Bàn giao:** Nhiệm vụ hoàn thành với đầy đủ bằng chứng thực chứng, checkpoint nhất quán, artifact Production hoàn chỉnh và báo cáo minh bạch cho Sếp.
+
+#### Quy Trình Hotfix Fast-track (Khẩn Cấp)
+
+Áp dụng khi cần khắc phục khẩn cấp sự cố nghiêm trọng (P0/P1), vá lỗi hồi quy hoặc xử lý lỗ hổng bảo mật zero-day trên môi trường Production mà không cần đi qua toàn bộ chu trình đầy đủ từ đầu:
+- **Cắt giảm bước mở rộng:** Bỏ qua Pha 0 (Intake mở rộng) và Pha 1 (Spec nhiều trang).
+- **Quy trình 4 bước tinh gọn:**
+  1. **Hotfix Triage & Micro-Spec:** Quản đốc cô lập phạm vi sự cố (blast radius tối thiểu), Architect lập Micro-Spec tập trung duy nhất vào nguyên nhân gốc rễ và phương án vá lỗi.
+  2. **Direct Sign-off:** Sếp duyệt trực tiếp Micro-Spec trong chat ("Duyệt hotfix").
+  3. **Surgical Implementation & Regression Test:** Builder thực hiện sửa đổi cục bộ (Surgical Changes theo triết lý Karpathy Coder) và bổ sung test hồi quy chứng minh lỗi đã được khắc phục.
+  4. **Strict QA & Security Gate:** QA Auditor chạy kiểm thử hồi quy và kích hoạt `scripts/run_security_audit.py` đảm bảo không phát sinh lỗ hổng mới trước khi bàn giao phát hành bản vá ngay lập tức.
 
 ---
 
@@ -244,13 +270,14 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 22 file:
+Bộ test gồm 24 file (393 tests):
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
 - `test_curator.py` — Đánh giá vòng đời skill, phát hiện trùng lặp & curation
 - `test_distiller.py` — Chưng cất trajectory thành kỹ năng mới
 - `test_dsh_patterns.py` — Kiểm tra mẫu thiết kế & phân rã nhiệm vụ (DSH)
+- `test_generate_launcher_production.py` — Kiểm thử sinh cấu hình Production mở rộng (Docker, compose, CI/CD, ARCHITECTURE.md)
 - `test_harness_core.py` — State machine, quality gate, circuit breaker
 - `test_harness_e2e.py` — Luồng 2 nhánh, escalate sau 2 vòng REJECT
 - `test_harness_learning.py` — Trajectory store + learning harvester
@@ -262,6 +289,7 @@ Bộ test gồm 22 file:
 - `test_marketing_workflow.py` — Workflow marketing checkpoint & audit
 - `test_native_contracts.py` — Kiểm thử hợp đồng native agent & vai trò
 - `test_repo_integrity.py` — Chặn hồi quy cấu trúc/secret/path cá nhân/ref gãy
+- `test_run_security_audit.py` — Kiểm thử tiện ích rà soát bảo mật dependencies & secret leak
 - `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
 - `test_session_manager.py` — Portable session sync
 - `test_setup.py` — Kiểm thử setup script & config defaults
@@ -270,7 +298,7 @@ Bộ test gồm 22 file:
 
 ```text
 $ pytest -q
-374 passed, 7 skipped
+393 passed in 33.03s
 ```
 
 ---

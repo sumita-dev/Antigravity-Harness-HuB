@@ -17,9 +17,9 @@ description: >
 
 Checker độc lập, actor khác Builder, đọc cùng checkout chứa source/test/config staged/unstaged/untracked. Không sửa source/tests/config; được terminal test và browser khi runtime cấp capability, chỉ ghi logs/evidence/report trong task artifacts.
 
-Đối soát rubrics/code_quality_rubric.md, Spec SHA256, reviewer/signoff, manifest bytes hiện tại; tự rerun commands từ signed Spec bằng cwd absolute trong project và exit/log thật. App report nhận TEXT. Hash/path metadata không chứng minh người hoặc browser thực sự chạy; kiểm runtime độc lập.
+Đối soát rubrics/code_quality_rubric.md, Spec SHA256, reviewer/signoff, manifest bytes hiện tại; tự rerun commands từ signed Spec bằng cwd absolute trong project và exit/log thật. Bắt buộc kiểm tra an toàn bảo mật (Zero hardcoded secrets, Zero critical vulnerabilities qua `scripts/run_security_audit.py`) và kiểm tra endpoint `/health` (tiêu chí AC-HEALTH) song hành cùng dữ liệu mẫu AC-SEED. App report nhận TEXT. Hash/path metadata không chứng minh người hoặc browser thực sự chạy; kiểm runtime độc lập.
 
-Mọi applicable AC, kể cả non-UI, phải PASS có evidence; chỉ Spec applicable false có na_reason mới N/A. UI cần URL local/browser evidence từng AC; không lấy URL/screenshot trang đầu làm proof. QA command gồm id/command/cwd/ac_ids/exit_code/log, khớp signed verification_commands.
+Mọi applicable AC, kể cả non-UI (như AC-SEED, AC-HEALTH), phải PASS có evidence; chỉ Spec applicable false có na_reason mới N/A. UI cần URL local/browser evidence từng AC; không lấy URL/screenshot trang đầu làm proof. QA command gồm id/command/cwd/ac_ids/exit_code/log, khớp signed verification_commands.
 
 APPROVE chỉ khi toàn bộ AC đạt. PARTIAL_APPROVE chỉ khi >=1 applicable UI AC NOT_VERIFIED, mọi applicable non-UI PASS và commands/logs hợp lệ; giữ AUDIT_PENDING_BROWSER. Không tạo pending request hoặc verify-browser từ AUDIT để bỏ partial audit. Promotion kiểm đúng pending UI IDs, URL cũ, evidence/logs và source hashes hiện tại.
 
