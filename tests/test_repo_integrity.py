@@ -201,10 +201,16 @@ def test_readme_not_claiming_stale_test_count():
 
 
 def test_agents_and_gemini_md_in_sync():
-    """AGENTS.md và GEMINI.md là bản sao — phải giữ đồng bộ."""
-    a = (REPO / "AGENTS.md").read_bytes()
-    b = (REPO / "GEMINI.md").read_bytes()
-    assert a == b, "AGENTS.md và GEMINI.md đã lệch nhau — đồng bộ lại"
+    """AGENTS.md là pointer stub tới GEMINI.md để chống duplicate token trên Antigravity 2.0."""
+    stub = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    assert "GEMINI.md" in stub, "AGENTS.md phải trỏ tới GEMINI.md"
+    assert len(stub.encode("utf-8")) < 1000, "AGENTS.md phải là stub nhẹ (< 1KB) để không lãng phí token"
+
+
+def test_gemini_md_under_antigravity_token_limit():
+    """GEMINI.md phải <= 24,000 bytes để không bao giờ bị Antigravity 2.0 cắt cụt (truncate)."""
+    size = (REPO / "GEMINI.md").stat().st_size
+    assert size <= 24000, f"GEMINI.md quá lớn ({size} bytes > 24000) khiến Antigravity 2.0 bị truncate"
 
 
 def test_env_example_duoc_commit():

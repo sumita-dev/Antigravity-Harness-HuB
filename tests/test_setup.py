@@ -41,7 +41,7 @@ def test_portable_install_twice_preserves_config_and_runs_cli(tmp_path):
     for path in ("run_harness.py", "docs/app-workflow-guide.md", "docs/marketing-workflow-guide.md",
                  "harness/app_workflow.py", "harness/marketing_workflow.py", "tests/test_harness_core.py"):
         assert (target / path).is_file(), path
-    assert (target / "AGENTS.md").read_bytes() == (target / "GEMINI.md").read_bytes()
+    assert "GEMINI.md" in (target / "AGENTS.md").read_text(encoding="utf-8")
     assert not any((path / path.name).is_dir() for path in (target / "plugins").glob("*/skills/*"))
     env = dict(os.environ, HARNESS_BRAIN_DIR=str(tmp_path / "brain"), PYTHONDONTWRITEBYTECODE="1")
     cli = subprocess.run([sys.executable, str(target / "run_harness.py"), "--help"],
