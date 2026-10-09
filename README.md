@@ -49,7 +49,8 @@ Antigravity-Harness-Hub/
 ├── docs/                                   # Tài liệu hướng dẫn & quy chuẩn vận hành
 │   ├── app-workflow-guide.md               # Cẩm nang Gemini Native App Workflow & Checkpoint Guide
 │   ├── intake-protocol.md                  # Giao thức phỏng vấn Intake 3 câu hỏi trước khi lập Spec
-│   └── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
+│   ├── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
+│   └── social-reach-guide.md               # Cẩm nang hướng dẫn Agent Reach & Voice of Customer
 ├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
 │   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
 │   ├── marketing/skills/                   # 13 skill marketing / nội dung (SKILL.md + references/ + scripts/)
@@ -63,7 +64,8 @@ Antigravity-Harness-Hub/
 │   ├── generate_launcher.py                # 1-click launcher (start-app.bat) + cờ --docker (Dockerfile, docker-compose.yml, .github/workflows/ci.yml, ARCHITECTURE.md)
 │   ├── run_dev_logger.py                   # Quản lý tiến trình nền dev server & Pre-flight check (port, health)
 │   ├── session_manager.py                  # Đồng bộ session di động giữa các máy
-│   └── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
+│   ├── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
+│   └── social_reach.py                     # Adapter thu thập dữ liệu xã hội nâng cao Agent Reach
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
 │   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (34 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
@@ -108,9 +110,11 @@ Antigravity-Harness-Hub/
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
 | `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
 | `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
+| `docs/social-reach-guide.md` | Cẩm nang hướng dẫn Agent Reach & Voice of Customer: kiến trúc lai đa tầng thu thập dữ liệu mạng xã hội và nghiên cứu thị trường. |
 | `scripts/run_security_audit.py` | Quét bảo mật toàn diện: phát hiện hardcoded secrets (API keys, Tokens, Private Keys, DB URLs) và kiểm tra lỗ hổng dependency (`npm audit`, `pip-audit`). Hỗ trợ cờ `--fail-on-critical` và xuất báo cáo JSON/Markdown. |
 | `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
 | `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. Hỗ trợ tùy chọn `--docker` để sinh trọn bộ Dockerfile, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example` và `ARCHITECTURE.md`. |
+| `scripts/social_reach.py` | Adapter thu thập dữ liệu mạng xã hội nâng cao (Agent Reach): kết nối Agent Reach, xreach, yt-dlp và Jina Reader fallback cho Web Researcher. |
 | `agents/app/code_critic.md` | Tác tử phản biện mã nguồn độc lập (Code Critic): chuyên sâu soi rọi Spec GAP, boundary logic, anti-patterns, dirty mocks trước khi chuyển sang QA. |
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
@@ -239,7 +243,12 @@ flowchart LR
 
 1. **Bước 1 - RESEARCH (Researcher - Web & Market Intelligence Researcher):**
    - **Tác tử:** `agents/marketing/web_researcher.md`.
-   - **Nhiệm vụ:** Nghiên cứu insight khách hàng mục tiêu, tìm kiếm từ khóa ngách, nắm bắt xu hướng thị trường, giải phẫu đối thủ và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer). Đóng gói và bàn giao bản Research Dossier hoàn chỉnh.
+   - **Nhiệm vụ:** Nghiên cứu insight khách hàng mục tiêu, tìm kiếm từ khóa ngách, nắm bắt xu hướng thị trường, giải phẫu đối thủ và lắng nghe tiếng nói tự nhiên của khách hàng (Voice of Customer).
+   - **Kiến Trúc Lai Đa Tầng (Multi-Tier Social & Web Intel):** Vận hành 3 tầng thu thập dữ liệu thực địa:
+     + *Tầng 1:* Google Dorking không cần key (`site:facebook.com`, `site:instagram.com`, `site:x.com`).
+     + *Tầng 2:* Meta Graph API kết nối qua skill `fb-admin` để đọc bài viết và bình luận thực tế từ Fanpage.
+     + *Tầng 3:* Social Reach Adapter (`scripts/social_reach.py`) kết nối Agent Reach, xreach, yt-dlp và Jina Reader fallback (tự động fallback nếu thiếu token hoặc CLI offline).
+   - Đóng gói và bàn giao bản Research Dossier hoàn chỉnh.
 2. **Bước 2 - CREATION (Content Creator / Maker):**
    - **Tác tử:** `agents/marketing/creator.md`.
    - **Nhiệm vụ:** Tiếp nhận Research Dossier từ Bước 1, cấy trực tiếp số liệu thật và case study vào cấu trúc bài viết (Hook, Body, Story, CTA) theo đúng framework (AIDA, PAS, Hormozi, Kahneman...). Maker tuyệt đối không tự phê duyệt, bàn giao bản thảo hoàn chỉnh cho Content Critic.
