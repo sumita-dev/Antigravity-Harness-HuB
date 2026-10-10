@@ -64,6 +64,12 @@ class SkillDistiller:
     def _extract_procedure(self, trajectory: dict) -> str:
         steps = trajectory.get("steps") or []
         branch = trajectory.get("branch", "app")
+        metadata = trajectory.get("metadata") or {}
+
+        if not steps:
+            meta_steps = metadata.get("steps") or metadata.get("procedure")
+            if isinstance(meta_steps, list) and meta_steps:
+                steps = [{"step": s} if isinstance(s, str) else s for s in meta_steps]
 
         if not steps:
             if branch == "marketing":
@@ -93,6 +99,12 @@ class SkillDistiller:
                 detail = f": Nạp kỹ năng `{data['skill']}`"
             elif "verdict" in data:
                 detail = f": Kết quả thẩm định `{data['verdict']}`"
+            elif "stage" in data:
+                detail = f": Chuyển sang giai đoạn `{data['stage']}`"
+
+            actor = data.get("actor")
+            if actor:
+                detail += f" (Actor: {actor})"
             lines.append(f"{i}. **{step_name}**{detail}")
         return "\n".join(lines)
 
@@ -100,11 +112,40 @@ class SkillDistiller:
         rounds = trajectory.get("critique_rounds", 0)
         verdict = trajectory.get("final_verdict", "APPROVE")
         branch = trajectory.get("branch", "app")
+        metadata = trajectory.get("metadata") or {}
+        failure_reason = trajectory.get("failure_reason") or metadata.get("failure_reason")
+        category = trajectory.get("category") or metadata.get("category")
 
         pitfalls = [
             "- **Bẫy tự phê duyệt (Self-approval Pitfall):** Maker tuyệt đối không tự duyệt sản phẩm của mình; luôn bàn giao cho Checker độc lập.",
             "- **Thiếu bằng chứng thực chứng:** Mọi tuyên bố thành công phải kèm log kiểm thử hoặc tài liệu đối soát cụ thể.",
         ]
+
+        if failure_reason:
+            pitfalls.append(f"- **Nguyên nhân thất bại thực tế ghi nhận:** {failure_reason}")
+
+        if category == "TEST_FAILURE":
+            pitfalls.append("- **Lỗi kiểm thử (Test Failure):** Các ca kiểm thử tự động không đạt; phải kiểm tra test pass tại máy cục bộ trước khi bàn giao.")
+        elif category == "LINT_REGRESSION":
+            pitfalls.append("- **Hồi quy mã nguồn / Lint (Lint Regression):** Mã nguồn vi phạm coding standards, types hoặc linter rules.")
+        elif category == "SPEC_GAP":
+            pitfalls.append("- **Thiếu sót đặc tả (Spec Gap):** Mã nguồn không bao phủ toàn bộ acceptance criteria hoặc làm sai so với kiến trúc đã ký duyệt.")
+        elif category == "POLICY_VIOLATION":
+            pitfalls.append("- **Vi phạm chính sách (Policy Violation):** Nội dung vi phạm tiêu chuẩn cộng đồng, chính sách nền tảng hoặc lạm dụng AI Slop.")
+        elif category == "STAGNATION":
+            pitfalls.append("- **Bế tắc & Circuit Breaker (Stagnation):** Tác vụ lặp đi lặp lại lỗi quá ngưỡng cho phép mà không đạt tiến triển.")
+
+        # Check steps for rejection info
+        steps = trajectory.get("steps") or []
+        rejections = []
+        for s in steps:
+            data = s.get("data") or {}
+            if data.get("verdict") == "REJECT" or s.get("step") == "REJECT":
+                reason = data.get("report") or data.get("reason")
+                if reason:
+                    rejections.append(f"Vòng '{s.get('step')}': {reason}")
+        if rejections:
+            pitfalls.append("- **Lỗi phát hiện trong các bước thẩm định:** " + "; ".join(rejections[:2]))
 
         if rounds > 0:
             pitfalls.append(
@@ -112,7 +153,7 @@ class SkillDistiller:
                 "Cần kiểm tra kỹ các tiêu chí nghiệm thu ngay từ bước đầu để tránh kích hoạt Circuit Breaker."
             )
 
-        if verdict in ("REJECT", "ESCALATE"):
+        if verdict in ("REJECT", "ESCALATE") and not failure_reason:
             pitfalls.append(
                 "- **Rủi ro bế tắc (Stagnation Risk):** Khi phát hiện thiếu dữ liệu hoặc mâu thuẫn yêu cầu, dừng lại phỏng vấn ngay thay vì tự suy đoán."
             )
@@ -126,19 +167,59 @@ class SkillDistiller:
 
     def _extract_verification(self, trajectory: dict) -> str:
         branch = trajectory.get("branch", "app")
+        metadata = trajectory.get("metadata") or {}
+        items = []
+
+        # Trích xuất lệnh kiểm thử thực tế từ metadata
+        v_cmds = metadata.get("verification_commands") or metadata.get("commands")
+        if isinstance(v_cmds, list):
+            for cmd in v_cmds:
+                if isinstance(cmd, dict):
+                    cmd_str = cmd.get("command", cmd.get("id", "command"))
+                    items.append(f"- [ ] Chạy lệnh thẩm định: `{cmd_str}` (phải có exit_code = 0).")
+                elif isinstance(cmd, str):
+                    items.append(f"- [ ] Chạy lệnh thẩm định: `{cmd}` (phải có exit_code = 0).")
+
+        # Trích xuất các tiêu chí bắt buộc (marketing required checks)
+        req_checks = metadata.get("required_checks")
+        if isinstance(req_checks, list):
+            for chk in req_checks:
+                items.append(f"- [ ] Tiêu chí bắt buộc `{chk}` phải đạt trạng thái PASS kèm bằng chứng.")
+
+        # Trích xuất Acceptance Criteria
+        acs = metadata.get("acceptance_criteria")
+        if isinstance(acs, list):
+            for ac in acs:
+                if isinstance(ac, dict):
+                    items.append(f"- [ ] Nghiệm thu tiêu chí `{ac.get('id', 'AC')}`: {ac.get('description', '')}.")
+
+        # Bằng chứng thực chứng
+        evidence = metadata.get("evidence")
+        if isinstance(evidence, list) and evidence:
+            items.append(f"- [ ] Xác minh tính toàn vẹn của {len(evidence)} tệp bằng chứng thực chứng (evidence SHA-256).")
+
         if branch == "marketing":
-            return (
-                "- [ ] Kiểm tra tính chính xác của số liệu thực địa đối chiếu với Research Dossier.\n"
-                "- [ ] Quét sạch từ ngữ trong danh sách đen AI Slop.\n"
-                "- [ ] Đảm bảo 100% tuân thủ chính sách nền tảng mục tiêu.\n"
-                "- [ ] Checker độc lập đưa ra phán quyết `VERDICT: APPROVE`."
-            )
-        return (
-            "- [ ] Chạy toàn bộ test suite liên quan và đảm bảo tất cả test cases đều PASS.\n"
-            "- [ ] Kiểm tra không có hồi quy mã nguồn (`pytest -q` hoặc test runner tương ứng).\n"
-            "- [ ] Đối chiếu mã nguồn thực tế với đặc tả kiến trúc ban đầu.\n"
-            "- [ ] QA Auditor độc lập đưa ra phán quyết `VERDICT: APPROVE`."
-        )
+            items.extend([
+                "- [ ] Kiểm tra tính chính xác của số liệu thực địa đối chiếu với Research Dossier.",
+                "- [ ] Quét sạch từ ngữ trong danh sách đen AI Slop.",
+                "- [ ] Đảm bảo 100% tuân thủ chính sách nền tảng mục tiêu.",
+                "- [ ] Checker độc lập đưa ra phán quyết `VERDICT: APPROVE`.",
+            ])
+        else:
+            items.extend([
+                "- [ ] Chạy toàn bộ test suite liên quan và đảm bảo tất cả test cases đều PASS.",
+                "- [ ] Kiểm tra không có hồi quy mã nguồn (`pytest -q` hoặc test runner tương ứng).",
+                "- [ ] Đối chiếu mã nguồn thực tế với đặc tả kiến trúc ban đầu.",
+                "- [ ] QA Auditor độc lập đưa ra phán quyết `VERDICT: APPROVE`.",
+            ])
+
+        seen = set()
+        deduped = []
+        for line in items:
+            if line not in seen:
+                seen.add(line)
+                deduped.append(line)
+        return "\n".join(deduped)
 
     def distill_from_trajectory(
         self,

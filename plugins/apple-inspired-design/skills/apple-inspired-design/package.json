@@ -1,0 +1,13 @@
+{
+  "name": "apple-inspired-design-skill-v4",
+  "private": true,
+  "version": "4.0.0",
+  "description": "Independent Agent Skill — React component starter, design rubric, visual QA and bounded improvement",
+  "scripts": {
+    "selftest": "node --test tests/*.test.mjs",
+    "demo:score": "node evaluation/scoring-engine.mjs --input evaluation/samples/sample-review.json --out artifacts/design-quality-demo",
+    "qa:memory": "node design-system/memory-cli.mjs validate --memory design-system/design-memory.json"
+  },
+  "engines": {"node": ">=20"},
+  "license": "MIT"
+}

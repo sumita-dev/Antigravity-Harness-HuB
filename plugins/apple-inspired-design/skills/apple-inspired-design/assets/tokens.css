@@ -1,0 +1,36 @@
+/* Independent example web tokens; NOT Apple's official design tokens. */
+:root {
+  color-scheme: light;
+  --ui-bg: #f7f8fa;
+  --ui-surface: #ffffff;
+  --ui-text: #17191c;
+  --ui-muted: #525862;
+  --ui-border: #d9dde3;
+  --ui-accent: #155eef;
+  --ui-on-accent: #ffffff;
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-lg: 18px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ui-bg: #111316;
+    --ui-surface: #1c1e23;
+    --ui-text: #f3f4f6;
+    --ui-muted: #aeb5bf;
+    --ui-border: #40444c;
+    --ui-accent: #7caaff;
+    --ui-on-accent: #101820;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

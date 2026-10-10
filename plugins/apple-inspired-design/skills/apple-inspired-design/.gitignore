@@ -1,0 +1,7 @@
+qa/node_modules/
+qa/artifacts/
+qa/playwright-report/
+qa/test-results/
+artifacts/
+!evaluation/samples/
+.DS_Store

@@ -1,0 +1,21 @@
+name: Skill v4 unit checks
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apple-inspired-design/**'
+      - '.github/workflows/design-quality-skill-checks.yml'
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Adjust working-directory if this skill lives elsewhere in your repo.
+      - name: Check source syntax and unit contracts
+        run: |
+          cd apple-inspired-design
+          node --test tests/*.test.mjs
+      # No model calls or baseline updates in CI by default.

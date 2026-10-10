@@ -1,0 +1,20 @@
+{
+  "source": "illustrative human review — NOT an actual app audit",
+  "technicalGate": "unverified",
+  "reviews": [
+    {
+      "route": "/dashboard",
+      "viewport": "desktop-1440",
+      "metrics": {
+        "visualHierarchy": {"score":3,"confidence":0.86,"summary":"The primary KPI and secondary actions have similar emphasis (illustrative).","recommendation":"Visually subordinate secondary action buttons.","evidence":[{"type":"manual","ref":"demo-review-note-01","observation":"Illustrative observation for CLI demonstration only."}]},
+        "layoutSpacing": {"score":4,"confidence":0.9,"summary":"Spacing appears consistent in this fictional example.","evidence":[{"type":"manual","ref":"demo-review-note-02","observation":"Illustrative spacing review."}]},
+        "typography": {"score":4,"confidence":0.8,"summary":"Text has a useful hierarchy.","evidence":[{"type":"manual","ref":"demo-review-note-03","observation":"Illustrative headings and body text assessment."}]},
+        "colorContrast": {"score":null,"reason":"No accessibility test evidence."},
+        "componentConsistency": {"score":3,"confidence":0.85,"summary":"The card variants appear inconsistent in the example.","recommendation":"Use one token-driven card variant.","evidence":[{"type":"manual","ref":"demo-review-note-04","observation":"Illustrative card audit."}]},
+        "interactionUX": {"score":null,"reason":"No interaction states were exercised."},
+        "responsive": {"score":null,"reason":"No mobile or tablet screenshot provided."},
+        "motionPolish": {"score":null,"reason":"No animation or reduced-motion testing supplied."}
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "4.0.0",
+  "origin": "Independent evaluation rubric inspired by Apple's public Human Interface Guidelines; NOT an Apple standard or score.",
+  "scale": { "min": 0, "max": 5, "notAssessed": null },
+  "minimumConfidence": 0.55,
+  "categories": [
+    { "id": "visualHierarchy", "label": "Visual hierarchy", "weight": 20, "prompts": ["Can a new user identify primary content and the main action?", "Do competing elements have appropriate emphasis?"] },
+    { "id": "layoutSpacing", "label": "Layout and spacing", "weight": 15, "prompts": ["Are related controls grouped and aligned?", "Does whitespace separate meaningfully rather than randomly?"] },
+    { "id": "typography", "label": "Typography", "weight": 15, "prompts": ["Is reading order and text hierarchy clear?", "Are font sizes and line lengths appropriate for the target viewport?"] },
+    { "id": "colorContrast", "label": "Color and contrast", "weight": 10, "prompts": ["Does color communicate purpose rather than decoration?", "Are interactive elements and text distinguishable?"] },
+    { "id": "componentConsistency", "label": "Component consistency", "weight": 15, "prompts": ["Are identical components and states styled consistently?", "Do shared component variants and semantic tokens cover the screen?"] },
+    { "id": "interactionUX", "label": "Interaction and UX", "weight": 10, "prompts": ["Is the next step obvious?", "Are forms, loading, errors, success and focus states discoverable? Assess only if states were actually inspected."] },
+    { "id": "responsive", "label": "Responsive design", "weight": 10, "prompts": ["Do layout and content priority adapt across supported sizes?", "Are controls usable at different text sizes and widths?"] },
+    { "id": "motionPolish", "label": "Motion and polish", "weight": 5, "prompts": ["Does motion clarify state and respect reduced motion?", "Are micro-details consistent? Assess only with motion evidence."] }
+  ],
+  "anchors": {
+    "0": "Demonstrable severe design failure; never use for missing evidence.",
+    "1": "Major usability or coherence problems.",
+    "2": "Multiple substantial issues; main task or hierarchy is impaired.",
+    "3": "Usable but inconsistent or unclear in several places.",
+    "4": "Clear, cohesive design with minor improvements possible.",
+    "5": "Strong documented evidence of clarity, polish, and consistency in this context."
+  }
+}

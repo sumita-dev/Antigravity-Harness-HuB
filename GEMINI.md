@@ -125,6 +125,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/verification-before-completion` | Verification Gate | Bắt buộc chạy kiểm thử chứng minh trước khi tuyên bố xong |
 | `/advisor` | Architecture Advisor | Trọng tài cố vấn độc lập đánh giá rủi ro kiến trúc |
 | `/loop-circuit-breaker` | Loop Circuit Breaker | Cơ chế ngắt mạch chống lặp vô hạn và suy thoái ngữ cảnh |
+| `/apple-inspired-design` | Apple-Inspired Design | Hệ thống kiểm định thiết kế chuẩn Apple HIG, bộ nhớ thiết kế & AI Critic Gemini |
 
 ### 4.1 Gemini Native App Workflow
 

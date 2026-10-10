@@ -92,6 +92,62 @@ class MarketingWorkflowStore:
         finally:
             lock.unlink()
 
+    def _trigger_learning_hook(self, state):
+        """Auto-hook an toàn: Ghi nhận trajectory và thu hoạch bài học khi marketing workflow kết thúc."""
+        if state.get('stage') not in {'APPROVED', 'ESCALATED'}:
+            return
+        try:
+            from harness.memory.trajectory import TrajectoryStore
+            from harness.memory.harvester import LearningHarvester
+
+            brain_dir = self.brain
+            t_store = TrajectoryStore(path=brain_dir / 'trajectories' / 'trajectories.jsonl')
+            harvester = LearningHarvester(path=brain_dir / 'learnings' / 'patterns.json')
+
+            task_id = state.get('task_id', '')
+            branch = 'marketing'
+            task_desc = state.get('task') or state.get('baseline', {}).get('brief') or 'Unknown task'
+
+            final_verdict = 'APPROVE' if state.get('stage') == 'APPROVED' else 'ESCALATE'
+            reject_counts = state.get('reject_counts') or {}
+            critique_rounds = sum(v for v in reject_counts.values() if isinstance(v, (int, float)))
+
+            steps = []
+            for e in state.get('events', []):
+                if isinstance(e, dict):
+                    steps.append({
+                        'step': e.get('action') or e.get('stage', 'UNKNOWN'),
+                        'data': {
+                            'actor': e.get('actor'),
+                            'stage': e.get('stage'),
+                            'revision': e.get('revision'),
+                        }
+                    })
+
+            metadata = {
+                'mode': state.get('mode'),
+                'baseline_sha256': state.get('baseline_sha256'),
+                'dossier_sha256': state.get('dossier_sha256'),
+                'content_sha256': state.get('content_sha256'),
+                'audit_sha256': state.get('audit_sha256'),
+                'actors': state.get('actors', {}),
+                'required_checks': state.get('required_checks'),
+            }
+
+            trajectory = t_store.save_trajectory(
+                task_id=task_id,
+                branch=branch,
+                task_description=str(task_desc),
+                steps=steps,
+                final_verdict=final_verdict,
+                critique_rounds=critique_rounds,
+                metadata=metadata,
+            )
+            harvester.harvest(trajectory)
+        except Exception:
+            # Hook an toàn, tuyệt đối không làm gián đoạn workflow cốt lõi
+            pass
+
     def _save(self, path, state, action, actor):
         state['revision'] += 1
         state['next_agent'] = self.NEXT_AGENT[state['stage']]
@@ -110,6 +166,8 @@ class MarketingWorkflowStore:
                 os.replace(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
+        if state.get('stage') in {'APPROVED', 'ESCALATED'}:
+            self._trigger_learning_hook(state)
         return state
 
     def _load(self, path):

@@ -1,0 +1,7 @@
+{
+  "id": "example-dashboard-density-2026-10",
+  "decision": "Prefer readable, compact dashboard tables while keeping primary actions discoverable.",
+  "rationale": "Example only. Replace with a real design decision and user evidence before approval.",
+  "sourceRef": "REPLACE_WITH_APPROVED_ISSUE_OR_DESIGN_RECORD",
+  "scope": "dashboard"
+}

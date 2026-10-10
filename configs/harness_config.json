@@ -543,6 +543,18 @@
         "đánh giá rủi ro kiến trúc",
         "checkpoint cố vấn"
       ]
+    },
+    "apple-inspired-design": {
+      "branch": "app",
+      "keywords": [
+        "apple-inspired",
+        "apple design",
+        "apple hig",
+        "hig",
+        "design memory",
+        "design audit",
+        "bộ nhớ thiết kế"
+      ]
     }
   }
 }

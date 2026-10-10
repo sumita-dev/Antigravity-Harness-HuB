@@ -1,0 +1,28 @@
+name: UI QA
+on:
+  workflow_dispatch:
+  pull_request:
+jobs:
+  visual-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # CUSTOMIZE: build and start the host application before QA. This template
+      # does not assume its package manager or commands.
+      - name: Check for application server
+        run: |
+          echo 'Customize this workflow to install, build, and start your app.'
+          echo 'Then uncomment the qa steps below.'
+      # - run: cd qa && npm ci && npx playwright install --with-deps chromium
+      # - run: cd qa && npm run qa:audit && npm run qa
+      #   env:
+      #     UI_BASE_URL: http://127.0.0.1:3000
+      #     UI_ROUTES: /,/dashboard
+      # - uses: actions/upload-artifact@v4
+      #   if: always()
+      #   with:
+      #     name: visual-qa-report
+      #     path: qa/artifacts/visual-qa/

@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "scripts": {
+    "qa": "playwright test",
+    "qa:update": "playwright test --update-snapshots",
+    "qa:install": "playwright install chromium",
+    "qa:audit": "node scripts/visual-audit.mjs",
+    "qa:visual": "node scripts/compare-baselines.mjs",
+    "qa:visual:update": "node scripts/compare-baselines.mjs --update-snapshots",
+    "qa:design:capture": "node scripts/design-capture.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@axe-core/playwright": "^4.10.0",
+    "typescript": "^5.6.0"
+  }
+}

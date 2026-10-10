@@ -239,6 +239,72 @@ class AppWorkflowStore:
         state["evidence"] = []
         state["actors"].pop("browser_verifier", None)
 
+    def _trigger_learning_hook(self, state):
+        """Auto-hook an toàn: Ghi nhận trajectory và thu hoạch bài học khi app workflow kết thúc."""
+        if state.get("stage") not in {"APPROVED", "ESCALATED"}:
+            return
+        try:
+            from harness.memory.trajectory import TrajectoryStore
+            from harness.memory.harvester import LearningHarvester
+
+            brain_dir = self.root.parent
+            t_store = TrajectoryStore(path=brain_dir / "trajectories" / "trajectories.jsonl")
+            harvester = LearningHarvester(path=brain_dir / "learnings" / "patterns.json")
+
+            task_id = state.get("task_id", "")
+            branch = "app"
+            spec = state.get("spec") or {}
+            scope = spec.get("scope")
+            if isinstance(scope, dict):
+                task_desc = scope.get("description") or str(scope)
+            elif isinstance(scope, str) and scope.strip():
+                task_desc = scope.strip()
+            else:
+                task_desc = state.get("description") or "Unknown task"
+
+            final_verdict = "APPROVE" if state.get("stage") == "APPROVED" else "ESCALATE"
+            reject_counts = state.get("reject_counts") or {}
+            critique_rounds = sum(v for v in reject_counts.values() if isinstance(v, (int, float)))
+
+            steps = []
+            for e in state.get("events", []):
+                if isinstance(e, dict):
+                    steps.append({
+                        "step": e.get("action") or e.get("stage", "UNKNOWN"),
+                        "data": {
+                            "actor": e.get("actor"),
+                            "stage": e.get("stage"),
+                            "revision": e.get("revision"),
+                        }
+                    })
+
+            metadata = {
+                "spec_sha256": state.get("spec_sha256"),
+                "manifest_sha256": state.get("manifest_sha256"),
+                "evidence_count": len(state.get("evidence", [])),
+                "actors": state.get("actors", {}),
+            }
+            if state.get("evidence"):
+                metadata["evidence"] = state.get("evidence")
+            if spec.get("verification_commands"):
+                metadata["verification_commands"] = spec.get("verification_commands")
+            if spec.get("acceptance_criteria"):
+                metadata["acceptance_criteria"] = spec.get("acceptance_criteria")
+
+            trajectory = t_store.save_trajectory(
+                task_id=task_id,
+                branch=branch,
+                task_description=str(task_desc),
+                steps=steps,
+                final_verdict=final_verdict,
+                critique_rounds=critique_rounds,
+                metadata=metadata,
+            )
+            harvester.harvest(trajectory)
+        except Exception:
+            # Hook an toàn, tuyệt đối không làm gián đoạn workflow cốt lõi
+            pass
+
     def _save(self, path, state, action, actor):
         state["revision"] += 1
         state["next_agent"] = self.NEXT_AGENT[state["stage"]]
@@ -257,6 +323,8 @@ class AppWorkflowStore:
                 os.replace(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
+        if state.get("stage") in {"APPROVED", "ESCALATED"}:
+            self._trigger_learning_hook(state)
         return state
 
     def _stage(self, state, expected):
