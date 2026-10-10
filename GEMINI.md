@@ -70,6 +70,7 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 | `/paid-media-auditor` | Paid Media Auditor | Kiểm định quảng cáo đa kênh (Google/Meta/Microsoft) qua 200+ checkpoints. |
 | `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage qua Meta Graph API (đăng bài, đọc và trả lời bình luận). |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình 6 pha, ma trận kênh, truy vấn 8 MCP tools của Noti. |
+| `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng (X, YouTube, Reddit, Bilibili, XHS, Pod) & Web Reader. |
 
 ---
 

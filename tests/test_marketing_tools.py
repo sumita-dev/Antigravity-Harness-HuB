@@ -300,7 +300,14 @@ def test_social_reach_cli_doctor_json():
     assert payload["doctor"] is True
     assert "binaries" in payload
     assert "platforms" in payload
-    for platform in ("twitter", "reddit", "youtube", "web", "jina"):
+    # Kiểm tra đầy đủ các binary công cụ mới trong doctor
+    for b in ("agent-reach", "xreach", "yt-dlp", "bili", "opencli", "mcporter", "gh", "feedparser", "rdt", "twitter"):
+        assert b in payload["binaries"]
+    # Kiểm tra toàn bộ nền tảng truyền thống và mở rộng
+    for platform in (
+        "twitter", "reddit", "youtube", "web", "jina",
+        "bilibili", "xiaohongshu", "instagram", "facebook", "podcast"
+    ):
         assert platform in payload["platforms"]
 
 
@@ -311,23 +318,52 @@ def test_social_reach_fallback_uninstalled_platform_no_crash(monkeypatch):
     # Giả lập không tìm thấy binary nào
     monkeypatch.setattr(shutil, "which", lambda cmd: None)
 
-    # 1. Gọi run_reach trực tiếp
-    res_tw = run_reach("twitter", query="test")
-    assert res_tw["status"] == "unavailable"
-    assert "limitations" in res_tw
-    assert "fallback_suggested" in res_tw
+    # 1. Gọi run_reach trực tiếp cho các nền tảng mở rộng
+    platforms_to_test = [
+        "twitter", "reddit", "youtube", "bilibili",
+        "xiaohongshu", "instagram", "facebook", "podcast"
+    ]
+    for plat in platforms_to_test:
+        res = run_reach(plat, query="test query")
+        assert res["status"] == "unavailable"
+        assert "limitations" in res
+        assert "fallback_suggested" in res
 
-    res_rd = run_reach("reddit", query="test")
-    assert res_rd["status"] == "unavailable"
-    assert "limitations" in res_rd
+    # 2. Gọi main CLI với các platform chưa cài đặt phải trả về exit code 0 thay vì crash
+    for plat in ("twitter", "bilibili", "xiaohongshu", "instagram", "facebook", "podcast"):
+        exit_code = main(["--platform", plat, "--json"])
+        assert exit_code == 0
 
-    res_yt = run_reach("youtube", url="https://youtube.com/watch?v=123")
-    assert res_yt["status"] == "unavailable"
-    assert "limitations" in res_yt
 
-    # 2. Gọi main CLI với platform chưa cài đặt phải trả về exit code 0 thay vì crash
-    exit_code = main(["--platform", "twitter", "--json"])
-    assert exit_code == 0
+def test_social_reach_podcast_jina_fallback_when_url_provided(monkeypatch):
+    import shutil
+    import urllib.request
+    from scripts.social_reach import run_reach
+
+    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+
+    class DummyResponse:
+        def __init__(self, data: bytes):
+            self._data = data
+
+        def read(self):
+            return self._data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda req, timeout=30: DummyResponse(b"# Xiaoyuzhou Episode Notes\n\nDeep discussion on AI agents."),
+    )
+
+    res = run_reach("podcast", url="https://www.xiaoyuzhoufm.com/episode/123456")
+    assert res["status"] == "success"
+    assert "Xiaoyuzhou Episode Notes" in res["content_preview"]
 
 
 def test_social_reach_jina_fallback_mock_and_offline(monkeypatch):
