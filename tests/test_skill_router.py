@@ -33,6 +33,18 @@ def test_skill_routing_specific_skills():
     skill, branch = router.route("hướng dẫn làm app và mvp")
     assert skill == "app"
     assert branch == "app"
+
+    skill, branch = router.route("tạo app cho anh")
+    assert skill == "app"
+    assert branch == "app"
+
+    skill, branch = router.route("viết app quản lý")
+    assert skill == "app"
+    assert branch == "app"
+
+    skill, branch = router.route("code app bán hàng")
+    assert skill == "app"
+    assert branch == "app"
     
     skill, branch = router.route("viết code theo test-driven-development")
     assert skill == "test-driven-development"
@@ -52,6 +64,22 @@ def test_skill_routing_specific_skills():
 
     skill, branch = router.route("so sánh phương án lai ghép giải thuật")
     assert skill == "arena"
+    assert branch == "app"
+
+    skill, branch = router.route("tra cứu wiki về obsidian")
+    assert skill == "query-wiki"
+    assert branch == "app"
+
+    skill, branch = router.route("tiêu hoá source này vào vault")
+    assert skill == "ingest-source"
+    assert branch == "app"
+
+    skill, branch = router.route("kiểm tra wiki sức khỏe vault")
+    assert skill == "lint-wiki"
+    assert branch == "app"
+
+    skill, branch = router.route("lưu bộ nhớ vào vault obsidian")
+    assert skill == "second-brain-memory"
     assert branch == "app"
 
     # Test priority (longest match)
@@ -77,6 +105,11 @@ def test_skill_loader():
     assert content_boc_phot is not None
     assert "name: boc-phot-storytelling" in content_boc_phot
 
+    # Test loading second-brain skill from plugins/second-brain/skills
+    content_query_wiki = loader.load_instructions("query-wiki")
+    assert content_query_wiki is not None
+    assert "name: query-wiki" in content_query_wiki
+
     # Test path resolution
     app_path = loader.find_skill_path("app")
     assert app_path is not None and os.path.isabs(app_path)
@@ -85,6 +118,10 @@ def test_skill_loader():
     assert mkt_path is not None and os.path.isabs(mkt_path)
     assert mkt_path.replace("\\", "/").endswith(
         "plugins/marketing/skills/boc-phot-storytelling/SKILL.md")
+    sb_path = loader.find_skill_path("query-wiki")
+    assert sb_path is not None and os.path.isabs(sb_path)
+    assert sb_path.replace("\\", "/").endswith(
+        "plugins/second-brain/skills/query-wiki/SKILL.md")
 
 def test_orchestrator_auto_routing():
     orchestrator = ChiefOrchestrator()

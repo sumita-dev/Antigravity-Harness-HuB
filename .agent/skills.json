@@ -5,6 +5,9 @@
     },
     {
       "path": "plugins/marketing/skills"
+    },
+    {
+      "path": "plugins/second-brain/skills"
     }
   ]
 }

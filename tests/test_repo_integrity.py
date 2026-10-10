@@ -25,10 +25,12 @@ EXTERNAL_REF_OK = {
     "CONTEXT.md",
     "CONTEXT-MAP.md",
     "STATE.md",
+    "MEMORY.md",
 }
 EXTERNAL_PREFIX_OK = (
     "http://", "https://", "~", "/",
     "docs/", "eval/", "gitnexus/", ".agents/", ".claude/",
+    "wiki/", "memory/", "sources/",
 )
 
 # File phụ trợ được tài liệu nhắc tới nhưng CHƯA từng có trong repo (đã tra git

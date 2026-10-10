@@ -127,20 +127,22 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/advisor` | Architecture Advisor | Trọng tài cố vấn độc lập đánh giá rủi ro kiến trúc |
 | `/loop-circuit-breaker` | Loop Circuit Breaker | Cơ chế ngắt mạch chống lặp vô hạn và suy thoái ngữ cảnh |
 | `/apple-inspired-design` | Apple-Inspired Design | Hệ thống kiểm định thiết kế chuẩn Apple HIG, bộ nhớ thiết kế & AI Critic Gemini |
+| `/query-wiki` | Query Wiki (F:\Obsidian) | Tra cứu tri thức từ wiki/, wiki/index.md, có citation và compounding |
+| `/ingest-source` | Ingest Source (F:\Obsidian) | Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật |
+| `/lint-wiki` | Lint Wiki (F:\Obsidian) | Rà soát sức khoẻ Vault (broken links, orphans, open questions) |
+| `/second-brain-memory` | Second Brain Memory | Đồng bộ bài học, facts, handoff vào memory/ và wiki/log.md |
+| `/obsidian-markdown` | Obsidian Markdown | Cú pháp Obsidian, wikilinks, properties, embeds, callouts |
+| `/json-canvas` | JSON Canvas | Tạo và tương tác với sơ đồ Canvas (.canvas) theo spec 1.0 |
+| `/obsidian-bases` | Obsidian Bases | Tạo và truy vấn bảng dữ liệu (.base) views, filters, formulas |
 
 ### 4.1 Gemini Native App Workflow
 
-Runtime Gemini trong Antigravity gọi tác tử native; `harness/` simulation không thay công việc thật. Đọc `plugins/code/skills/app/SKILL.md` và `docs/app-workflow-guide.md` trước triển khai. Kiểm tools thực tế; không suy ra quyền sandbox/context isolation từ metadata.
-
-Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → [Nếu UI: Quản đốc sinh 2–4 ảnh concept bằng `generate_image` → Sếp chốt concept qua `ask_question`] → Builder → Code Critic (soi GAP & boundary logic) → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
-
-Spec gồm scope/design/contracts/acceptance_criteria có ID/risks. Reviewer khác Architect, Critic khác Builder và QA khác Builder; actor ID là provenance khai báo, không xác thực identity. Review và human signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ. Sau reviewer APPROVE, Sếp duyệt một lần đúng Spec trước Builder.
-
-Implementation snapshot bytes source/test/config gồm untracked; runtime/log/dependencies/cache loại trừ. QA tự rerun command/cwd/exit/log và đối chiếu manifest/spec hiện tại. Source đổi làm audit cũ stale. UI phải có local preview và browser evidence từng AC; non-UI ghi N/A có lý do theo Spec. Không nhận URL, simulator APPROVE hoặc Stop hook pytest là bằng chứng app đạt.
-
-REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha design/critique/audit chuyển ESCALATED ngay (tuân thủ Decoupled Circuit Breakers: critic_rounds <= 2, qa_rounds <= 2, total_cycles <= 3). Counters riêng và tồn tại qua resubmit/restart. Resume task ID cũ từ checkpoint, không tạo task mới để bỏ gate. Architect/Reviewer/Critic/QA không sửa source; write/terminal quyền native chỉ được giới hạn bằng prompt nếu runtime không có sandbox phù hợp. Không claim cưỡng chế quyền mà chưa kiểm.
-
-Đọc role tại `agents/app/architect.md`, `agents/app/design_reviewer.md`, `agents/app/builder.md`, `agents/app/code_critic.md`, `agents/app/qa_auditor.md`; tiêu chí tại `rubrics/design_review_rubric.md`, `rubrics/code_critique_rubric.md` và `rubrics/code_quality_rubric.md`. Benchmark Task Board trong guide là đề bài kiểm thử, chưa phải app được triển khai. Không deploy khi chỉ yêu cầu local preview.
+Runtime Gemini trong Antigravity gọi tác tử native; simulation không thay việc thật. Xem `plugins/code/skills/app/SKILL.md` và `docs/app-workflow-guide.md`.
+- **Luồng bắt buộc:** Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → [Nếu UI: sinh 2–4 ảnh concept bằng `generate_image` → Sếp chọn qua `ask_question`] → Builder → Code Critic (GAP & logic) → QA độc lập (tests & local preview) → bàn giao. Không bỏ Design Reviewer khi đổi source. Dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword.
+- **Spec & Signoff:** Gồm scope/design/contracts/AC có ID/risks. Reviewer != Architect, Critic != Builder, QA != Builder. Review và signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ.
+- **Snapshot & Evidence:** Snapshot bytes source/test/config (loại trừ cache/log/deps). QA tự rerun command/cwd/exit/log và đối chiếu manifest/spec. UI bắt buộc có local preview & browser evidence từng AC (non-UI ghi N/A có lý do).
+- **Circuit Breaker:** REJECT lần 1 trả Maker sửa; REJECT lần 2 trong cùng pha chuyển ESCALATED ngay (`critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`). Resume task ID cũ từ checkpoint, cấm tạo task mới để lách gate. Roles không sửa chéo source.
+- **Tài liệu tham chiếu:** Đọc roles tại `agents/app/` (`architect.md`, `design_reviewer.md`, `builder.md`, `code_critic.md`, `qa_auditor.md`); tiêu chí tại `rubrics/` (`design_review_rubric.md`, `code_critique_rubric.md`, `code_quality_rubric.md`).
 
 ---
 
@@ -158,23 +160,33 @@ REJECT thứ nhất trả Maker của pha; REJECT thứ hai trong cùng pha desi
 ## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
 
 Bộ luật trong file này hướng dẫn Gemini điều phối native agents khi chạy trong Antigravity. `harness/app_workflow.py` lưu/kiểm checkpoint nhưng không gọi agents hoặc browser. Song song đó, repo có lớp code `harness/` để **kiểm thử luồng và trích xuất nội dung skill**:
-- `harness/app_workflow.py` và `harness/marketing_workflow.py` là checkpoint/evidence stores cho native jobs; CLI `--workflow`/`--marketing-workflow` không gọi agents/browser/publishing. App schema 2, migrate-legacy giữ task ID/history/counters và không grandfather approval. Marketing content/research-only vẫn Critic độc lập, report PATH hash-bound khác app report TEXT. Các guides native ghi đúng payloads và giới hạn thực tế.
-- `harness/orchestrator.py` và `harness/runners/` là **mô phỏng state machine** (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`). Nó **không gọi LLM API** và không tự sinh nội dung — **không thay thế** bước gọi SubAgent.
-- CLI:
-  ```bash
-  python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]
-  ```
-  - `--review-rounds N` + `--checker-output "VERDICT: REJECT"`: mô phỏng nhiều vòng review để kiểm chứng **Stagnation Circuit Breaker** (REJECT thứ hai → `ESCALATED`).
-  - `--dump-skill`: in nội dung `SKILL.md` mà router đã chọn.
-  - `--json`: xuất kết quả dạng JSON.
-- Định tuyến skill: `configs/harness_config.json → skill_routing` (33 skill → keyword). Router ưu tiên **keyword dài hơn** vì tín hiệu cụ thể hơn.
-- Nạp skill: `harness/skills/router.py` tìm `plugins/<nhánh>/skills/<tên>/SKILL.md`, neo theo gốc repo nên chạy được từ bất kỳ thư mục nào.
+- `harness/app_workflow.py` & `marketing_workflow.py`: Checkpoint/evidence stores; CLI `--workflow`/`--marketing-workflow` không gọi agents/browser. App schema 2 giữ task ID/counters. Marketing research-only vẫn Critic độc lập.
+- `harness/orchestrator.py` & `runners/`: Mô phỏng state machine (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`), không gọi LLM và không thay SubAgent.
+- CLI: `python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]` (`--review-rounds N`, `--checker-output "VERDICT: REJECT"`, `--dump-skill`, `--json`).
+- Router: `configs/harness_config.json → skill_routing` ưu tiên keyword dài hơn; `harness/skills/router.py` nạp `plugins/<nhánh>/skills/<tên>/SKILL.md`.
 
 **Quy tắc bất biến cho lớp code:**
 1. Không hardcode secret — đọc từ biến môi trường hoặc `.env` (xem `.env.example`).
 2. Không commit dữ liệu runtime `.brain/` (đã gitignore).
 3. Mọi thay đổi phải giữ `pytest -q` xanh; `tests/test_repo_integrity.py` chặn hồi quy về cấu trúc, secret, path cá nhân và con trỏ file gãy.
 4. Cài phụ thuộc trước khi chạy: `pip install -r requirements.txt`.
+
+---
+
+## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain Protocol — F:\Obsidian)
+
+1. **Chủ Động Tra Cứu (Auto-Query Before Planning):**
+   - Khi nhận bất kỳ yêu cầu/nhiệm vụ nào từ Sếp (chiến lược marketing, kiến trúc mã nguồn, format nội dung, tâm lý học kinh doanh, giải quyết lỗi), Quản đốc BẮT BUỘC tự động kiểm tra `F:\Obsidian\wiki\index.md` và các trang wiki liên quan để nạp bối cảnh, quy chuẩn, bài học cũ trước khi lập kế hoạch hay giao việc cho SubAgent.
+   - Tuyệt đối không bắt Sếp phải gõ `/query-wiki`.
+2. **Chủ Động Tiêu Hoá (Auto-Ingest on Raw Material):**
+   - Khi có dữ liệu mới, bài viết, sách, bản ghi chat, research dossier hoặc tài liệu đưa vào `sources/` hoặc xuất hiện trong chat, Quản đốc tự động điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Phân biệt mục tiêu vs thực tế, Giữ mâu thuẫn) để chưng cất thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
+3. **Chủ Động Đúc Kết & Lưu Ký Ức (Autonomous Compounding & Memory Reflection):**
+   - Sau khi hoàn thành một nhiệm vụ hoặc có quyết định/bài học quan trọng, Quản đốc tự động:
+     + Lưu facts/quyết định vào `F:\Obsidian\memory\facts/` và `MEMORY.md`.
+     + Append nhật ký vào `F:\Obsidian\wiki\log.md` (chuẩn `## [YYYY-MM-DD] ...`).
+     + Cập nhật trạng thái bàn giao vào `F:\Obsidian\wiki\_session-handoff.md`.
+4. **Chủ Động Rà Soát Sức Khoẻ (Autonomous Health & Gap Detection):**
+   - Nếu phát hiện câu hỏi chưa giải quyết hoặc lỗ hổng tri thức, tự động append vào `F:\Obsidian\wiki\_open-questions.md` và cảnh báo mâu thuẫn tri thức.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

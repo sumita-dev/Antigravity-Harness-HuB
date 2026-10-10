@@ -294,7 +294,12 @@
         "tạo web app",
         "phát triển ứng dụng",
         "xây dựng app",
-        "mvp app"
+        "mvp app",
+        "tạo app",
+        "viết app",
+        "code app",
+        "tạo ứng dụng web",
+        "làm ứng dụng"
       ]
     },
     "karpathy-coder": {
@@ -575,6 +580,81 @@
         "design memory",
         "design audit",
         "bộ nhớ thiết kế"
+      ]
+    },
+    "second-brain-memory": {
+      "branch": "app",
+      "keywords": [
+        "second-brain-memory",
+        "second-brain",
+        "save-memory",
+        "lưu bộ nhớ",
+        "ghi nhớ vào vault",
+        "đồng bộ ký ức",
+        "session handoff",
+        "nhật ký vault"
+      ]
+    },
+    "query-wiki": {
+      "branch": "app",
+      "keywords": [
+        "query-wiki",
+        "tra cứu wiki",
+        "hỏi wiki",
+        "tìm kiếm wiki",
+        "khai thác tri thức vault",
+        "second brain wiki"
+      ]
+    },
+    "ingest-source": {
+      "branch": "app",
+      "keywords": [
+        "ingest-source",
+        "tiêu hoá source",
+        "tiêu hóa tài liệu",
+        "nạp tài liệu vào wiki",
+        "ingest source",
+        "chưng cất tri thức"
+      ]
+    },
+    "lint-wiki": {
+      "branch": "app",
+      "keywords": [
+        "lint-wiki",
+        "kiểm tra wiki",
+        "rà soát wiki",
+        "health check wiki",
+        "broken link wiki",
+        "orphan notes"
+      ]
+    },
+    "obsidian-markdown": {
+      "branch": "app",
+      "keywords": [
+        "obsidian-markdown",
+        "cú pháp obsidian",
+        "wikilinks",
+        "obsidian callout",
+        "obsidian properties"
+      ]
+    },
+    "json-canvas": {
+      "branch": "app",
+      "keywords": [
+        "json-canvas",
+        "obsidian canvas",
+        "sơ đồ canvas",
+        "tạo canvas",
+        ".canvas"
+      ]
+    },
+    "obsidian-bases": {
+      "branch": "app",
+      "keywords": [
+        "obsidian-bases",
+        "obsidian base",
+        "bảng .base",
+        ".base file"
       ]
     }
   }
