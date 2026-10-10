@@ -26,21 +26,42 @@ node evaluation/scoring-engine.mjs --input review.json --out artifacts/design-qu
 
 Generated files: `score.json`, `issues.json`, `report.md`. `--strict` exits code 2 if score is not trustworthy; trustworthiness requires technical gate pass, average evaluated weight >=75%, and at least one rated item. Passing does **not** mean a good score or design approval. Score is weighted average over **assessed** metrics only; every report shows coverage to prevent misleading comparisons. Compare two scores only with similar coverage and matching routes/states.
 
-## AI visual critic — opt-in
+## Native Vision SubAgent (`apple-design-critic`) — Luồng mặc định
 
-1. Run `cd qa && npm run qa:design:capture`. It produces images and metadata.
-2. Review screenshots for secrets, personal data, licensed/private UI or tokens before sending to an API. The capture script avoids collecting text content in metadata, but screenshots **may contain sensitive data**.
-3. Set `GEMINI_API_KEY`, `UI_CRITIC_MODEL` (`gemini-2.5-flash` or `gemini-2.5-pro`), `UI_ALLOW_EXTERNAL_IMAGES=1`.
-4. Run `node evaluation/critic-gemini.mjs --capture qa/artifacts/design-capture/capture.json --out qa/artifacts/design-quality/ai-review.json` from the skill root.
-5. Optionally add `--technical-audit qa/artifacts/visual-qa/audit.json` to ground the gate. Without it gate is unverified.
-6. Inspect the generated review before running scoring. The model can misread screenshot details, and cannot validate UX flows or disabled-motion states just by looking at static imagery.
+Trong Antigravity, việc chấm điểm giao diện được thực hiện trực tiếp bởi SubAgent **Apple Design Critic** (`agents/app/apple_design_critic.md` và `agents/design-critic.md`) sử dụng năng lực thị giác đa phương thức native của Gemini:
 
-The adapter sends each PNG plus sanitized DOM metadata to Google Gemini Vision API and requires structured output. It does not send files to any service unless explicitly enabled; the API call can incur cost. The design critic does **not** approve/commit code and is **not** part of default CI.
+1. **Thu thập bằng chứng:** Chạy `cd qa && npm run qa:design:capture` để chụp ảnh màn hình các viewports (`mobile-390.png`, `tablet-768.png`, `desktop-1440.png`) và trích xuất `capture.json`.
+2. **Kiểm tra trực quan native:** SubAgent dùng công cụ `view_file` mở xem trực tiếp từng ảnh PNG, đọc metadata DOM từ `capture.json` và kết quả test từ `qa/artifacts/visual-qa/audit.json`.
+3. **Chấm điểm theo Rubric:** Đánh giá 8 tiêu chí theo `rubric.json` và `references/design-rubric.md` (thang 0-5, confidence >= 0.55). Tiêu chí thiếu bằng chứng gán `score: null` kèm `reason`, không gán 0.
+4. **Xuất review:** SubAgent ghi file `qa/artifacts/design-quality/review.json`.
+5. **Chạy Scoring Engine:** Chạy `node evaluation/scoring-engine.mjs --input qa/artifacts/design-quality/review.json --out qa/artifacts/design-quality` để xuất `score.json`, `issues.json` và `report.md`.
+
+> **Ưu điểm cốt lõi:** Hoàn toàn **native** bên trong Antigravity, **100% KHÔNG CẦN `GEMINI_API_KEY`**, bảo mật dữ liệu cục bộ tuyệt đối (không gửi hình ảnh ra dịch vụ ngoài).
+
+## CLI Fallback: External Gemini Vision API (`critic-gemini.mjs`) — Tùy chọn cho CI/CD ngoài
+
+Dành cho môi trường CI/CD headless hoặc bên ngoài Antigravity không có native subagent:
+
+1. Chạy `cd qa && npm run qa:design:capture`. Nó tạo ra hình ảnh và metadata.
+2. Rà soát ảnh chụp để tránh lộ bí mật, dữ liệu cá nhân trước khi gửi lên API bên ngoài.
+3. Cấu hình biến môi trường: `GEMINI_API_KEY`, `UI_CRITIC_MODEL` (`gemini-2.5-flash` hoặc `gemini-2.5-pro`), `UI_ALLOW_EXTERNAL_IMAGES=1`.
+4. Chạy lệnh:
+   ```bash
+   node evaluation/critic-gemini.mjs --capture qa/artifacts/design-capture/capture.json \
+     --technical-audit qa/artifacts/visual-qa/audit.json \
+     --out qa/artifacts/design-quality/ai-review.json
+   ```
+5. Chạy scoring engine trên file kết quả:
+   ```bash
+   node evaluation/scoring-engine.mjs --input qa/artifacts/design-quality/ai-review.json --out qa/artifacts/design-quality
+   ```
+
+Script này gửi từng ảnh PNG và DOM metadata lên Google Gemini Vision API bên ngoài, yêu cầu API key và chỉ dùng khi có sự cho phép rõ ràng. Không chạy mặc định trong Antigravity.
 
 ## Model-agnostic option
 
-Any AI agent (Claude, Codex, Antigravity etc.) may produce the same JSON review by inspecting the supplied screenshots and rubric. Pass the output through the local deterministic scoring engine. This avoids binding the scoring pipeline to one provider. Never instruct the AI to fabricate missing scores or interaction evidence.
+Bất kỳ AI agent nào (Claude, Codex, Antigravity native v.v.) đều có thể tạo ra cùng định dạng JSON review bằng cách mở xem các ảnh chụp màn hình và rubric. Chuyển output qua local scoring engine `evaluation/scoring-engine.mjs`. Điều này giúp quy trình chấm điểm không bị phụ thuộc vào một nhà cung cấp cụ thể. Không bao giờ chỉ đạo AI bịa đặt điểm số hoặc bằng chứng tương tác không có thật.
 
 ### Responsive comparison mode
 
-By default the model receives one screenshot per review, so `responsive` is **unassessed**. Set `UI_COMPARE_VIEWPORTS=1` to explicitly include the other collected viewport images of the same route (up to two additional screenshots per review). This costs additional image tokens and reveals more visual content to the model. Responsive scoring still requires evidence-backed commentary and a human check.
+Theo mặc định, mỗi route/viewport được chấm độc lập. Khi đánh giá tiêu chí `responsive`, cần so sánh trực quan tối thiểu hai ảnh chụp viewport khác nhau của cùng một route (ví dụ `mobile-390.png` và `desktop-1440.png`). Nếu chỉ có một viewport duy nhất, bắt buộc ghi nhận `responsive` là `score: null` kèm lý do.

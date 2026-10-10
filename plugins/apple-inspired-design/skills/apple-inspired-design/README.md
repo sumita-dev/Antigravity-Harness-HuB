@@ -7,7 +7,8 @@
 - Giữ lại bộ React/TypeScript/Tailwind components, CSS tokens và Playwright + axe từ v2/v3.
 - **Design Capture**: screenshot ở 390/768/1440px, thu thập metadata DOM/CSS hạn chế (không tự thu nội dung text).
 - **Rubric + Scoring Engine**: 8 tiêu chí, 100 điểm, bằng chứng, confidence và coverage; tách điểm thẩm mỹ khỏi technical QA.
-- **AI Design Critic tùy chọn**: dùng API của model có vision khi anh chủ động bật; mặc định không gửi dữ liệu ra ngoài.
+- **Native Vision SubAgent (`apple-design-critic`)**: Chấm điểm giao diện trực tiếp bằng năng lực thị giác native của Gemini trong Antigravity (dùng `view_file` xem ảnh PNG), 100% không cần `GEMINI_API_KEY`.
+- **AI Design Critic CLI tùy chọn**: `critic-gemini.mjs` đóng vai trò fallback cho CI/CD ngoài khi cần gọi API trực tiếp.
 - **Design Memory**: chỉ lưu những quyết định được duyệt, có ID, người duyệt, nguồn và thời điểm.
 - **Controlled Improvement Loop**: tạo repair plan theo mặc định; có thể dùng coding-agent adapter opt-in để sửa theo đường dẫn cho phép, tối đa 3 vòng, dừng khi regression.
 - **Node test suite**: chạy không cần mạng và không cần API key.
@@ -42,13 +43,22 @@ node evaluation/scoring-engine.mjs \
 
 **Demo chứa dữ liệu giả định, không phải kết quả đánh giá sản phẩm của anh.** Điểm demo được đánh dấu provisional.
 
-### Cách sử dụng AI Design Critic (chỉ khi đồng ý gửi ảnh lên API)
+### 1. Luồng mặc định: SubAgent Native Vision (`apple-design-critic`) — Không cần API Key
 
+Trong Antigravity, SubAgent `apple-design-critic` dùng `view_file` để mở và đánh giá trực tiếp ảnh PNG từ `qa/artifacts/design-capture/`:
+1. **Chụp ảnh**: Tại thư mục `qa`, chạy `npm run qa:design:capture`.
+2. **Khởi chạy SubAgent `apple-design-critic`**: Tác tử mở xem trực tiếp các file ảnh PNG bằng `view_file`, đọc `capture.json` và `audit.json`, rồi chấm điểm theo rubric.
+3. **Xuất kết quả**: SubAgent ghi `qa/artifacts/design-quality/review.json` và chạy `scoring-engine.mjs` để xuất `score.json`, `issues.json`, `report.md`.
+> **Hoàn toàn native**, không gửi dữ liệu ra ngoài, **100% không cần `GEMINI_API_KEY`**.
+
+### 2. Luồng Fallback: External Gemini Vision API (`critic-gemini.mjs`) cho CI/CD ngoài
+
+Nếu chạy trong môi trường CI/CD bên ngoài không có native SubAgent và muốn gọi trực tiếp Google Gemini API:
 ```bash
 # 1. Capture, tại thư mục qa
 npm run qa:design:capture
 
-# 2. Tại root skill, cấu hình Gemini Vision API / Antigravity 2.0
+# 2. Tại root skill, cấu hình Gemini Vision API
 export GEMINI_API_KEY='...'
 export UI_CRITIC_MODEL='gemini-2.5-flash'  # hoặc gemini-2.5-pro
 export UI_ALLOW_EXTERNAL_IMAGES=1
@@ -58,8 +68,7 @@ node evaluation/critic-gemini.mjs --capture qa/artifacts/design-capture/capture.
 node evaluation/scoring-engine.mjs --input qa/artifacts/design-quality/ai-review.json \
   --out qa/artifacts/design-quality
 ```
-
-Trong Windows PowerShell dùng `$env:KEY="value"` thay vì `export`. Nếu không dùng Gemini API trực tiếp, có thể dùng Antigravity 2.0 native agent có khả năng đọc screenshot tạo JSON theo schema đã mô tả trong `evaluation/README.md`.
+Trong Windows PowerShell dùng `$env:KEY="value"` thay vì `export`.
 
 ## Tài liệu
 

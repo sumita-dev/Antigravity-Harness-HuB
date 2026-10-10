@@ -35,7 +35,7 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
 6. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):**
    - **Tôn chỉ bất biến:** AI trong ô chat chính là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự gọi công cụ sửa code (`replace_file_content`, `write_to_file`) hoặc tự chạy kiểm thử trong thread chính.
    - **Bắt buộc phân rã bằng `invoke_subagent`:**
-     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Spec 5 mục) -> **Design Reviewer** độc lập -> Trình Sếp duyệt đúng Spec -> Khởi chạy SubAgent **Builder** (Maker) -> Khởi chạy SubAgent **Code Critic** (Critic - Soi GAP & logic) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT kiểm định động & chạy test).
+     + *Nhánh Kỹ thuật (App):* Khởi chạy SubAgent **Architect** (Spec 5 mục) -> **Design Reviewer** độc lập -> Trình Sếp duyệt đúng Spec -> [Nếu UI: Quản đốc sinh 2–4 ảnh concept bằng `generate_image` -> Sếp chốt concept qua `ask_question`] -> Khởi chạy SubAgent **Builder** (Maker) -> Khởi chạy SubAgent **Code Critic** (Critic - Soi GAP & logic) -> Khởi chạy SubAgent **QA Auditor** (Checker - AUDIT kiểm định động & chạy test).
      + *Nhánh Marketing:* Khởi chạy SubAgent **Web Researcher** để trinh sát số liệu -> Khởi chạy SubAgent **Creator** (Maker) viết bài -> Khởi chạy SubAgent **Content Critic / Compliance Critic** độc lập để thẩm định chính sách & fact-check.
    - **Trách nhiệm của Quản đốc:** Lắng nghe Sếp, làm rõ yêu cầu, giao việc cho SubAgent qua `invoke_subagent`, nhận kết quả thẩm định và báo cáo minh bạch cho Sếp.
 7. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):**
@@ -131,7 +131,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 
 Runtime Gemini trong Antigravity gọi tác tử native; `harness/` simulation không thay công việc thật. Đọc `plugins/code/skills/app/SKILL.md` và `docs/app-workflow-guide.md` trước triển khai. Kiểm tools thực tế; không suy ra quyền sandbox/context isolation từ metadata.
 
-Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → Builder → Code Critic (soi GAP & boundary logic) → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
+Luồng bắt buộc: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → [Nếu UI: Quản đốc sinh 2–4 ảnh concept bằng `generate_image` → Sếp chốt concept qua `ask_question`] → Builder → Code Critic (soi GAP & boundary logic) → QA độc lập kiểm tests và local preview → bàn giao. Không bỏ Design Reviewer cho thay đổi source. Mỗi bước dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent trước keyword. CLI lưu/kiểm checkpoint, không gọi LLM hay kiểm browser.
 
 Spec gồm scope/design/contracts/acceptance_criteria có ID/risks. Reviewer khác Architect, Critic khác Builder và QA khác Builder; actor ID là provenance khai báo, không xác thực identity. Review và human signoff gắn SHA256 Spec; chỉ ghi signoff sau xác nhận rõ của Sếp. Spec đổi vô hiệu phê duyệt cũ. Sau reviewer APPROVE, Sếp duyệt một lần đúng Spec trước Builder.
 

@@ -14,7 +14,8 @@
     "builder_creator": "pro",
     "qa": "flash",
     "compliance_critic": "flash",
-    "content_critic": "flash"
+    "content_critic": "flash",
+    "apple_design_critic": "flash"
   },
   "limits": {
     "max_critique_rounds": 2,
