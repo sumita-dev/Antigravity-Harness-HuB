@@ -53,7 +53,7 @@ Antigravity-Harness-Hub/
 │   └── social-reach-guide.md               # Cẩm nang hướng dẫn Agent Reach & Voice of Customer
 ├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
 │   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
-│   ├── marketing/skills/                   # 13 skill marketing / nội dung (SKILL.md + references/ + scripts/)
+│   ├── marketing/skills/                   # 14 skill marketing / nội dung (SKILL.md + references/ + scripts/)
 │   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
 │       ├── plugin.json                     # Manifest plugin độc lập
 │       └── skills/impeccable/              # SKILL.md + reference/ (24 commands) + scripts/ (detect.mjs, engines)
@@ -67,7 +67,7 @@ Antigravity-Harness-Hub/
 │   ├── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
 │   └── social_reach.py                     # Adapter thu thập dữ liệu xã hội nâng cao Agent Reach
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (34 skill)
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (36 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── app_workflow.py                     # Quản lý vòng đời checkpoint, evidence deduplication & consistency sweep
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
@@ -83,7 +83,7 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (25 files, 407 tests)
+├── tests/                                  # Bộ kiểm thử tự động (26 files, 418 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
@@ -124,7 +124,7 @@ Antigravity-Harness-Hub/
 | `harness/runners/` | Đóng gói chu trình 4 bước gồm Maker ➔ Critic ➔ QA Auditor cho từng nhánh (hỗ trợ cờ `fast_track` cho Tier 2 / Hotfix): `app_runner.py` (Architect → Builder → Code Critic → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Content Critic → Compliance Critic/QA). Runner là nơi ghi trace từng bước. |
 | `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
 | `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
-| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (34 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (36 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `plugins/impeccable/` | Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định giao diện Frontend (`plugin.json` + `skills/impeccable/`). Tích hợp 24 lệnh con thiết kế và bộ máy quét 59 detector rules chống AI Slop & lỗi giao diện. |
 | `plugins/impeccable/skills/impeccable/scripts/detect.mjs` | Công cụ CLI kiểm định UI tĩnh độc lập (`impeccable detect`): quét mã nguồn HTML, CSS, JSX, TSX hoặc URL trình duyệt để phát hiện 59 anti-patterns, hỗ trợ output JSON cho QA Auditor tích hợp tự động. |
 | `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic; tích hợp nguyên tắc Reality Checker (mặc định 'NEEDS WORK', miễn dịch với fantasy approval, chặn pass ảo/dirty mocks). |
@@ -263,7 +263,7 @@ Mode `research-only` bỏ CREATION, vẫn independent Critic audit. Bốn requir
 
 ### 2.3. Gọi Trực Tiếp Kỹ Năng Nhánh Marketing Trong Ô Chat (Slash Commands)
 
-Toàn bộ 13 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
+Toàn bộ 14 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
 
 | Lệnh Slash trong Chat | Kỹ Năng | Trọng Tâm Xử Lý |
 | :--- | :--- | :--- |
@@ -280,6 +280,7 @@ Toàn bộ 13 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/paid-media-auditor` | Paid Media Auditor | Kiểm định quảng cáo trả phí đa kênh (Google Ads, Meta Ads, Microsoft Ads) qua khung 200+ checkpoints: cấu trúc, tracking CAPI/GA4, đấu thầu, creative fatigue và lãng phí ngân sách |
 | `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage (đăng bài, đọc/trả lời comment) |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
+| `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, Reddit, YouTube, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast, Jina Reader) |
 
 ---
 
@@ -417,7 +418,7 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 25 file (407 tests):
+Bộ test gồm 26 file (418 tests):
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
@@ -435,18 +436,19 @@ Bộ test gồm 25 file (407 tests):
 - `test_marketing_tools.py` — Kiểm thử công cụ marketing
 - `test_marketing_workflow.py` — Workflow marketing checkpoint & audit
 - `test_native_contracts.py` — Kiểm thử hợp đồng native agent & vai trò
+- `test_native_learning.py` — Vòng lặp tự học native, trajectory harvester & distillation
 - `test_repo_integrity.py` — Chặn hồi quy cấu trúc/secret/path cá nhân/ref gãy
 - `test_run_security_audit.py` — Kiểm thử tiện ích rà soát bảo mật dependencies & secret leak
 - `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
 - `test_session_manager.py` — Portable session sync
 - `test_setup.py` — Kiểm thử setup script & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
-- `test_skill_router.py` — Keyword routing (34 skill)
+- `test_skill_router.py` — Keyword routing (36 skill)
 - `test_triad_protocol.py` — Kiểm chứng Dynamic Triad, Smart Feedback Loop, Circuit Breakers
 
 ```text
 $ pytest -q
-407 passed in 35.57s
+418 passed in 30.74s
 ```
 
 ---
@@ -563,8 +565,8 @@ Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lậ
 1. **Rules Budget (20,000 tokens):** Dành riêng cho các quy tắc điều phối cốt lõi (`GEMINI.md`, `AGENTS.md`, các quy chuẩn vận hành hệ thống). Nếu vượt quá 20,000 tokens, các quy tắc dài sẽ bị hạ cấp (demoted), chỉ được nạp qua con trỏ file gián tiếp khiến tác tử mất đi các chỉ dẫn quan trọng.
 2. **Customizations / Skills Budget (20,000 tokens):** Dành cho metadata của toàn bộ danh mục kỹ năng (skills metadata & system triggers). Khi danh mục phình to vượt ngưỡng, hệ thống sẽ cảnh báo tràn ngân sách và làm chậm quá trình lập luận của tác tử.
 
-### 7.2. Khử Trùng Lặp 34 Kỹ Năng Kép (Plugins vs Standalone Skills)
-- Hệ thống phát hiện và dọn sạch tình trạng phân mảnh định nghĩa khi 34 skills vừa tồn tại trong `plugins/code/skills/` hoặc `plugins/marketing/skills/`, vừa bị sao chép trùng lặp ở thư mục kỹ năng rời `skills/`.
+### 7.2. Khử Trùng Lặp 36 Kỹ Năng Kép (Plugins vs Standalone Skills)
+- Hệ thống phát hiện và dọn sạch tình trạng phân mảnh định nghĩa khi 36 skills vừa tồn tại trong `plugins/code/skills/` hoặc `plugins/marketing/skills/`, vừa bị sao chép trùng lặp ở thư mục kỹ năng rời `skills/`.
 - Chuẩn hóa toàn bộ: kỹ năng đóng gói theo plugin chính quy được ưu tiên, loại bỏ toàn bộ bản sao dư thừa tại thư mục rời, triệt tiêu xung đột định tuyến và tiết kiệm token metadata.
 
 ### 7.3. Dọn Dẹp Kỹ Năng Cũ (Nhóm 3 Cleanup) & Rút Gọn Danh Mục Kỹ Năng
