@@ -36,15 +36,12 @@ foreach ($dir in $DirsToCreate) {
     }
 }
 
-# 2. Cài đặt Quy Chuẩn Toàn Cục (Global Rules)
-$SourceGemini = Join-Path $RepoRoot "GEMINI.md"
-$DestRule = Join-Path $GlobalRulesDir "harness_orchestrator.md"
-if (Test-Path $SourceGemini) {
-    Copy-Item -Path $SourceGemini -Destination $DestRule -Force
-    Write-Host "[OK] Đã cài đặt Rule Toàn cục: $DestRule" -ForegroundColor Green
-} else {
-    Write-Warning "Không tìm thấy file GEMINI.md tại $SourceGemini"
+# 2. Xóa bỏ file rule rời rạc cũ nếu có (tránh trùng lặp)
+$LegacyLooseRule = Join-Path $GlobalRulesDir "harness_orchestrator.md"
+if (Test-Path $LegacyLooseRule) {
+    Remove-Item -Path $LegacyLooseRule -Force -ErrorAction SilentlyContinue
 }
+$SourceGemini = Join-Path $RepoRoot "GEMINI.md"
 
 # 3. Đồng bộ Plugins & Skills
 $SourcePlugins = Join-Path $RepoRoot "plugins"
