@@ -1,8 +1,6 @@
 ---
 name: hillclimb
-description: >
-  Kỹ năng /hillclimb - Vòng lặp tối ưu hóa hiệu năng thực nghiệm có kiểm soát khoa học
-  TRIGGERS: 'hillclimb', 'tối ưu hiệu năng', 'tối ưu tốc độ', 'tăng throughput', 'giảm latency', 'benchmark hiệu năng', 'tối ưu thực nghiệm', 'optimize performance'.
+description: "Vòng lặp tối ưu hóa hiệu năng thực nghiệm, đo latency và throughput khoa học."
 ---
 # Skill: /hillclimb
 

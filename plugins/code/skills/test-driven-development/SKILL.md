@@ -1,8 +1,7 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: "Quy trình TDD Red-Green-Refactor, viết test kiểm thử trước khi viết mã nguồn."
 ---
-
 # Test-Driven Development (TDD)
 
 ## Overview

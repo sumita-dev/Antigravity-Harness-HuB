@@ -1,8 +1,7 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+description: "Bắt buộc chạy test chứng minh thực tế trước khi tuyên bố hoàn tất."
 ---
-
 # Verification Before Completion
 
 ## Overview

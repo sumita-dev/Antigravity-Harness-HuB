@@ -1,10 +1,7 @@
 ---
 name: framework-marketing-da-kenh
-description: >
-  Framework Marketing Đa Kênh của Noti: Sơ đồ hoá và tối ưu toàn diện hành trình khách hàng qua 6 pha (P0 Nền tảng, P1 Nhận biết, P2 Tìm hiểu, P3 So sánh, P4 Mua, P5 Sau mua), kết nối đa kênh (Meta, TikTok, Zalo, Google, Offline, Tìm kiếm & AI) và 6 loại liên kết chuyển đổi. Tích hợp trực tiếp với MCP Server noti-framework-marketing để truy vấn cấu trúc khối việc, tìm chuỗi chuyển đổi ngắn nhất, lập kế hoạch ma trận kênh và xuất đường dẫn sơ đồ trực quan.
-  TRIGGERS: "/framework-marketing-da-kenh", "marketing đa kênh", "hành trình khách hàng", "lập kế hoạch đa kênh", "tối ưu luồng chuyển đổi", "omnichannel marketing", "phễu marketing", "chuỗi chuyển đổi", "sơ đồ marketing".
+description: "Sơ đồ hoá hành trình khách hàng 6 pha, ma trận kênh và truy vấn Noti MCP tools."
 ---
-
 # Framework Marketing Đa Kênh (Noti)
 
 ## 1. Giới Thiệu & Bản Đồ Tư Duy Tổng Quan

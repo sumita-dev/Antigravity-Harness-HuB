@@ -1,12 +1,7 @@
 ---
 name: social-reach
-description: >
-  Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, YouTube, Reddit, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast Xiaoyuzhou, Jina Reader).
-  Thu thập số liệu, bài đăng, bình luận, phụ đề và nội dung web bằng bộ công cụ Agent Reach, yt-dlp, CLI adapters và Jina Reader.
-  Tích hợp Zero Token Leak và Graceful Fallback khi offline.
-  Kích hoạt bằng lệnh: /social-reach, agent-reach, trinh sát mạng xã hội, quét twitter, quét reddit, youtube transcript, bilibili, xiaohongshu...
+description: "Trinh sát đa nền tảng (X, YouTube, Reddit, Bilibili, XHS) và thu thập dữ liệu web."
 ---
-
 # Social Reach — Trinh Sát Đa Nền Tảng Mạng Xã Hội & Web (`/social-reach`)
 
 Kỹ năng trinh sát thị trường và thu thập nội dung đa nền tảng dành cho SubAgent Web Researcher và Marketer trong Antigravity Harness Hub. Tích hợp kiến trúc lai kết hợp các công cụ CLI chuyên dụng (Agent Reach, yt-dlp, OpenCLI, rdt-cli, bili-cli) cùng Jina Reader fallback.

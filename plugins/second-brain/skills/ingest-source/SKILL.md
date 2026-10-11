@@ -1,9 +1,8 @@
 ---
 name: ingest-source
-description: "Tiêu hoá tài liệu thô từ F:\\Obsidian\\sources\\ vào F:\\Obsidian\\wiki\\, chưng cất thành tri thức tích luỹ theo 3 kỷ luật."
+description: "Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật chưng cất tri thức."
 group: Second Brain
 ---
-
 # INGEST - Tiêu hoá tài liệu thô vào Wiki (F:\Obsidian)
 
 Chưng cất tài liệu thô trong `F:\Obsidian\sources\` thành các trang tri thức liên kết bền vững trong `F:\Obsidian\wiki\`.

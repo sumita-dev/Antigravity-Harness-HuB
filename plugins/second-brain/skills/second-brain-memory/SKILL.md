@@ -1,9 +1,8 @@
 ---
 name: second-brain-memory
-description: "Tự động đồng bộ bài học kinh nghiệm, facts, quyết định và session handoff vào F:\\Obsidian\\memory\\ và F:\\Obsidian\\wiki\\log.md."
+description: "Đồng bộ bài học kinh nghiệm, facts và session handoff vào memory/ và wiki/log.md."
 group: Second Brain
 ---
-
 # SECOND BRAIN MEMORY - Quản lý Ký ức & Đồng bộ Vault (F:\Obsidian)
 
 Đồng bộ bộ nhớ dài hạn, ghi nhận sự kiện, quyết định kỹ thuật và trạng thái phiên làm việc trực tiếp vào Vault Obsidian tại `F:\Obsidian`.

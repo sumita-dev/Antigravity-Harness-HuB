@@ -1,15 +1,7 @@
 ---
 name: check-youtube-policy
-description: >
-  Chuyên gia Trọng tài Chính sách YouTube Cấp cao (YouTube Trust & Safety & Policy Auditor).
-  Sàng lọc kịch bản video YouTube theo từ khóa và đối soát thủ công tài liệu tham chiếu
-  và Nguyên tắc cộng đồng của YouTube. Đánh dấu tín hiệu rủi ro tiềm ẩn về
-  bản quyền, bạo lực, 18+, thông tin sai lệch, lừa đảo, quy tắc 7 giây đầu tiên của nhà quảng cáo (YPP),
-  và thiếu bối cảnh ngoại lệ EDSA. Lập báo cáo chi tiết theo từng dòng/câu, trích dẫn ID chính sách,
-  và đề nghị Creator viết lại để giảm rủi ro. Không chứng nhận bản quyền, tuân thủ hoặc YPP.
-  Kích hoạt bằng lệnh: /check-youtube-policy, /check-policy, /audit-script hoặc khi Sếp yêu cầu kiểm tra vi phạm/chính sách kịch bản YouTube.
+description: "Rà soát chính sách YouTube (YPP, bản quyền, bạo lực, EDSA) và đề xuất chỉnh sửa an toàn."
 ---
-
 # YouTube Policy Auditor Skill (`/check-youtube-policy`)
 
 Kỹ năng hỗ trợ sàng lọc rủi ro văn bản trước sản xuất. Script dùng regex cục bộ: có thể báo nhầm hoặc bỏ sót, không đánh giá hình ảnh, âm thanh, giấy phép tài sản, Content ID, tính nguyên bản của kênh hoặc quyết định kiếm tiền. Không có phát hiện không có nghĩa là tuân thủ; điểm số không phải xác suất an toàn. Checker độc lập phải xem ngữ cảnh và tài liệu chính sách hiện hành. Bản dựng thực tế và quyết định của YouTube vẫn cần được kiểm tra.

@@ -1,15 +1,7 @@
 ---
 name: reverse-lab
-description: >-
-  Chuyên gia Thẩm định An toàn Bản quyền & Độ bền ứng dụng Desktop (Desktop App License Resilience & Tamper Auditor).
-  Kích hoạt skill này khi người dùng muốn: kiểm tra/thẩm định bảo mật cơ chế bản quyền phần mềm Desktop,
-  đánh giá độ bền trước các kỹ thuật bẻ khóa (reverse engineering, crack, keygen, memory patch),
-  xây dựng chiến lược phòng thủ bản quyền đa tầng, phân tích rủi ro theo từng nền tảng công nghệ.
-  Triggers: /reverse-lab, /audit-app, kiểm tra bản quyền app, thẩm định bảo mật phần mềm,
-  chống bẻ khóa, chống crack, license security, anti-tamper, phân tích rủi ro app desktop,
-  bảo vệ phần mềm, đánh giá độ an toàn, reverse engineering audit.
+description: "Thẩm định an toàn bản quyền phần mềm Desktop, kiểm tra độ bền chống crack và reverse engineering."
 ---
-
 # Reverse Lab — Chuyên Gia Thẩm Định An Toàn Bản Quyền Ứng Dụng Desktop
 
 ## Vai Trò & Sứ Mệnh

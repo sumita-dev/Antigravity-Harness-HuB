@@ -1,9 +1,8 @@
 ---
 name: loop-circuit-breaker
-description: Cơ chế ngắt mạch tự động chống cháy token, chống kẹt vòng lặp (stagnation & no-progress) và chuẩn hóa chất lượng kiểm định độc lập cho Agent Điều Phối. Tự động kích hoạt khi có lỗi lặp lại.
+description: "Cơ chế ngắt mạch tự động chống lặp vô hạn, chống cháy token và kẹt tiến độ."
 user_invocable: false
 ---
-
 # Loop Circuit Breaker & Safety Protocol
 
 Skill này cung cấp các thuật toán bảo vệ cơ học dành riêng cho **Controller / Orchestrator (Agent Điều Phối)** trong suốt quá trình điều phối Subagent.

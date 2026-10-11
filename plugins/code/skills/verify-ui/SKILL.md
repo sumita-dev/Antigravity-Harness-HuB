@@ -1,11 +1,10 @@
 ---
 name: verify-ui
-description: Tự động kiểm chứng giao diện (Verification Loop) thông qua Chrome DevTools MCP, đo đạc Core Web Vitals, thu thập logs và bàn giao bằng chứng cho tác tử thẩm định thứ hai (Second Agent Review).
+description: "Kiểm chứng giao diện thực tế qua Chrome DevTools MCP, Core Web Vitals và visual proof."
 triggers:
   - after_ui_changes
   - before_commit_ui
 ---
-
 # Quy trình tự kiểm chứng giao diện (UI Verification Loop)
 
 Kỹ năng này thực thi vòng lặp xác minh giao diện không thiên kiến thông qua các bằng chứng thực nghiệm (Visual Evidence & DevTools Logs), theo triết lý Second Agent Review.

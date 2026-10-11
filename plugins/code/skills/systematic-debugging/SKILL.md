@@ -1,8 +1,7 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: "Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân gốc rễ."
 ---
-
 # Systematic Debugging
 
 ## Overview

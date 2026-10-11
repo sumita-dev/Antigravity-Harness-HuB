@@ -1,8 +1,7 @@
 ---
 name: gitnexus-review
-description: 'Review code changes with GitNexus from a GitHub PR URL or number, a branch/ref or commit range, or local staged, unstaged, and untracked changes. Use when the user asks for a code review, merge-risk assessment, regression hunt, missing-test analysis, or a verdict on whether a PR, branch, commit range, or local diff is safe.'
+description: "Review an toàn PR/diff, phân tích blast radius và dò regression bằng GitNexus."
 ---
-
 # GitNexus review
 
 Review the requested change surface without editing source, committing, pushing,

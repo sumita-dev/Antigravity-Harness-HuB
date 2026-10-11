@@ -1,8 +1,7 @@
 ---
 name: advisor
-description: Quản lý chế độ cố vấn độc lập và Advisor Checkpoint Protocol
+description: "Cố vấn kiến trúc độc lập, trọng tài đánh giá rủi ro hệ thống trước khi quyết định."
 ---
-
 # Kỹ năng `/advisor`
 
 Kỹ năng này quản lý chế độ cố vấn độc lập với các lệnh:

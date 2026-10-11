@@ -1,10 +1,7 @@
 ---
 name: gitnexus-work
-description: >
-  Use when executing an engineering plan produced by gitnexus-plan (or a small bounded task directly) — implements step by step with GitNexus impact checks before every symbol edit, tests from the plan's scenarios, and detect_changes gating every commit. Examples: "/gitnexus-work docs/plans/2026-07-11-gitnexus-plan-ingestion-retry.md", "/gitnexus-work" (latest plan), "execute the plan".
-  TRIGGERS: 'gitnexus-work', 'thực thi kế hoạch gitnexus', 'execute gitnexus plan', 'thi công theo plan'.
+description: "Thực thi kế hoạch kiến trúc từng bước với GitNexus impact checks trước mỗi thay đổi."
 ---
-
 # gitnexus-work — execute a gitnexus-plan
 
 Execute an implementation plan produced by `gitnexus-plan`, shipping it as a

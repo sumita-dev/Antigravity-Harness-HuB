@@ -1,8 +1,7 @@
 ---
 name: kahneman-creative-ads
-description: Use when the user asks for creative strategy, content angles, ad territories, hooks for ads, soft-sell content strategy, chien luoc sang tao, goc noi dung, canvas quang cao, or runs /kahneman-creative-ads; builds a 1-page Creative Strategy Canvas plus 8 creative territories mapped to Kahneman cognitive mechanisms.
+description: "Thiết kế Creative Canvas & 8 vùng sáng tạo quảng cáo theo tâm lý học Daniel Kahneman."
 ---
-
 # Kahneman Creative Ads
 
 Dùng **Thinking, Fast and Slow** làm hệ điều hành cho chiến lược sáng tạo quảng cáo.

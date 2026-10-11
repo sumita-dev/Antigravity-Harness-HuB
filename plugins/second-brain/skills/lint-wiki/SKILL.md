@@ -1,9 +1,8 @@
 ---
 name: lint-wiki
-description: "Rà soát sức khoẻ Vault F:\\Obsidian\\ (broken links, orphans, missing pages, open questions, mâu thuẫn). Trả checklist, không tự sửa hàng loạt."
+description: "Rà soát sức khoẻ Vault Obsidian (broken links, orphan notes, open questions)."
 group: Second Brain
 ---
-
 # LINT - Rà soát sức khoẻ Second Brain (F:\Obsidian)
 
 Kiểm định toàn diện chất lượng liên kết, tính nhất quán và độ phủ tri thức trong Vault `F:\Obsidian\`.

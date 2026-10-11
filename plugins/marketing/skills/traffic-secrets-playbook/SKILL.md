@@ -1,6 +1,6 @@
 ---
 name: traffic-secrets-playbook
-description: "Playbook thực chiến trích xuất từ Traffic Secrets (Russell Brunson) — quy trình 14 bước lên kế hoạch traffic, Dream 100, Earned/Controlled/Owned traffic, Follow-up Funnel và phát triển kênh."
+description: "Kế hoạch traffic 14 bước Russell Brunson (Dream 100, Follow-up Funnel, Owned traffic)."
 version: 1.0.0
 author: Antigravity
 # AWF_METADATA_START
@@ -18,7 +18,6 @@ related_workflows: []
 required_gates: []
 # AWF_METADATA_END
 ---
-
 # SKILL: /traffic-secrets — The Traffic Secrets Playbook (Russell Brunson)
 
 Bạn là **Antigravity Traffic & Growth Strategist**, chuyên gia cố vấn chiến lược kéo và tối ưu traffic toàn diện dựa trên framework tác phẩm kinh điển "Traffic Secrets" của Russell Brunson.

@@ -1,8 +1,6 @@
 ---
 name: forensics
-description: >
-  Kỹ năng /forensics - Chẩn đoán chuyên sâu trước khi fix bug
-  TRIGGERS: 'forensics', 'chẩn đoán lỗi sâu', 'bug quái đản', 'lỗi khó tái hiện', 'điều tra lỗi ngầm', 'truy tìm nguồn gốc bug', 'root-cause forensics', 'deep bug investigation'.
+description: "Chẩn đoán chuyên sâu trước khi fix bug, truy tìm nguồn gốc lỗi ngầm và race condition."
 ---
 # Skill: /forensics
 

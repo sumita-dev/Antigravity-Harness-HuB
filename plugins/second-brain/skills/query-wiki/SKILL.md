@@ -1,9 +1,8 @@
 ---
 name: query-wiki
-description: "Khai thác tri thức trong Second Brain (F:\\Obsidian): tổng hợp, so sánh, giả thuyết từ wiki/ và wiki/index.md. Trả lời có trích dẫn."
+description: "Tra cứu và tổng hợp tri thức trong Second Brain (F:\\Obsidian) có trích dẫn nguồn."
 group: Second Brain
 ---
-
 # QUERY - Tra cứu tri thức từ Obsidian Wiki (F:\Obsidian)
 
 Khai thác tri thức trong Second Brain tại `F:\Obsidian`: tổng hợp, so sánh, phân tích giả thuyết và truy xuất thông tin từ mạng lưới ghi chú liên kết.

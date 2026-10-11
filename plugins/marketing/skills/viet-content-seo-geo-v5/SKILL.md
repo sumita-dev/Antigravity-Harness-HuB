@@ -1,6 +1,6 @@
 ---
 name: viet-content-seo-geo-v5
-description: Tối ưu một bài viết có sẵn để đạt chuẩn SEO + AEO + GEO, rồi trả về bài đã tối ưu kèm điểm số trước/sau. Dùng khi user đưa một bài viết (dán nội dung, file .md/.html/.txt hoặc URL) và muốn tối ưu SEO, tăng điểm SEO/AEO/GEO, chấm điểm bài viết, viết lại chuẩn SEO, tối ưu để lọt featured snippet hoặc để ChatGPT/Perplexity/AI Overviews trích dẫn. Cũng dùng được để viết bài mới đạt chuẩn. Triggers - tối ưu bài viết, tối ưu SEO, chấm điểm SEO, viết lại chuẩn SEO, content SEO, featured snippet, AEO, GEO, answer engine optimization, generative engine optimization, schema FAQ, meta description, on-page SEO, audit bài viết.
+description: "Tối ưu bài viết đạt chuẩn SEO, Answer Engine (AEO) và AI Citations (GEO)."
 ---
 > ✅ **TRẠNG THÁI SKILL:** hai script chấm điểm `scripts/score.mjs` (Node ≥ 18) và
 > `scripts/score.py` (Python ≥ 3.8) **đã có trong repo**, cài đặt đúng bảng tiêu chí +

@@ -1,11 +1,8 @@
 ---
 name: app
 dependencies: ["test-driven-development", "karpathy-coder"]
-description: >
-  Gemini native app workflow: Architect, Design Reviewer, human signoff, Builder,
-  QA và local preview, có checkpoint/evidence để resume. Triggers: build app, làm app, MVP.
+description: "Gemini native app workflow - Architect, Reviewer, signoff, Builder, QA & local preview."
 ---
-
 # /app — Gemini native app workflow
 
 Gemini trong Antigravity điều phối tác tử native qua công cụ thực tế runtime cung cấp. Quản đốc không tự sửa source/test. Workflow CLI lưu và kiểm checkpoint, không gọi LLM, viết app hay kiểm browser thay QA. CLI không có `--workflow` vẫn là mô phỏng; không dùng làm bằng chứng app hoàn tất.

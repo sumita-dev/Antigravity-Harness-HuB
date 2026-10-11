@@ -1,8 +1,7 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model and Ubiquitous Language (Eric Evans DDD). Use when discussing codebase terminology, creating or editing CONTEXT.md, or recording ADRs.
+description: "Mô hình hóa nghiệp vụ DDD, xây dựng Ubiquitous Language và ADRs."
 ---
-
 # Domain Modeling & Ubiquitous Language
 
 Actively build and sharpen the project's domain model as you design (derived from Eric Evans' *Domain-Driven Design*). 

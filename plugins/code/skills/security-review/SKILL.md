@@ -1,10 +1,9 @@
 ---
 name: security-review
-description: Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.
+description: "Quét lỗ hổng bảo mật OWASP, injection, endpoint và rò rỉ secret/API key."
 metadata:
   origin: ECC
 ---
-
 # Security Review Skill
 
 This skill ensures all code follows security best practices and identifies potential vulnerabilities.

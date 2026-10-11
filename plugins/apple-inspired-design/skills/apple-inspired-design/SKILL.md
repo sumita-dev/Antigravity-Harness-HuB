@@ -1,9 +1,8 @@
 ---
 name: apple-inspired-design
-description: Design, implement, evaluate, and safely improve Apple-inspired interfaces for React/Next.js/Tailwind and review native iOS/macOS UI. Includes reusable accessible component examples, Playwright/axe technical QA, screenshot-driven AI design critic, evidence-based weighted scoring, approved design memory, and a bounded improvement workflow.
+description: "Thiết kế & kiểm định giao diện chuẩn Apple HIG cho React/Next.js/Tailwind kèm AI critic."
 license: MIT
 ---
-
 # Apple-Inspired Design v4.0 — Design Quality System
 
 Independent design guidance inspired by Apple's **public** Human Interface Guidelines. NOT made or endorsed by Apple. Do not reproduce Apple proprietary fonts, SF Symbols, UI Kit files, logos, or web pages. Web CSS tokens are custom choices, never claimed as Apple's official token system.

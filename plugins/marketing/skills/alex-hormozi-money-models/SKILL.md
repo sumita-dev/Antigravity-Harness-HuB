@@ -1,6 +1,6 @@
 ---
 name: alex-hormozi-money-models
-description: "Use when building revenue systems, money models, offer ladders, upsells, downsells, continuity offers, pricing strategy, or 90-day revenue plans."
+description: "Thiết kế thang giá trị, dòng tiền, Upsell/Downsell và kế hoạch doanh thu 90 ngày."
 version: 1.0.0
 # AWF_METADATA_START
 type: skill
@@ -18,7 +18,6 @@ related_workflows: []
 required_gates: []
 # AWF_METADATA_END
 ---
-
 # 💰 SKILL: $100M Money Model Builder
 
 ## MỤC TIÊU

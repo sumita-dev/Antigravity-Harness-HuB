@@ -1,6 +1,6 @@
 ---
 name: fb-admin
-description: Trợ lý quản lý Fanpage (Đăng bài, Đọc comment, Trả lời tự động) thông qua Meta Graph API.
+description: "Quản lý Fanpage qua Meta Graph API (đăng bài, đọc và tự động trả lời bình luận)."
 ---
 # Facebook Fanpage Manager (fb-admin)
 

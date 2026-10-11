@@ -1,14 +1,7 @@
 ---
 name: yt-competitor-analyzer
-description: >
-  Phân tích, đánh giá các kênh YouTube đối thủ từ danh sách URL video đầu vào.
-  Tự động convert URL video sang kênh tương ứng, phân trang video mỗi kênh từ uploads playlist (mặc định tối đa 1000),
-  thu thập dữ liệu thống kê toàn diện kênh (Subscribers, Views, Comments, View/day, Comment/View, Outlier)
-  và dữ liệu chi tiết toàn bộ video (Views, Comments, Views/Day, Date, Day, Hashtag, Description),
-  sau đó xuất ra Dashboard HTML trực quan có bộ lọc từng cột và chức năng xuất CSV linh hoạt theo tất cả hoặc từng kênh.
-  Kích hoạt bằng lệnh: /yt-competitor-analyzer, /competitor-audit hoặc khi Sếp yêu cầu phân tích đối thủ từ video.
+description: "Phân tích kênh YouTube đối thủ từ URL, dò video outlier, xuất Dashboard & CSV."
 ---
-
 # YouTube Competitor Analyzer Skill (`/yt-competitor-analyzer`)
 
 Kỹ năng nhận diện kênh từ video đầu vào và trực quan hóa phần dữ liệu API lấy được. Mặc định tối đa **1000 video/kênh**; có thể đặt `--maxPerChannel N`. Giới hạn, video không khả dụng, quota và lỗi phân trang có thể làm dữ liệu thiếu. Chỉ gọi đầy đủ theo API khi coverage.complete=true; điều này không bao gồm video riêng tư hoặc không được API trả về.

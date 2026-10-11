@@ -1,8 +1,7 @@
 ---
 name: karpathy-coder
-description: "Áp dụng 4 nguyên lý lập trình thực dụng của Andrej Karpathy: Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution. Use when writing, refactoring, or debugging code to keep changes surgical and prevent over-engineering"
+description: "4 nguyên lý Karpathy - Think Before Coding, Simplicity First, Surgical Changes."
 ---
-
 # Kỹ năng: Karpathy Coder
 
 Kỹ năng này định hướng quá trình phát triển, tái cấu trúc (refactoring) và sửa lỗi (debugging) mã nguồn tuân thủ 4 nguyên lý thực dụng của Andrej Karpathy nhằm chống lại over-engineering và đảm bảo mã nguồn bền vững.
