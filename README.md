@@ -577,3 +577,15 @@ Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lậ
 - Tinh gọn mối liên kết giữa `GEMINI.md` và `AGENTS.md`: Chuyển `AGENTS.md` thành con trỏ tham chiếu ngắn gọn về `GEMINI.md`, tập trung toàn bộ quy chuẩn điều phối tối cao tại một nguồn duy nhất.
 - Đưa tổng dung lượng Rules về an toàn dưới ngưỡng 20,000 tokens, xóa sạch hoàn toàn cảnh báo `Rules token budget exceeded / demoted`, bảo toàn 100% chỉ dẫn điều phối của Quản đốc trong mọi phiên tương tác.
 
+### 7.5. Siêu Tinh Gọn Description Của Toàn Bộ 44 Kỹ Năng
+- Phẫu thuật toàn diện 44 file `SKILL.md`: loại bỏ các đoạn văn xuôi nhồi nhét từ khóa dài hàng ngàn ký tự trong phần frontmatter `description:`.
+- Toàn bộ mô tả được cô đọng dưới **180 ký tự** (đạt chuẩn súc tích), giúp giảm **~72% dung lượng frontmatter** (từ 24.184 ký tự xuống còn 6.874 ký tự), kéo mức chiếm dụng token Skills từ 80.3% xuống mức an toàn.
+
+### 7.6. Cơ Chế Tự Động Điều Phối Profile Plugin (Autonomous Profile Switching)
+- Hệ thống hỗ trợ 3 profile tối ưu token qua script tiện ích `switch-profile.ps1`:
+  - `code`: Chuyên lập trình App/Web (tắt marketing, giữ code/design) ➔ Tiết kiệm ~5.000 tokens.
+  - `marketing`: Chuyên viết content & tăng trưởng (tắt code dev nặng) ➔ Tiết kiệm ~7.000 tokens.
+  - `all`: Bật toàn bộ 36 kỹ năng cho các nhiệm vụ tổng hợp.
+- **Tự động hóa hoàn toàn:** Sếp không cần gõ lệnh thủ công. Quản đốc tự phân tích bản chất bài toán và tự động kích hoạt profile phù hợp trong nền.
+
+
