@@ -74,42 +74,18 @@ if (Test-Path $SourceConfig) {
     Write-Host "[OK] Đã cài đặt cấu hình định tuyến: $DestConfig" -ForegroundColor Green
 }
 
-# 6. Cài đặt Rule vào Global Plugin Code (Đảm bảo Antigravity nạp rule qua Plugin engine)
+# 6. Cài đặt Rule vào Global Plugin Code (Đảm bảo Antigravity nạp rule qua Plugin engine duy nhất)
 $PluginCodeRulesDir = Join-Path $GlobalPluginsDir "code\rules"
 if (-not (Test-Path $PluginCodeRulesDir)) {
     New-Item -ItemType Directory -Path $PluginCodeRulesDir -Force | Out-Null
 }
 Copy-Item -Path $SourceGemini -Destination (Join-Path $PluginCodeRulesDir "AGENTS.md") -Force
-Write-Host "[OK] Đã cài đặt Rule vào Global Plugin Code: $PluginCodeRulesDir\AGENTS.md" -ForegroundColor Green
-
-# 7. Tự động nạp GEMINI.md vào toàn bộ Projects hiện có trên Antigravity
-$ProjectsJsonDir = Join-Path $GlobalConfigDir "projects"
-if (Test-Path $ProjectsJsonDir) {
-    Write-Host "[...] Đang quét và đồng bộ GEMINI.md vào các dự án hiện có..." -ForegroundColor Yellow
-    Get-ChildItem -Path (Join-Path $ProjectsJsonDir "*.json") | ForEach-Object {
-        try {
-            $proj = Get-Content $_.FullName -Raw | ConvertFrom-Json
-            $uri = $null
-            if ($proj.projectResources.resources.Count -gt 0) {
-                $r = $proj.projectResources.resources[0]
-                if ($r.folderUri) { $uri = $r.folderUri }
-                elseif ($r.gitFolder.folderUri) { $uri = $r.gitFolder.folderUri }
-            }
-            if ($uri) {
-                $localPath = [System.Uri]::UnescapeDataString($uri.Replace("file:///", "").Replace("/", "\"))
-                if (Test-Path $localPath) {
-                    $targetRule = Join-Path $localPath "GEMINI.md"
-                    Copy-Item -Path $SourceGemini -Destination $targetRule -Force
-                    Write-Host "  -> [OK] Đã nạp rule vào project: $($proj.name) ($localPath)" -ForegroundColor Green
-                }
-            }
-        } catch {}
-    }
-}
+Write-Host "[OK] Đã cài đặt Rule tập trung vào Global Plugin Code: $PluginCodeRulesDir\AGENTS.md" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " HOÀN TẤT! Antigravity giờ đây sẽ tự động nạp Harness Hub " -ForegroundColor Cyan
-Write-Host " cho MỌI DỰ ÁN mở trên máy tính này.                      " -ForegroundColor Cyan
+Write-Host " cho MỌI DỰ ÁN mở trên máy tính này (qua Global Plugin).  " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
+
 
