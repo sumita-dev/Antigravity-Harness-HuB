@@ -52,8 +52,10 @@ Antigravity-Harness-Hub/
 │   ├── human-test-sheet-template.md        # Mẫu biểu kiểm thử UAT dành cho người dùng cuối
 │   └── social-reach-guide.md               # Cẩm nang hướng dẫn Agent Reach & Voice of Customer
 ├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
-│   ├── code/skills/                        # 21 skill kỹ thuật (SKILL.md + references/ + scripts/)
+│   ├── code/skills/                        # 26 skill kỹ thuật (SKILL.md + references/ + scripts/)
 │   ├── marketing/skills/                   # 14 skill marketing / nội dung (SKILL.md + references/ + scripts/)
+│   ├── second-brain/skills/                # 7 skill Second Brain Obsidian (query, ingest, lint, memory, canvas, bases...)
+│   ├── apple-inspired-design/skills/       # 1 skill thiết kế chuẩn Apple HIG (apple-inspired-design)
 │   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
 │       ├── plugin.json                     # Manifest plugin độc lập
 │       └── skills/impeccable/              # SKILL.md + reference/ (24 commands) + scripts/ (detect.mjs, engines)
@@ -67,7 +69,7 @@ Antigravity-Harness-Hub/
 │   ├── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
 │   └── social_reach.py                     # Adapter thu thập dữ liệu xã hội nâng cao Agent Reach
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (36 skill)
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (48 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── app_workflow.py                     # Quản lý vòng đời checkpoint, evidence deduplication & consistency sweep
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
@@ -75,6 +77,7 @@ Antigravity-Harness-Hub/
 │   ├── state_machine.py                    # Cỗ máy trạng thái (HarnessState & TaskContext)
 │   ├── memory/                             # Vòng lặp tự học & bộ nhớ trajectory (harvester.py, distiller.py, trajectory.py)
 │   ├── skills/                             # Quản lý vòng đời skill, staging, routing (curator.py, manager.py, router.py)
+│   ├── validators/                         # Bộ kiểm định thực chứng & phát hiện ảo giác (hallucination_detector.py)
 │   └── runners/                            # Các Runner thực thi theo phân nhánh
 │       ├── app_runner.py                   # Luồng vận hành nhánh Build App
 │       └── marketing_runner.py             # Luồng vận hành nhánh Marketing
@@ -83,7 +86,7 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (26 files, 418 tests)
+├── tests/                                  # Bộ kiểm thử tự động (27 files, 426 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
@@ -107,6 +110,7 @@ Antigravity-Harness-Hub/
 | Tệp tin / Thư mục | Trách nhiệm chính |
 | :--- | :--- |
 | `harness/app_workflow.py` | Quản lý vòng đời Checkpoint cho nhánh App (`WorkflowStore`): kiểm soát chuyển trạng thái, thẩm định chữ ký SHA256 Spec/Manifest, tự động khử trùng lặp bằng chứng (evidence deduplication) và quét sạch trạng thái cũ (consistency auto-sweep). |
+| `harness/validators/hallucination_detector.py` | Kiểm định đường dẫn file vật lý, lọc ngôn ngữ võ đoán (speculative language), đối soát trace execution log và bằng chứng thực chứng. |
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
 | `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
 | `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
@@ -118,13 +122,16 @@ Antigravity-Harness-Hub/
 | `agents/app/code_critic.md` | Tác tử phản biện mã nguồn độc lập (Code Critic): chuyên sâu soi rọi Spec GAP, boundary logic, anti-patterns, dirty mocks trước khi chuyển sang QA. |
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
+| `plugins/code/skills/anti-hallucination-guard/SKILL.md` | Rào chắn chống ảo giác 4 trụ cột: Symbol & AST Grounding, Path & Resource Veracity, Strict Evidence-First, Deterministic Execution Verification. |
+| `plugins/second-brain/` | Bộ 7 kỹ năng tích hợp Second Brain (F:\Obsidian): tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), sơ đồ Canvas và cơ sở dữ liệu Bases. |
+| `plugins/apple-inspired-design/` | Plugin kiểm định và hoàn thiện giao diện chuẩn Apple Human Interface Guidelines (HIG), tích hợp bộ nhớ thiết kế và AI Critic. |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `CRITIQUE`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`); cung cấp phương thức `evaluate_critique`, `evaluate_audit` cùng các bộ đếm độc lập `critique_rounds`, `qa_rounds`, `total_cycles` phục vụ Decoupled Circuit Breakers. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
 | `harness/runners/` | Đóng gói chu trình 4 bước gồm Maker ➔ Critic ➔ QA Auditor cho từng nhánh (hỗ trợ cờ `fast_track` cho Tier 2 / Hotfix): `app_runner.py` (Architect → Builder → Code Critic → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Content Critic → Compliance Critic/QA). Runner là nơi ghi trace từng bước. |
 | `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
 | `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
-| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (36 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (48 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `plugins/impeccable/` | Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định giao diện Frontend (`plugin.json` + `skills/impeccable/`). Tích hợp 24 lệnh con thiết kế và bộ máy quét 59 detector rules chống AI Slop & lỗi giao diện. |
 | `plugins/impeccable/skills/impeccable/scripts/detect.mjs` | Công cụ CLI kiểm định UI tĩnh độc lập (`impeccable detect`): quét mã nguồn HTML, CSS, JSX, TSX hoặc URL trình duyệt để phát hiện 59 anti-patterns, hỗ trợ output JSON cho QA Auditor tích hợp tự động. |
 | `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic; tích hợp nguyên tắc Reality Checker (mặc định 'NEEDS WORK', miễn dịch với fantasy approval, chặn pass ảo/dirty mocks). |
@@ -373,6 +380,61 @@ node plugins/impeccable/skills/impeccable/scripts/detect.mjs --no-advisory src/
 
 ---
 
+### 2.5. Bảng Tra Cứu Lệnh Slash Kỹ Năng Kỹ Thuật & Second Brain (App & Knowledge Branch)
+
+Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (Mục 2.4), hệ thống tích hợp đầy đủ 34 kỹ năng chuyên sâu thuộc nhánh Kỹ thuật (Code), Quản trị tri thức (Second Brain Obsidian) và Thiết kế chuẩn Apple HIG, nâng tổng số lên **48 kỹ năng** có thể kích hoạt trực tiếp trong ô chat hoặc tự động định tuyến:
+
+#### 2.5.1. Kỹ Năng Kỹ Thuật & Lập Trình (Code Branch — 26 Kỹ Năng)
+
+| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
+| :--- | :--- | :--- |
+| `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột: kiểm chứng đường dẫn file vật lý, AST grounding, bằng chứng thực chứng, xác minh thực thi |
+| `/gitnexus-plan` | GitNexus Plan | Lập kế hoạch kiến trúc sâu qua đồ thị tri thức mã nguồn (Knowledge Graph) và PDG analysis |
+| `/gitnexus-work` | GitNexus Work | Thực thi kế hoạch mã nguồn với kiểm tra impact checks trước mỗi thay đổi |
+| `/gitnexus-review` | GitNexus Review | Đánh giá an toàn PR/diff, phân tích blast radius và săn tìm regression |
+| `/karpathy-coder` | Karpathy Coder | 4 nguyên lý Karpathy: Think Before Coding, Simplicity First, Surgical Changes |
+| `/verification-before-completion` | Verification Gate | Bắt buộc chạy kiểm thử chứng minh thực tế trước khi tuyên bố hoàn tất |
+| `/loop-circuit-breaker` | Loop Circuit Breaker | Cơ chế ngắt mạch tự động chống lặp vô hạn, chống cháy token và suy thoái ngữ cảnh |
+| `/app` | App MVP Loop | Xây dựng ứng dụng web / tool hoàn chỉnh theo Gemini Native App Workflow |
+| `/test-driven-development` | TDD Workflow | Quy trình Red-Green-Refactor, viết test kiểm thử trước khi viết mã nguồn |
+| `/systematic-debugging` | Systematic Debugging | Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân gốc rễ |
+| `/security-review` | Security Review | Quét lỗ hổng bảo mật OWASP, injection, endpoint và rò rỉ secret/API key |
+| `/accessibility` | Accessibility (a11y) | Thiết kế, triển khai và audit trợ năng chuẩn WCAG 2.2 Level AA cho Web/App |
+| `/verify-ui` | UI Verification | Kiểm chứng giao diện thực tế qua Chrome DevTools MCP, Core Web Vitals và visual proof |
+| `/database-migrations` | Database Migrations | Quy chuẩn migration database, thay đổi schema an toàn, zero-downtime và rollback |
+| `/reverse-lab` | Reverse Engineering | Thẩm định an toàn bản quyền phần mềm Desktop, kiểm tra độ bền chống crack |
+| `/ponytail-review` | Simplify & Anti-Overengineering | Code review chống over-engineering - rà soát và loại bỏ abstraction/mã phình dư thừa |
+| `/forensics` | Code Forensics | Chẩn đoán chuyên sâu trước khi fix bug, truy tìm nguồn gốc lỗi ngầm và race condition |
+| `/why` | Epistemics Why | Khảo cổ học kiến trúc mã nguồn, điều tra lý do lịch sử và nguồn gốc thiết kế hệ thống |
+| `/arena` | Multi-Solution Arena | Fan-out N giải pháp song song cho bài toán khó, chấm điểm chéo và chọn phương án tối ưu |
+| `/hillclimb` | Hill Climbing Optimization | Vòng lặp tối ưu hóa hiệu năng thực nghiệm, đo latency và throughput khoa học |
+| `/domain-modeling` | Domain-Driven Design | Mô hình hóa nghiệp vụ DDD, xây dựng Ubiquitous Language và ADRs |
+| `/advisor` | Architecture Advisor | Cố vấn kiến trúc độc lập, trọng tài đánh giá rủi ro hệ thống trước khi quyết định |
+| `/subagent-driven-development` | Subagent-Driven Development | Thực thi kế hoạch bằng cách chia nhỏ thành các task độc lập, mỗi task một subagent kèm Progress Ledger |
+| `/receiving-code-review` | Tiếp Nhận Code Review | Tiếp nhận phản biện bản lĩnh, chống đồng thuận giả tạo, đối soát YAGNI trước khi sửa |
+| `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Quy trình hoàn tất và nghiệm thu nhánh phát triển (chạy test, menu 3 lựa chọn, dọn worktree) |
+| `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán và kiểm toán phiên làm việc của tác tử (đọc transcript, phát hiện lặp, cháy token, lệch plan) |
+
+#### 2.5.2. Kỹ Năng Second Brain & Quản Trị Tri Thức (Obsidian Vault — 7 Kỹ Năng)
+
+| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
+| :--- | :--- | :--- |
+| `/query-wiki` | Query Wiki (F:\Obsidian) | Tra cứu và tổng hợp tri thức trong Second Brain (F:\Obsidian\wiki\) có trích dẫn nguồn |
+| `/ingest-source` | Ingest Source (F:\Obsidian) | Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật chưng cất tri thức |
+| `/lint-wiki` | Lint Wiki (F:\Obsidian) | Rà soát sức khoẻ Vault Obsidian (broken links, orphan notes, open questions) |
+| `/second-brain-memory` | Second Brain Memory | Đồng bộ bài học kinh nghiệm, facts và session handoff vào memory/ và wiki/log.md |
+| `/obsidian-markdown` | Obsidian Markdown | Cú pháp Obsidian Flavored Markdown (wikilinks, callouts, embeds, properties) |
+| `/json-canvas` | JSON Canvas | Tạo và chỉnh sửa sơ đồ JSON Canvas (.canvas) theo chuẩn 1.0 trong Obsidian |
+| `/obsidian-bases` | Obsidian Bases | Tạo và truy vấn bảng dữ liệu Obsidian (.base) với views, filters và formulas |
+
+#### 2.5.3. Kỹ Năng Thiết Kế Chuẩn Apple HIG (Design Branch — 1 Kỹ Năng)
+
+| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
+| :--- | :--- | :--- |
+| `/apple-inspired-design` | Apple-Inspired Design | Thiết kế & kiểm định giao diện chuẩn Apple HIG cho React/Next.js/Tailwind kèm AI critic Gemini |
+
+---
+
 ## 3. Cơ Chế Phản Biện Độc Lập & Cầu Dao Ngắt Mạch (Circuit Breaker)
 
 ### 3.1. Rào Chắn Kiểm Định Độc Lập (Adversarial Quality Gate)
@@ -418,7 +480,8 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 26 file (418 tests):
+Bộ test gồm 27 file (426 tests):
+- `test_anti_hallucination.py` — Kiểm định rào chắn chống ảo giác, kiểm chứng đường dẫn file vật lý, ngôn ngữ võ đoán và trace log thực thi
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
@@ -443,12 +506,12 @@ Bộ test gồm 26 file (418 tests):
 - `test_session_manager.py` — Portable session sync
 - `test_setup.py` — Kiểm thử setup script & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
-- `test_skill_router.py` — Keyword routing (36 skill)
+- `test_skill_router.py` — Keyword routing (48 skill)
 - `test_triad_protocol.py` — Kiểm chứng Dynamic Triad, Smart Feedback Loop, Circuit Breakers
 
 ```text
 $ pytest -q
-418 passed in 30.74s
+426 passed in 32.84s
 ```
 
 ---
@@ -565,8 +628,8 @@ Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lậ
 1. **Rules Budget (20,000 tokens):** Dành riêng cho các quy tắc điều phối cốt lõi (`GEMINI.md`, `AGENTS.md`, các quy chuẩn vận hành hệ thống). Nếu vượt quá 20,000 tokens, các quy tắc dài sẽ bị hạ cấp (demoted), chỉ được nạp qua con trỏ file gián tiếp khiến tác tử mất đi các chỉ dẫn quan trọng.
 2. **Customizations / Skills Budget (20,000 tokens):** Dành cho metadata của toàn bộ danh mục kỹ năng (skills metadata & system triggers). Khi danh mục phình to vượt ngưỡng, hệ thống sẽ cảnh báo tràn ngân sách và làm chậm quá trình lập luận của tác tử.
 
-### 7.2. Khử Trùng Lặp 36 Kỹ Năng Kép (Plugins vs Standalone Skills)
-- Hệ thống phát hiện và dọn sạch tình trạng phân mảnh định nghĩa khi 36 skills vừa tồn tại trong `plugins/code/skills/` hoặc `plugins/marketing/skills/`, vừa bị sao chép trùng lặp ở thư mục kỹ năng rời `skills/`.
+### 7.2. Khử Trùng Lặp 48 Kỹ Năng Kép (Plugins vs Standalone Skills)
+- Hệ thống phát hiện và dọn sạch tình trạng phân mảnh định nghĩa khi 48 skills vừa tồn tại trong `plugins/code/skills/`, `plugins/marketing/skills/`, `plugins/second-brain/skills/` hoặc `plugins/apple-inspired-design/skills/`, vừa bị sao chép trùng lặp ở thư mục kỹ năng rời `skills/`.
 - Chuẩn hóa toàn bộ: kỹ năng đóng gói theo plugin chính quy được ưu tiên, loại bỏ toàn bộ bản sao dư thừa tại thư mục rời, triệt tiêu xung đột định tuyến và tiết kiệm token metadata.
 
 ### 7.3. Dọn Dẹp Kỹ Năng Cũ (Nhóm 3 Cleanup) & Rút Gọn Danh Mục Kỹ Năng
@@ -577,15 +640,15 @@ Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lậ
 - Tinh gọn mối liên kết giữa `GEMINI.md` và `AGENTS.md`: Chuyển `AGENTS.md` thành con trỏ tham chiếu ngắn gọn về `GEMINI.md`, tập trung toàn bộ quy chuẩn điều phối tối cao tại một nguồn duy nhất.
 - Đưa tổng dung lượng Rules về an toàn dưới ngưỡng 20,000 tokens, xóa sạch hoàn toàn cảnh báo `Rules token budget exceeded / demoted`, bảo toàn 100% chỉ dẫn điều phối của Quản đốc trong mọi phiên tương tác.
 
-### 7.5. Siêu Tinh Gọn Description Của Toàn Bộ 44 Kỹ Năng
-- Phẫu thuật toàn diện 44 file `SKILL.md`: loại bỏ các đoạn văn xuôi nhồi nhét từ khóa dài hàng ngàn ký tự trong phần frontmatter `description:`.
+### 7.5. Siêu Tinh Gọn Description Của Toàn Bộ 48 Kỹ Năng
+- Phẫu thuật toàn diện 48 file `SKILL.md`: loại bỏ các đoạn văn xuôi nhồi nhét từ khóa dài hàng ngàn ký tự trong phần frontmatter `description:`.
 - Toàn bộ mô tả được cô đọng dưới **180 ký tự** (đạt chuẩn súc tích), giúp giảm **~72% dung lượng frontmatter** (từ 24.184 ký tự xuống còn 6.874 ký tự), kéo mức chiếm dụng token Skills từ 80.3% xuống mức an toàn.
 
 ### 7.6. Cơ Chế Tự Động Điều Phối Profile Plugin (Autonomous Profile Switching)
 - Hệ thống hỗ trợ 3 profile tối ưu token qua script tiện ích `switch-profile.ps1`:
   - `code`: Chuyên lập trình App/Web (tắt marketing, giữ code/design) ➔ Tiết kiệm ~5.000 tokens.
   - `marketing`: Chuyên viết content & tăng trưởng (tắt code dev nặng) ➔ Tiết kiệm ~7.000 tokens.
-  - `all`: Bật toàn bộ 36 kỹ năng cho các nhiệm vụ tổng hợp.
+  - `all`: Bật toàn bộ 48 kỹ năng cho các nhiệm vụ tổng hợp.
 - **Tự động hóa hoàn toàn:** Sếp không cần gõ lệnh thủ công. Quản đốc tự phân tích bản chất bài toán và tự động kích hoạt profile phù hợp trong nền.
 
 
