@@ -86,8 +86,10 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (27 files, 426 tests)
+├── tests/                                  # Bộ kiểm thử tự động (28 files, 434 tests)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
+│   ├── test_anti_hallucination.py          # Kiểm định rào chắn chống ảo giác (Path, Symbol, Evidence, Exit code)
+│   ├── test_session_diagnostics.py         # Kiểm toán transcript (Zero-polling, Model waste, View redundancy)
 │   ├── test_generate_launcher_production.py # Kiểm thử sinh launcher mở rộng Docker, CI/CD, ARCHITECTURE.md
 │   ├── test_harness_core.py                # Unit test: State machine, Quality gate, Routing
 │   ├── test_harness_e2e.py                 # E2E test: Luồng phản biện 2 vòng, Escalate
@@ -480,7 +482,7 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 27 file (426 tests):
+Bộ test gồm 28 file (434 tests):
 - `test_anti_hallucination.py` — Kiểm định rào chắn chống ảo giác, kiểm chứng đường dẫn file vật lý, ngôn ngữ võ đoán và trace log thực thi
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
@@ -503,6 +505,7 @@ Bộ test gồm 27 file (426 tests):
 - `test_repo_integrity.py` — Chặn hồi quy cấu trúc/secret/path cá nhân/ref gãy
 - `test_run_security_audit.py` — Kiểm thử tiện ích rà soát bảo mật dependencies & secret leak
 - `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
+- `test_session_diagnostics.py` — Kiểm toán transcript phiên làm việc (phát hiện polling loop, model waste, file redundancy)
 - `test_session_manager.py` — Portable session sync
 - `test_setup.py` — Kiểm thử setup script & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
@@ -511,7 +514,7 @@ Bộ test gồm 27 file (426 tests):
 
 ```text
 $ pytest -q
-426 passed in 32.84s
+434 passed in 29.46s
 ```
 
 ---

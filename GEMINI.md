@@ -47,6 +47,14 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
      + Nhiệm vụ Kỹ thuật (App/Dev/Debug/UI): Chuyển `code` (tắt marketing, giữ code/design).
      + Nhiệm vụ Marketing (Content/SEO/Ads/Offer): Chuyển `marketing` (tắt code nặng, bật marketing/second-brain).
      + Nhiệm vụ lai ghép/bao quát: Kích hoạt `all`.
+10. **Cấm Polling Chủ Động & Bắt Buộc Đón Reactive Wakeup (Zero-Polling Invariant):**
+   - CẤM gọi `manage_task` với action `status` trong loop. Tác tử BẮT BUỘC dừng turn kết thúc gọi tool để runtime tự đánh thức khi hoàn tất (Reactive Wakeup).
+11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):**
+   - CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
+12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):**
+   - Subagent chỉ gửi về cha digest < 100 từ kèm hash, exit code và verdict. Log dài, diff và artifact ghi ra disk/artifact directory, không truyền qua message để chống phình token.
+13. **Cắt Phiên Ngắt Mạch Ngữ Cảnh (Session Rollover Gate):**
+   - Khi chạm 40 turns hoặc transcript vượt 250 KB, Quản đốc kích hoạt cảnh báo, tự động ghi `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị mở phiên mới tránh suy thoái ngữ cảnh.
 
 ---
 
@@ -163,11 +171,10 @@ Runtime Gemini trong Antigravity gọi tác tử native; simulation không thay 
 
 ## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
 
-Bộ luật trong file này hướng dẫn Gemini điều phối native agents khi chạy trong Antigravity. `harness/app_workflow.py` lưu/kiểm checkpoint nhưng không gọi agents hoặc browser. Song song đó, repo có lớp code `harness/` để **kiểm thử luồng và trích xuất nội dung skill**:
-- `harness/app_workflow.py` & `marketing_workflow.py`: Checkpoint/evidence stores; CLI `--workflow`/`--marketing-workflow` không gọi agents/browser. App schema 2 giữ task ID/counters. Marketing research-only vẫn Critic độc lập.
-- `harness/orchestrator.py` & `runners/`: Mô phỏng state machine (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`), không gọi LLM và không thay SubAgent.
-- CLI: `python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]` (`--review-rounds N`, `--checker-output "VERDICT: REJECT"`, `--dump-skill`, `--json`).
-- Router: `configs/harness_config.json → skill_routing` ưu tiên keyword dài hơn; `harness/skills/router.py` nạp `plugins/<nhánh>/skills/<tên>/SKILL.md`.
+`harness/` dùng để kiểm thử luồng và trích xuất skill:
+- `harness/app_workflow.py` & `marketing_workflow.py`: Lưu checkpoint/evidence stores, schema 2 giữ task ID/counters; CLI không gọi agents/browser.
+- `harness/orchestrator.py` & `runners/`: Mô phỏng state machine (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`), không thay SubAgent.
+- CLI & Router: `python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]`. `configs/harness_config.json` ưu tiên keyword dài hơn.
 
 **Quy tắc bất biến cho lớp code:**
 1. Không hardcode secret — đọc từ biến môi trường hoặc `.env` (xem `.env.example`).
