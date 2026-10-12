@@ -710,6 +710,17 @@
         "cháy token session",
         "lệch kế hoạch session"
       ]
+    },
+    "anti-hallucination-guard": {
+      "branch": "app",
+      "keywords": [
+        "anti-hallucination-guard",
+        "chống ảo giác",
+        "anti-hallucination",
+        "grounding",
+        "kiểm định thực chứng",
+        "hallucination guard"
+      ]
     }
   }
 }

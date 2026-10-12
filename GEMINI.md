@@ -137,6 +137,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/receiving-code-review` | Tiếp Nhận Code Review | Tiếp nhận phản biện bản lĩnh, chống đồng thuận giả tạo, đối soát YAGNI |
 | `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Menu 3 lựa chọn nghiệm thu/merge nhánh, kiểm tra baseline và dọn worktree |
 | `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán phiên làm việc 7 chiều (cháy token, lặp vô ích, lệch plan) |
+| `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột (Path, AST/Symbol, Strict Evidence, Exit Code) |
 
 ### 4.1 Gemini Native App Workflow
 
