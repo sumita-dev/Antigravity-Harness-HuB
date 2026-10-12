@@ -62,6 +62,8 @@ Antigravity-Harness-Hub/
 ├── .agent/ , .agents/                      # Khai báo search path cho Antigravity (skills.json, plugins.json)
 ├── .brain/                                 # Dữ liệu runtime (trajectories, learnings) — KHÔNG commit
 ├── scripts/                                # Tiện ích tự động hóa & vận hành Production
+│   ├── auto_session_sync.py                # Watcher trung tâm tự động đồng bộ realtime (Debounce 60s, Hard Timeout 180s)
+│   ├── start-session-sync.bat              # Trình khởi chạy 1-click Windows watcher ở chế độ thu nhỏ (minimized)
 │   ├── run_security_audit.py               # Quét bảo mật dependency vulnerabilities & secret leak
 │   ├── generate_launcher.py                # 1-click launcher (start-app.bat) + cờ --docker (Dockerfile, docker-compose.yml, .github/workflows/ci.yml, ARCHITECTURE.md)
 │   ├── run_dev_logger.py                   # Quản lý tiến trình nền dev server & Pre-flight check (port, health)
@@ -86,7 +88,8 @@ Antigravity-Harness-Hub/
 │   ├── code_critique_rubric.md             # Tiêu chuẩn phản biện logic, spec GAP, clean architecture
 │   ├── code_quality_rubric.md              # Tiêu chuẩn chất lượng code, test, OWASP, UI verification
 │   └── content_compliance_rubric.md        # Tiêu chuẩn chính sách nền tảng, chống AI slop
-├── tests/                                  # Bộ kiểm thử tự động (28 files, 434 tests)
+├── tests/                                  # Bộ kiểm thử tự động (29 files, 440 tests)
+│   ├── test_auto_session_sync.py           # Central session sync watcher (Debounce, Timeout, Graceful shutdown, Multi-workspace)
 │   ├── test_app_workflow.py                # Checkpoint store, review gate, verify-browser & evidence deduplication
 │   ├── test_anti_hallucination.py          # Kiểm định rào chắn chống ảo giác (Path, Symbol, Evidence, Exit code)
 │   ├── test_session_diagnostics.py         # Kiểm toán transcript (Zero-polling, Model waste, View redundancy)
@@ -116,7 +119,8 @@ Antigravity-Harness-Hub/
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
 | `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
 | `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
-| `docs/social-reach-guide.md` | Cẩm nang hướng dẫn Agent Reach & Voice of Customer: kiến trúc lai đa tầng thu thập dữ liệu mạng xã hội và nghiên cứu thị trường. |
+| `scripts/auto_session_sync.py` | Watcher trung tâm tự động đồng bộ phiên Antigravity thời gian thực: debounce 60s gom chu trình làm việc, hard timeout 180s chống trôi dữ liệu khi chat liên tục, graceful shutdown flush và multi-workspace mapping theo `workspace_uris`. |
+| `scripts/start-session-sync.bat` | Trình khởi chạy 1-click trên Windows cho Session Sync Watcher ở chế độ `--watch-all`, tự động chạy ẩn trong cửa sổ thu nhỏ (minimized). |
 | `scripts/run_security_audit.py` | Quét bảo mật toàn diện: phát hiện hardcoded secrets (API keys, Tokens, Private Keys, DB URLs) và kiểm tra lỗ hổng dependency (`npm audit`, `pip-audit`). Hỗ trợ cờ `--fail-on-critical` và xuất báo cáo JSON/Markdown. |
 | `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
 | `scripts/generate_launcher.py` | Tự động quét môi trường ứng dụng và sinh file khởi chạy 1-click `start-app.bat` kèm cẩm nang `HDSD-NHANH.md`. Hỗ trợ tùy chọn `--docker` để sinh trọn bộ Dockerfile, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example` và `ARCHITECTURE.md`. |
@@ -482,11 +486,12 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 28 file (434 tests):
+Bộ test gồm 29 file (440 tests):
 - `test_anti_hallucination.py` — Kiểm định rào chắn chống ảo giác, kiểm chứng đường dẫn file vật lý, ngôn ngữ võ đoán và trace log thực thi
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
 - `test_auto_harvest_global.py` — Harvest global learnings & trajectories
+- `test_auto_session_sync.py` — Central session sync watcher (Debounce, Hard timeout, Graceful shutdown, Multi-workspace)
 - `test_curator.py` — Đánh giá vòng đời skill, phát hiện trùng lặp & curation
 - `test_distiller.py` — Chưng cất trajectory thành kỹ năng mới
 - `test_dsh_patterns.py` — Kiểm tra mẫu thiết kế & phân rã nhiệm vụ (DSH)
@@ -514,7 +519,7 @@ Bộ test gồm 28 file (434 tests):
 
 ```text
 $ pytest -q
-434 passed in 29.46s
+440 passed in 44.81s
 ```
 
 ---
