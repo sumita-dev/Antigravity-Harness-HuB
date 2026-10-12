@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -200,6 +201,19 @@ def detect_model_inheritance_waste(records: Sequence[dict]) -> list[dict]:
     return violations
 
 
+def _normalize_file_path(path_str: str) -> str:
+    if not path_str:
+        return ""
+    norm = str(path_str).replace("\\", "/").strip().lower()
+    if norm.startswith("file:///"):
+        norm = norm[8:]
+    elif norm.startswith("file://"):
+        norm = norm[7:]
+    while "//" in norm:
+        norm = norm.replace("//", "/")
+    return posixpath.normpath(norm)
+
+
 def detect_view_file_redundancy(
     records: Sequence[dict], threshold: int = 3
 ) -> list[dict]:
@@ -227,7 +241,7 @@ def detect_view_file_redundancy(
                     continue
 
                 # Chuẩn hoá path để so khớp chính xác
-                norm_path = os.path.normpath(file_path).lower()
+                norm_path = _normalize_file_path(file_path)
                 if norm_path not in file_views:
                     file_views[norm_path] = []
                 file_views[norm_path].append(step_idx)
@@ -368,7 +382,12 @@ def _load_transcript_records(session_id_or_path: Union[str, Path, Sequence[dict]
                 target_file = sub
     else:
         # Thử tìm theo Session ID trong Antigravity Brain
-        app_data = os.environ.get("USERPROFILE", "")
+        app_data = os.environ.get("USERPROFILE") or os.environ.get("HOME")
+        if not app_data:
+            try:
+                app_data = str(Path.home())
+            except Exception:
+                app_data = ""
         if app_data:
             brain_dir = Path(app_data) / ".gemini" / "antigravity" / "brain" / str(session_id_or_path)
             for fname in ("transcript.jsonl", "transcript_full.jsonl"):
