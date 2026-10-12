@@ -13,14 +13,20 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 pytestmark = pytest.mark.skipif(not POWERSHELL, reason="PowerShell is unavailable")
 
 
-def install(target):
+def install(target, extra_args=None):
     # Fail closed before invoking legacy installers that ignore destination flags.
     script = (REPO / "setup/setup.ps1").read_text(encoding="utf-8")
     assert "[string]$TargetDirectory" in script, "Portable target parameter is missing"
+    assert "[switch]$SkipWatcher" in script, "SkipWatcher parameter is missing"
+    cmd = [
+        POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        str(REPO / "setup/setup.ps1"), "-TargetDirectory", str(target),
+        "-SkipSessionRestore"
+    ]
+    if extra_args:
+        cmd.extend(extra_args)
     return subprocess.run(
-        [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-         str(REPO / "setup/setup.ps1"), "-TargetDirectory", str(target),
-         "-SkipSessionRestore"], capture_output=True, text=True, timeout=120,
+        cmd, capture_output=True, text=True, timeout=120,
     )
 
 
@@ -93,3 +99,11 @@ def test_install_rejects_symlink_cleanup_target(tmp_path):
     result = install(target)
     assert result.returncode != 0
     assert sentinel.read_text(encoding="utf-8") == "keep"
+
+
+def test_setup_accepts_skip_watcher_flag(tmp_path):
+    target = tmp_path / "portable_skip_watcher"
+    target.mkdir()
+    result = install(target, extra_args=["-SkipWatcher"])
+    assert result.returncode == 0, result.stderr
+

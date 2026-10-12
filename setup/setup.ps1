@@ -1,6 +1,7 @@
 param(
     [string]$TargetDirectory = (Join-Path $env:USERPROFILE ".gemini\config"),
-    [switch]$SkipSessionRestore
+    [switch]$SkipSessionRestore,
+    [switch]$SkipWatcher
 )
 $ErrorActionPreference = "Stop"
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
@@ -114,6 +115,11 @@ if (-not $SkipSessionRestore -and -not $PSBoundParameters.ContainsKey("TargetDir
     (Test-Path -LiteralPath (Join-Path $repoRoot ".sessions"))) {
     python (Join-Path $repoRoot "scripts\session_manager.py") --action import --repo-dir $repoRoot
     if ($LASTEXITCODE -ne 0) { throw "Session restore failed (exit $LASTEXITCODE)" }
+}
+if (-not $SkipWatcher -and -not $PSBoundParameters.ContainsKey("TargetDirectory")) {
+    python (Join-Path $repoRoot "scripts\auto_session_sync.py") --install-startup --repo-dir $repoRoot
+    if ($LASTEXITCODE -ne 0) { throw "Watcher startup installation failed (exit $LASTEXITCODE)" }
+    Write-Host "Đã tự động tạo và khởi chạy watcher chạy ngầm trong Windows Startup."
 }
 Write-Host "Installed to $targetDir; existing user choices preserved."
 Write-Host "Runtime tools, permissions, plugin availability and native execution must be verified in Antigravity."

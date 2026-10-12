@@ -22,6 +22,11 @@ from scripts.auto_session_sync import (
     SessionSyncWatcher,
     uri_to_workspace_path,
     extract_workspaces_from_uris,
+    generate_vbs_launcher,
+    install_startup,
+    uninstall_startup,
+    check_watcher_status,
+    VBS_LAUNCHER_NAME,
 )
 from scripts.session_manager import (
     path_to_workspace_uri,
@@ -299,3 +304,109 @@ def test_run_once_flag():
         res_all = watcher_all.run_once()
         assert res_all["status"] == "success"
         assert res_all["mode"] == "watch-all"
+
+
+def test_vbs_launcher_generation():
+    """Kiểm tra cú pháp file VBS launcher tàng hình WindowStyle=0."""
+    vbs = generate_vbs_launcher(
+        python_exe=r"C:\Python312\python.exe",
+        script_path=r"D:\Repo\scripts\auto_session_sync.py",
+        repo_dir=r"D:\Repo",
+    )
+    assert 'Set WshShell = CreateObject("WScript.Shell")' in vbs
+    assert "WshShell.Run" in vbs
+    assert "--watch-all" in vbs
+    assert "0, False" in vbs
+    assert "Set WshShell = Nothing" in vbs
+
+
+def test_startup_lifecycle_api(tmp_path):
+    """Kiểm tra chu trình API: install_startup -> check_watcher_status -> uninstall_startup."""
+    st_dir = tmp_path / "startup"
+    app_data = tmp_path / "appdata"
+    st_dir.mkdir()
+    app_data.mkdir()
+
+    # 1. Cài đặt startup
+    res = install_startup(
+        app_data_dir=str(app_data),
+        startup_dir=str(st_dir),
+    )
+    assert res["status"] == "success"
+    vbs_file = st_dir / VBS_LAUNCHER_NAME
+    assert vbs_file.is_file()
+    assert "--watch-all" in vbs_file.read_text(encoding="utf-8")
+    assert res["pid"] > 0
+
+    # 2. Kiểm tra status khi watcher đang chạy
+    status = check_watcher_status(app_data_dir=str(app_data), startup_dir=str(st_dir))
+    assert status["status"] == "running"
+    assert status["startup_installed"] is True
+    assert status["pid"] == res["pid"]
+
+    # 3. Gỡ bỏ startup
+    un_res = uninstall_startup(app_data_dir=str(app_data), startup_dir=str(st_dir))
+    assert un_res["status"] == "success"
+    assert un_res["uninstalled_vbs"] is True
+    assert not vbs_file.exists()
+
+    # 4. Kiểm tra status sau khi gỡ bỏ
+    post_status = check_watcher_status(app_data_dir=str(app_data), startup_dir=str(st_dir))
+    assert post_status["status"] == "stopped"
+    assert post_status["startup_installed"] is False
+
+
+def test_startup_cli_flags(tmp_path):
+    """Kiểm tra gọi qua CLI: --install-startup, --status, --uninstall-startup với --startup-dir."""
+    import subprocess
+    import sys
+
+    st_dir = tmp_path / "startup_cli"
+    app_data = tmp_path / "appdata_cli"
+    st_dir.mkdir()
+    app_data.mkdir()
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    script_path = os.path.join(repo_root, "scripts", "auto_session_sync.py")
+
+    # 1. CLI --install-startup
+    cmd_install = [
+        sys.executable, script_path,
+        "--install-startup",
+        "--startup-dir", str(st_dir),
+        "--app-data-dir", str(app_data),
+    ]
+    p_install = subprocess.run(cmd_install, capture_output=True, text=True, timeout=15)
+    assert p_install.returncode == 0, p_install.stderr
+    vbs_file = st_dir / VBS_LAUNCHER_NAME
+    assert vbs_file.exists()
+
+    # 2. CLI --status
+    cmd_status = [
+        sys.executable, script_path,
+        "--status",
+        "--startup-dir", str(st_dir),
+        "--app-data-dir", str(app_data),
+    ]
+    p_status = subprocess.run(cmd_status, capture_output=True, text=True, timeout=10)
+    assert p_status.returncode == 0
+    assert "RUNNING" in p_status.stdout
+    assert "INSTALLED" in p_status.stdout
+
+    # 3. CLI --uninstall-startup
+    cmd_uninstall = [
+        sys.executable, script_path,
+        "--uninstall-startup",
+        "--startup-dir", str(st_dir),
+        "--app-data-dir", str(app_data),
+    ]
+    p_uninstall = subprocess.run(cmd_uninstall, capture_output=True, text=True, timeout=15)
+    assert p_uninstall.returncode == 0
+    assert not vbs_file.exists()
+
+    # 4. CLI --status sau khi gỡ
+    p_status_after = subprocess.run(cmd_status, capture_output=True, text=True, timeout=10)
+    assert p_status_after.returncode == 0
+    assert "STOPPED" in p_status_after.stdout
+    assert "NOT INSTALLED" in p_status_after.stdout
+

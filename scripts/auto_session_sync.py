@@ -20,6 +20,7 @@ import posixpath
 import re
 import signal
 import sqlite3
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -317,6 +318,33 @@ class SessionSyncWatcher:
 
         atexit.register(self.shutdown)
 
+    def _save_pid(self):
+        try:
+            save_watcher_pid(
+                pid=os.getpid(),
+                app_data_dir=self.app_data_dir,
+                repo_dir=self.repo_dir,
+                watch_all=self.watch_all,
+            )
+        except Exception:
+            pass
+
+    def _remove_pid(self):
+        pid_file = get_pid_file_path(self.app_data_dir)
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content.startswith("{"):
+                        data = json.loads(content)
+                        saved_pid = int(data.get("pid", 0))
+                    else:
+                        saved_pid = int(content)
+                    if saved_pid == os.getpid():
+                        os.remove(pid_file)
+            except Exception:
+                pass
+
     def shutdown(self):
         """Xử lý tắt tiến trình an toàn, flush toàn bộ dữ liệu đang chờ."""
         if self._shutdown_completed:
@@ -327,6 +355,7 @@ class SessionSyncWatcher:
         if self.pending_workspaces:
             print(f"\n[*] Graceful Shutdown: Dang flush {len(self.pending_workspaces)} workspace dang cho truoc khi thoat...")
             self.flush_all(reason="graceful_shutdown")
+        self._remove_pid()
         print("[OK] Session Sync Watcher da dong an toan.")
 
     def run_once(self) -> dict:
@@ -396,6 +425,8 @@ class SessionSyncWatcher:
         print(f"    - App Data: {self.app_data_dir}")
         print("    - Nhan Ctrl+C de dung va thuc hien Graceful Shutdown Flush.")
 
+        self._save_pid()
+
         while self._running:
             try:
                 now = time.time()
@@ -418,6 +449,263 @@ class SessionSyncWatcher:
                 time.sleep(self.poll_interval)
 
 
+VBS_LAUNCHER_NAME = "AntigravitySessionWatcher.vbs"
+WATCHER_PID_FILE = "watcher.pid"
+
+
+def is_pid_running(pid: int) -> bool:
+    """Kiểm tra xem một PID có đang tồn tại và hoạt động hay không."""
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                STILL_ACTIVE = 259
+                return exit_code.value == STILL_ACTIVE
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:
+            return False
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
+
+
+def stop_process(pid: int) -> bool:
+    """Dừng một tiến trình theo PID."""
+    if not is_pid_running(pid):
+        return True
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            PROCESS_TERMINATE = 0x0001
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
+            if handle:
+                try:
+                    ctypes.windll.kernel32.TerminateProcess(handle, 0)
+                    return True
+                finally:
+                    ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:
+            pass
+        try:
+            res = subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=5)
+            return res.returncode == 0
+        except Exception:
+            return False
+    else:
+        try:
+            os.kill(pid, signal.SIGTERM)
+            return True
+        except Exception:
+            return False
+
+
+def get_startup_dir(custom_dir: str = None) -> str:
+    """Lấy thư mục Startup (Windows hoặc thư mục tuỳ chỉnh để kiểm thử)."""
+    if custom_dir:
+        return os.path.abspath(custom_dir)
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        return os.path.join(appdata, "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    return os.path.join(str(Path.home()), "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+
+
+def get_pid_file_path(app_data_dir: str) -> str:
+    """Đường dẫn lưu file PID của watcher."""
+    return os.path.join(app_data_dir, WATCHER_PID_FILE)
+
+
+def get_running_watcher_pid(app_data_dir: str) -> int | None:
+    """Đọc PID từ file và kiểm tra xem watcher có thực sự đang chạy không."""
+    pid_file = get_pid_file_path(app_data_dir)
+    if not os.path.exists(pid_file):
+        return None
+    try:
+        with open(pid_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return None
+            try:
+                data = json.loads(content)
+                pid = int(data.get("pid", 0))
+            except Exception:
+                pid = int(content)
+        if pid > 0 and is_pid_running(pid):
+            return pid
+        try:
+            os.remove(pid_file)
+        except OSError:
+            pass
+    except Exception:
+        pass
+    return None
+
+
+def save_watcher_pid(pid: int, app_data_dir: str, repo_dir: str = None, watch_all: bool = True) -> str:
+    """Lưu PID và metadata của watcher vào file."""
+    os.makedirs(app_data_dir, exist_ok=True)
+    pid_file = get_pid_file_path(app_data_dir)
+    info = {
+        "pid": pid,
+        "start_time": datetime.now(timezone.utc).isoformat(),
+        "repo_dir": repo_dir,
+        "app_data_dir": app_data_dir,
+        "watch_all": watch_all,
+    }
+    with open(pid_file, "w", encoding="utf-8") as f:
+        json.dump(info, f, indent=2)
+    return pid_file
+
+
+def generate_vbs_launcher(python_exe: str, script_path: str, repo_dir: str = None) -> str:
+    """Tạo nội dung script VBS launcher hoàn toàn ẩn cửa sổ console (WindowStyle=0)."""
+    cmd = f'"{python_exe}" "{script_path}" --watch-all'
+    if repo_dir:
+        cmd += f' --repo-dir "{repo_dir}"'
+    escaped_cmd = cmd.replace('"', '""')
+    vbs_content = (
+        'Set WshShell = CreateObject("WScript.Shell")\r\n'
+        f'WshShell.Run "{escaped_cmd}", 0, False\r\n'
+        'Set WshShell = Nothing\r\n'
+    )
+    return vbs_content
+
+
+def install_startup(
+    repo_dir: str = None,
+    app_data_dir: str = None,
+    startup_dir: str = None,
+    python_exe: str = None,
+) -> dict:
+    """Cài đặt VBS launcher vào Windows Startup và tự động khởi chạy watcher nếu chưa chạy."""
+    app_data_dir = os.path.abspath(app_data_dir or get_default_app_data_dir())
+    st_dir = get_startup_dir(startup_dir)
+    os.makedirs(st_dir, exist_ok=True)
+
+    py_exe = os.path.abspath(python_exe or sys.executable)
+    script_path = os.path.abspath(__file__)
+    resolved_repo = os.path.abspath(repo_dir) if repo_dir else None
+
+    # 1. Tạo file VBS launcher tàng hình
+    vbs_path = os.path.join(st_dir, VBS_LAUNCHER_NAME)
+    vbs_content = generate_vbs_launcher(py_exe, script_path, repo_dir=resolved_repo)
+    with open(vbs_path, "w", encoding="utf-8") as f:
+        f.write(vbs_content)
+
+    print(f"[OK] Da tao VBS launcher tai: {vbs_path}")
+
+    # 2. Kiểm tra watcher đã chạy chưa
+    current_pid = get_running_watcher_pid(app_data_dir)
+    if current_pid:
+        print(f"[*] Watcher da dang chay ngam (PID: {current_pid}).")
+        return {
+            "status": "success",
+            "vbs_path": vbs_path,
+            "pid": current_pid,
+            "already_running": True,
+        }
+
+    # 3. Tự động khởi chạy watcher ngầm
+    cmd = [py_exe, script_path, "--watch-all", "--app-data-dir", app_data_dir]
+    if resolved_repo:
+        cmd.extend(["--repo-dir", resolved_repo])
+
+    popen_kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdin": subprocess.DEVNULL,
+    }
+    if sys.platform == "win32":
+        # DETACHED_PROCESS (0x00000008) | CREATE_NO_WINDOW (0x08000000)
+        popen_kwargs["creationflags"] = 0x08000008
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    save_watcher_pid(proc.pid, app_data_dir, repo_dir=resolved_repo, watch_all=True)
+    print(f"[OK] Da khoi chay watcher ngam (PID: {proc.pid}).")
+
+    return {
+        "status": "success",
+        "vbs_path": vbs_path,
+        "pid": proc.pid,
+        "already_running": False,
+    }
+
+
+def uninstall_startup(app_data_dir: str = None, startup_dir: str = None) -> dict:
+    """Gỡ bỏ VBS launcher khỏi Startup và dừng watcher nếu đang chạy."""
+    app_data_dir = os.path.abspath(app_data_dir or get_default_app_data_dir())
+    st_dir = get_startup_dir(startup_dir)
+    vbs_path = os.path.join(st_dir, VBS_LAUNCHER_NAME)
+
+    vbs_removed = False
+    if os.path.exists(vbs_path):
+        try:
+            os.remove(vbs_path)
+            vbs_removed = True
+            print(f"[OK] Da xoa VBS launcher: {vbs_path}")
+        except Exception as e:
+            print(f"[WARN] Khong the xoa VBS launcher: {e}", file=sys.stderr)
+
+    pid = get_running_watcher_pid(app_data_dir)
+    stopped = False
+    if pid:
+        stopped = stop_process(pid)
+        print(f"[OK] Da dung tien trinh watcher (PID: {pid}).")
+        pid_file = get_pid_file_path(app_data_dir)
+        if os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+            except OSError:
+                pass
+
+    return {
+        "status": "success",
+        "uninstalled_vbs": vbs_removed,
+        "stopped_pid": pid if stopped else None,
+    }
+
+
+def check_watcher_status(app_data_dir: str = None, startup_dir: str = None) -> dict:
+    """Kiểm tra trạng thái hoạt động của watcher và VBS launcher."""
+    app_data_dir = os.path.abspath(app_data_dir or get_default_app_data_dir())
+    st_dir = get_startup_dir(startup_dir)
+    vbs_path = os.path.join(st_dir, VBS_LAUNCHER_NAME)
+
+    pid = get_running_watcher_pid(app_data_dir)
+    is_running = pid is not None
+    vbs_exists = os.path.exists(vbs_path)
+
+    print("=== Antigravity Session Watcher Status ===")
+    print(f"  Trang thai:        {'RUNNING (Dang chay)' if is_running else 'STOPPED (Da dung)'}")
+    if is_running:
+        print(f"  PID:               {pid}")
+    print(f"  Startup Launcher:  {'INSTALLED (Da cai dat)' if vbs_exists else 'NOT INSTALLED (Chua cai)'}")
+    print(f"  VBS Path:          {vbs_path}")
+    print(f"  App Data Dir:      {app_data_dir}")
+
+    return {
+        "status": "running" if is_running else "stopped",
+        "pid": pid,
+        "startup_installed": vbs_exists,
+        "vbs_path": vbs_path,
+        "startup_dir": st_dir,
+        "app_data_dir": app_data_dir,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Central Session Sync Watcher for Antigravity")
     parser.add_argument("--debounce-seconds", type=float, default=60.0, help="Thoi gian debounce quiet timer (mac dinh: 60s)")
@@ -427,18 +715,35 @@ def main():
     parser.add_argument("--app-data-dir", default=None, help="Thu muc Antigravity app data")
     parser.add_argument("--once", action="store_true", help="Chay 1 luot kiem tra/flush roi thoat ngay (phuc vu CI/test)")
     parser.add_argument("--interval", type=float, default=1.0, help="Chu ky kiem tra moi giay (mac dinh: 1.0s, CPU 0.0%)")
+    parser.add_argument("--install-startup", action="store_true", help="Cai dat VBS launcher vao Windows Startup va khoi chay watcher ngam")
+    parser.add_argument("--uninstall-startup", action="store_true", help="Go bo VBS launcher khoi Windows Startup va dung watcher ngam")
+    parser.add_argument("--status", action="store_true", help="Kiem tra trang thai watcher va VBS launcher")
+    parser.add_argument("--startup-dir", default=None, help="Thu muc Windows Startup tuy chinh (phuc vu test hoac cau hinh rieng)")
 
     args = parser.parse_args()
 
     watch_all = args.watch_all
     repo_dir = args.repo_dir
+    app_data_dir = args.app_data_dir
+
+    if args.status:
+        check_watcher_status(app_data_dir=app_data_dir, startup_dir=args.startup_dir)
+        sys.exit(0)
+
+    if args.install_startup:
+        install_startup(repo_dir=repo_dir, app_data_dir=app_data_dir, startup_dir=args.startup_dir)
+        sys.exit(0)
+
+    if args.uninstall_startup:
+        uninstall_startup(app_data_dir=app_data_dir, startup_dir=args.startup_dir)
+        sys.exit(0)
 
     if not watch_all and not repo_dir:
         repo_dir = get_default_repo_dir()
 
     watcher = SessionSyncWatcher(
         repo_dir=repo_dir,
-        app_data_dir=args.app_data_dir,
+        app_data_dir=app_data_dir,
         watch_all=watch_all,
         debounce_seconds=args.debounce_seconds,
         max_timeout=args.max_timeout,

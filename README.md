@@ -105,7 +105,7 @@ Antigravity-Harness-Hub/
 │   └── test_repo_integrity.py              # Chặn lỗi: thư mục lồng, file rác, secret, path cá nhân, ref gãy
 ├── setup/                                  # Cài đặt cấu hình môi trường mới
 │   ├── config.json                         # Cấu hình Antigravity plugins & userSettings chuẩn
-│   └── setup.ps1                           # Merge defaults, hỗ trợ -TargetDirectory/-SkipSessionRestore
+│   └── setup.ps1                           # Merge defaults, hỗ trợ -TargetDirectory/-SkipSessionRestore/-SkipWatcher, tự động cài watcher
 ├── run_harness.py                          # Giao diện dòng lệnh CLI chính của hệ thống (Task & Workflow checkpoint)
 └── README.md                               # Tài liệu hướng dẫn chi tiết
 ```
@@ -119,7 +119,7 @@ Antigravity-Harness-Hub/
 | `docs/app-workflow-guide.md` | Hướng dẫn chi tiết luồng vận hành chuẩn Native Gemini App Workflow: hợp đồng vai trò, tiêu chuẩn nghiệm thu và quy trình tái tục nhiệm vụ (resume). |
 | `docs/intake-protocol.md` | Giao thức phỏng vấn Intake 3 câu hỏi cốt lõi trước khi lập Spec kiến trúc, chống giả định ngầm. |
 | `docs/human-test-sheet-template.md` | Mẫu bảng kiểm thử UAT chuẩn hóa (Human Test Sheet) dành cho người dùng nghiệm thu thủ công trong 3 phút. |
-| `scripts/auto_session_sync.py` | Watcher trung tâm tự động đồng bộ phiên Antigravity thời gian thực: debounce 60s gom chu trình làm việc, hard timeout 180s chống trôi dữ liệu khi chat liên tục, graceful shutdown flush và multi-workspace mapping theo `workspace_uris`. |
+| `scripts/auto_session_sync.py` | Watcher trung tâm tự động đồng bộ phiên Antigravity thời gian thực: debounce 60s, hard timeout 180s, graceful shutdown flush, multi-workspace mapping; hỗ trợ `--install-startup`, `--uninstall-startup`, `--status` với VBS launcher ẩn hoàn toàn cửa sổ (`WindowStyle=0`). |
 | `scripts/start-session-sync.bat` | Trình khởi chạy 1-click trên Windows cho Session Sync Watcher ở chế độ `--watch-all`, tự động chạy ẩn trong cửa sổ thu nhỏ (minimized). |
 | `scripts/run_security_audit.py` | Quét bảo mật toàn diện: phát hiện hardcoded secrets (API keys, Tokens, Private Keys, DB URLs) và kiểm tra lỗ hổng dependency (`npm audit`, `pip-audit`). Hỗ trợ cờ `--fail-on-critical` và xuất báo cáo JSON/Markdown. |
 | `scripts/run_dev_logger.py` | Quản lý tiến trình nền dev server, stream log ra file và thực hiện Pre-flight Check (port, health status 200). |
@@ -622,7 +622,7 @@ python run_harness.py --workflow status --task-id task-board-01
   - `plugins/code/skills/app`: Toàn bộ các tham chiếu phụ trợ cũ (`AI_CODE_WORKFLOW.md`, `references/coding-taste.md`, `references/engineering-standards.md`, `templates/app-spec.md`) đã được dọn sạch hoàn toàn, chuyển đổi 100% sang mô hình Native Multi-Agent Orchestration (Architect -> Design Reviewer -> Builder -> QA Auditor).
   - `plugins/marketing/skills/viet-content-seo-geo-v5`: `scripts/score.mjs`, `scripts/score.py` — nay **đã có** trong repo, đã kiểm chứng parity (JSON trùng nhau trên nhiều bài thử).
   Mỗi SKILL.md tương ứng đã có ghi chú **TRẠNG THÁI SKILL**; `tests/test_repo_integrity.py` giữ danh sách trong `KNOWN_GAPS` để không phát sinh con trỏ gãy mới.
-- `setup.ps1` hỗ trợ đích portable, merges defaults giữ config user, kiểm resolved paths/symlink/junction và cấm repo/ancestor hoặc đích nằm trong packaged source dirs trước cleanup; repeat copy không tạo nesting. Không chạy default global install trong tests.
+- `setup.ps1` hỗ trợ đích portable, merges defaults giữ config user, kiểm resolved paths/symlink/junction và cấm repo/ancestor hoặc đích nằm trong packaged source dirs trước cleanup; tự động đăng ký và khởi chạy watcher ngầm trong Windows Startup khi cài global (bỏ qua với `-SkipWatcher`); repeat copy không tạo nesting. Không chạy default global install trong tests.
 - `configs/harness_config.json` khai báo model `Gemini 3.1 Pro` / `Gemini 3.8 Flash` — **chưa xác minh** 2 ID này tồn tại, và không code nào resolve chúng. Cần Sếp xác nhận hoặc thay bằng ID thật khi viết adapter LLM.
 
 ---
