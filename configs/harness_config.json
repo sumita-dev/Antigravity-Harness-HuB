@@ -656,6 +656,60 @@
         "bảng .base",
         ".base file"
       ]
+    },
+    "receiving-code-review": {
+      "branch": "app",
+      "keywords": [
+        "receiving-code-review",
+        "tiếp nhận code review",
+        "tiep nhan code review",
+        "nhận review",
+        "phản biện code review",
+        "code review reception",
+        "yagni review",
+        "push back kỹ thuật",
+        "chống nịnh bợ code review"
+      ]
+    },
+    "subagent-driven-development": {
+      "branch": "app",
+      "keywords": [
+        "subagent-driven-development",
+        "sdd",
+        "phát triển theo subagent",
+        "subagent task loop",
+        "progress ledger",
+        "sổ cái tiến độ",
+        "fix-loop subagent",
+        "bẻ nhỏ task subagent"
+      ]
+    },
+    "finishing-a-development-branch": {
+      "branch": "app",
+      "keywords": [
+        "finishing-a-development-branch",
+        "hoàn tất nhánh",
+        "hoan tat nhanh",
+        "nghiệm thu nhánh",
+        "menu nghiệm thu git",
+        "dọn dẹp worktree",
+        "finish branch",
+        "merge feature branch"
+      ]
+    },
+    "diagnosing-harness": {
+      "branch": "app",
+      "keywords": [
+        "diagnosing-harness",
+        "chẩn đoán harness",
+        "kiểm toán transcript",
+        "audit transcript",
+        "chẩn đoán phiên làm việc",
+        "phân tích 7 chiều",
+        "đọc transcript.jsonl",
+        "cháy token session",
+        "lệch kế hoạch session"
+      ]
     }
   }
 }
