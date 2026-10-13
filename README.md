@@ -486,7 +486,7 @@ pytest -v
 
 Xem logs QA thực tế cho current revision. Archive không có `.git` khiến `test_env_example_duoc_commit` không chứng minh tracked state; giữ nguyên test và báo giới hạn, không tạo Git giả hoặc claim toàn bộ PASS.
 
-Bộ test gồm 29 file (440 tests):
+Bộ test gồm 29 file (445 tests):
 - `test_anti_hallucination.py` — Kiểm định rào chắn chống ảo giác, kiểm chứng đường dẫn file vật lý, ngôn ngữ võ đoán và trace log thực thi
 - `test_app_workflow.py` — Checkpoint store, review gate, verify-browser & evidence deduplication
 - `test_app_workflow_hardening.py` — Gia cố các trường hợp biên của WorkflowStore
@@ -512,14 +512,14 @@ Bộ test gồm 29 file (440 tests):
 - `test_score_scripts.py` — Đối soát script chấm điểm SEO (Python vs Node.js)
 - `test_session_diagnostics.py` — Kiểm toán transcript phiên làm việc (phát hiện polling loop, model waste, file redundancy)
 - `test_session_manager.py` — Portable session sync
-- `test_setup.py` — Kiểm thử setup script & config defaults
+- `test_setup.py` — Kiểm thử setup script, UTF-8 unicode encoding & config defaults
 - `test_skill_manager.py` — Quản lý vòng đời skill và hàng đợi staging
 - `test_skill_router.py` — Keyword routing (48 skill)
 - `test_triad_protocol.py` — Kiểm chứng Dynamic Triad, Smart Feedback Loop, Circuit Breakers
 
 ```text
 $ pytest -q
-440 passed in 44.81s
+445 passed in 48.61s
 ```
 
 ---

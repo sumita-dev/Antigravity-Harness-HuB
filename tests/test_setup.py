@@ -107,3 +107,40 @@ def test_setup_accepts_skip_watcher_flag(tmp_path):
     result = install(target, extra_args=["-SkipWatcher"])
     assert result.returncode == 0, result.stderr
 
+
+def test_install_preserves_vietnamese_unicode_in_custom_instructions(tmp_path):
+    target = tmp_path / "portable_unicode"
+    target.mkdir()
+
+    # 1. Fresh install inherits default customInstructions with intact Vietnamese Unicode
+    res = install(target, extra_args=["-SkipWatcher"])
+    assert res.returncode == 0, res.stdout + res.stderr
+
+    default_config = json.loads((REPO / "setup/config.json").read_text(encoding="utf-8"))
+    expected_default_instructions = default_config["userSettings"]["customInstructions"]
+
+    target_config_path = target / "config.json"
+    assert not target_config_path.read_bytes().startswith(b"\xef\xbb\xbf"), "Config file should not have UTF-8 BOM"
+
+    installed_config = json.loads(target_config_path.read_text(encoding="utf-8-sig"))
+    actual_instructions = installed_config["userSettings"]["customInstructions"]
+    assert actual_instructions == expected_default_instructions
+    assert "Sếp" in actual_instructions
+    assert "tiếng Việt" in actual_instructions
+    assert "Xưng hô" in actual_instructions
+    assert "XÆ°ng" not in actual_instructions
+    assert "Sáº¿p" not in actual_instructions
+
+    # 2. Existing custom Vietnamese instructions are preserved without Mojibake on subsequent install
+    custom_vietnamese = "1/ Chỉ thị tuỳ biến: Luôn gọi Sếp là Anh, báo cáo trung thực và chính xác."
+    installed_config["userSettings"]["customInstructions"] = custom_vietnamese
+    target_config_path.write_text(json.dumps(installed_config, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    res2 = install(target, extra_args=["-SkipWatcher"])
+    assert res2.returncode == 0, res2.stdout + res2.stderr
+
+    assert not target_config_path.read_bytes().startswith(b"\xef\xbb\xbf"), "Config file should not have UTF-8 BOM after update"
+    updated_config = json.loads(target_config_path.read_text(encoding="utf-8-sig"))
+    assert updated_config["userSettings"]["customInstructions"] == custom_vietnamese
+
+

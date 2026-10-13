@@ -79,11 +79,11 @@ foreach ($name in ($directoryNames + $fileNames + @("config.json", "hooks.json")
     Assert-TargetChild (Join-Path $targetDir $name)
 }
 $sourceFile = Join-Path $PSScriptRoot "config.json"
-$defaults = ConvertTo-Map (Get-Content -LiteralPath $sourceFile -Raw | ConvertFrom-Json)
+$defaults = ConvertTo-Map ([IO.File]::ReadAllText($sourceFile, [Text.Encoding]::UTF8) | ConvertFrom-Json)
 $targetFile = Join-Path $targetDir "config.json"
 $merged = @{}
 if (Test-Path -LiteralPath $targetFile) {
-    $merged = ConvertTo-Map (Get-Content -LiteralPath $targetFile -Raw | ConvertFrom-Json)
+    $merged = ConvertTo-Map ([IO.File]::ReadAllText($targetFile, [Text.Encoding]::UTF8) | ConvertFrom-Json)
     if ($merged -isnot [hashtable]) { throw "Existing config must be a JSON object" }
 }
 Merge-Defaults $merged $defaults
