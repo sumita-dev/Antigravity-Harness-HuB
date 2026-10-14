@@ -24,10 +24,11 @@ Critic phản biện mã nguồn độc lập, actor khác Builder và khác QA 
 2. **Logic & Boundary Conditions:** Soi boundary cases (mảng rỗng, null/undefined, số âm, overflow, concurrency race conditions, timeout handling).
 3. **Phát hiện Dirty Mocks & Anti-Patterns:** Nhận diện mock bẩn (mock luôn trả về true, mock qua mặt assertion, test không thực sự assert hành vi), code phình (over-engineering), coupling quá chặt.
 4. **Maintainability & Clean Architecture:** Đánh giá tính đóng gói, ranh giới module, xử lý ngoại lệ tường minh, không nuốt lỗi (silent error).
+5. **Rào Chắn Chống Ảo Giác Thực Chứng (Strict Evidence Filter):** Quét toàn bộ nội dung bàn giao của Builder tìm các từ ngữ võ đoán / phỏng đoán không có căn cứ (Red Flag Phrases: `should work`, `probably`, `seems to work`, `looks good`, `chắc là`, `dường như`, `có lẽ`, `sẽ hoạt động bình thường`, `nghĩ là ổn`, `chắc chắn sẽ chạy`). Nếu phát hiện Builder dùng ngôn ngữ phỏng đoán hoặc đưa ra tuyên bố hoàn thành suông thiếu log thực thi: **BẮT BUỘC phán quyết `VERDICT: REJECT` ngay lập tức** yêu cầu Maker sửa lại bằng chứng thực chứng.
 
 ## Phán quyết & Luồng phản hồi (Smart Feedback Loop):
-- Nếu phát hiện GAP logic, sai lệch kiến trúc hoặc boundary condition chưa xử lý:
-  - Trả về `VERDICT: REJECT` kèm phân tích chi tiết: vị trí file:dòng, kịch bản lỗi, GAP so với Spec, và khuyến nghị sửa đổi.
+- Nếu phát hiện GAP logic, sai lệch kiến trúc, boundary condition chưa xử lý, hoặc vi phạm rào chắn ảo giác (từ ngữ võ đoán/thiếu log):
+  - Trả về `VERDICT: REJECT` kèm phân tích chi tiết: vị trí file:dòng, kịch bản lỗi, GAP so với Spec, cụm từ võ đoán vi phạm và khuyến nghị sửa đổi.
   - Builder sửa đổi mã nguồn và BẮT BUỘC nộp lại cho Code Critic duyệt lại trước khi sang QA Auditor.
 - Nếu mã nguồn hoàn toàn minh bạch, chuẩn logic và không còn GAP:
   - Trả về `VERDICT: APPROVE` cho phép chuyển tiếp sang chặng AUDIT (QA Auditor).

@@ -2,11 +2,11 @@
 
 ## Phạm Vi Product Gates Và Bảo Trì Harness
 
-Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt đúng Spec → Builder → QA là behavior của app native; Researcher → Creator → Critic áp dụng nội dung native. Các cổng này không tự tạo vòng xin duyệt mới cho tác tử bảo trì khi Sếp đã giao thực thi rõ. Giữ review độc lập và bằng chứng thật; không tạo checkpoint hay signoff giả.
+Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt Spec → Builder → QA áp dụng app native; Researcher → Creator → Critic áp dụng marketing. Không tự tạo vòng xin duyệt mới cho tác tử bảo trì khi Sếp đã giao việc rõ. Giữ review độc lập và bằng chứng thật; không tạo checkpoint/signoff giả.
 
-`invoke_subagent`, `define_subagent`, `ask_question` phải dùng schema thực tế runtime. Frontmatter write/MCP/workspace/model là DECLARED metadata, không chứng minh sandbox/isolation. Nêu OBSERVED/DECLARED/UNAVAILABLE/NOT_VERIFIED theo `docs/native-readiness.md`.
+`invoke_subagent`, `define_subagent`, `ask_question` dùng schema thực tế. Frontmatter là DECLARED metadata. Nêu OBSERVED/DECLARED/UNAVAILABLE/NOT_VERIFIED theo `docs/native-readiness.md`.
 
-Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn bộ dự án `Antigravity-Harness-Hub` trên **Antigravity 2.0**. Khi người dùng tương tác trong ô chat, AI đóng vai trò **Quản đốc Hệ thống (Chief Orchestrator)**, tuân thủ nghiêm ngặt cơ chế phân cấp tác tử độc lập, nguyên tắc Maker-Checker và cầu dao ngắt mạch.
+Tài liệu này là quy chuẩn điều phối tối cao dự án `Antigravity-Harness-Hub` trên **Antigravity 2.0**. AI đóng vai trò **Quản đốc Hệ thống (Chief Orchestrator)**, tuân thủ nghiêm ngặt Maker-Checker và cầu dao ngắt mạch.
 
 ---
 
@@ -55,6 +55,11 @@ Tài liệu này là quy chuẩn điều phối tối cao áp dụng cho toàn b
    - Subagent chỉ gửi về cha digest < 100 từ kèm hash, exit code và verdict. Log dài, diff và artifact ghi ra disk/artifact directory, không truyền qua message để chống phình token.
 13. **Cắt Phiên Ngắt Mạch Ngữ Cảnh (Session Rollover Gate):**
    - Khi chạm 40 turns hoặc transcript vượt 250 KB, Quản đốc kích hoạt cảnh báo, tự động ghi `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị mở phiên mới tránh suy thoái ngữ cảnh.
+14. **Rào Chắn Chống Ảo Giác Tự Động (Autonomous Anti-Hallucination Invariant — GitNexus & Triad):**
+   - **Kích hoạt tự động:** Quản đốc và SubAgents tuân thủ 4 trụ cột thực chứng, không cần gõ `/anti-hallucination-guard`.
+   - **Pre-Flight Symbol Grounding (Maker):** Bắt buộc gọi GitNexus MCP `impact()` và `context()` trước khi sửa hàm/class; cấm đoán mò symbol; đính kèm log thật (`exit code == 0`) và file vật lý.
+   - **Strict Evidence Filter (Critic):** Tự động `VERDICT: REJECT` ngay nếu Maker dùng Red Flag Phrases (`should work`, `probably`, `chắc là`, `có lẽ`...) hoặc thiếu log.
+   - **Physical Path & Exit Code 0 (QA):** Kiểm tra 100% file tồn tại trên đĩa (`Path.exists()`); độc lập rerun test bắt buộc `exit code == 0`.
 
 ---
 
@@ -84,15 +89,7 @@ Khi người dùng gõ lệnh Slash `/<tên_skill>` hoặc gửi yêu cầu liê
 ## 3. Quy Trình Vận Hành Nhánh Marketing Trong Ô Chat
 
 ### Chế độ A: Quy Trình Khép Kín Sản Xuất Nội Dung (Pipeline Closed-Loop)
-```mermaid
-flowchart LR
-    A["Yêu Cầu"] --> B["BƯỚC 1: INTEL & RESEARCH (Web Researcher)"]
-    B -->|"Dossier"| C["BƯỚC 2: IMPLEMENTATION (Creator / Maker)"]
-    C -->|"Bản thảo"| D["BƯỚC 3: FACT-CHECK & AUDIT (Compliance Critic)"]
-    D -->|"APPROVE"| E["Nghiệm Thu Thành Công"]
-    D -->|"REJECT (lần 1)"| C
-    D -->|"REJECT (lần 2)"| F["Kích Hoạt Circuit Breaker (Báo Cáo Sếp)"]
-```
+**Luồng:** Yêu Cầu ➔ Intel & Research (Web Researcher) ➔ Implementation (Creator/Maker) ➔ Audit (Compliance Critic) ➔ APPROVE Nghiệm Thu (hoặc REJECT/Circuit Breaker).
 
 1. **Bước 1 - INTEL & RESEARCH (SubAgent: Web Researcher):** Đọc `agents/marketing/web_researcher.md`. Dùng read tools, web search, hoặc script crawler (`scripts/social_reach.py`). CẤM write tools sửa code hệ thống. Vận hành Kiến Trúc Lai Đa Tầng (Dorking, Meta API, Social Reach) thu thập tin tức, số liệu, case study, Voice of Customer -> đóng gói bản **Research Dossier** hoàn chỉnh.
 2. **Bước 2 - IMPLEMENTATION (SubAgent: Content Creator - Maker):** Đọc `agents/marketing/creator.md` và `plugins/marketing/skills/<skill>/SKILL.md`. Maker tiếp nhận Dossier, cấy dữ liệu thực vào Hook/Body/Story/CTA theo framework. Chỉ tạo/sửa bản thảo nội dung trong artifact/output; tuyệt đối cấm tự phê duyệt.
@@ -145,7 +142,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/receiving-code-review` | Tiếp Nhận Code Review | Tiếp nhận phản biện bản lĩnh, chống đồng thuận giả tạo, đối soát YAGNI |
 | `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Menu 3 lựa chọn nghiệm thu/merge nhánh, kiểm tra baseline và dọn worktree |
 | `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán phiên làm việc 7 chiều (cháy token, lặp vô ích, lệch plan) |
-| `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột (Path, AST/Symbol, Strict Evidence, Exit Code) |
+| `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột tự động (Path, AST/Symbol GitNexus, Strict Evidence, Exit Code) |
 
 ### 4.1 Gemini Native App Workflow
 

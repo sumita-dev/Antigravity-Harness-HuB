@@ -7,8 +7,10 @@ from harness.validators.hallucination_detector import (
     AuditResult,
     audit_response,
     detect_speculative_language,
+    extract_symbols_from_code,
     verify_execution_claims,
     verify_file_paths,
+    verify_symbol_grounding,
 )
 
 
@@ -83,6 +85,34 @@ def test_verify_execution_claims_with_valid_log():
     assert res_list["valid"] is True
 
 
+def test_verify_symbol_grounding_ast():
+    """Kiểm tra đối soát Symbol & AST Grounding."""
+    code_snippet = """
+class DataService:
+    def fetch_records(self):
+        pass
+    def process_data(self):
+        pass
+"""
+    symbols = extract_symbols_from_code(code_snippet)
+    assert "DataService" in symbols
+    assert "fetch_records" in symbols
+    assert "process_data" in symbols
+
+    # Văn bản trích dẫn symbol đúng
+    valid_text = "Hàm `fetch_records()` và class `DataService` đã được triển khai."
+    check_valid = verify_symbol_grounding(valid_text, known_symbols=symbols)
+    assert check_valid["valid"] is True
+    assert "fetch_records" in check_valid["verified_symbols"]
+    assert "DataService" in check_valid["verified_symbols"]
+
+    # Văn bản trích dẫn symbol ảo
+    invalid_text = "Đã gọi hàm `phantom_method_xyz()` để xử lý ngoại lệ."
+    check_invalid = verify_symbol_grounding(invalid_text, known_symbols=symbols)
+    assert check_invalid["valid"] is False
+    assert "phantom_method_xyz" in check_invalid["unverified_symbols"]
+
+
 def test_audit_response_approve():
     """Kiểm toán trường hợp đạt chuẩn: đường dẫn thật, không võ đoán, có log chứng thực."""
     text = (
@@ -111,3 +141,12 @@ def test_audit_response_reject():
     assert any("Ảo giác đường dẫn" in v for v in audit.violations)
     assert any("Ngôn ngữ võ đoán" in v for v in audit.violations)
     assert any("Tuyên bố thành công" in v for v in audit.violations)
+
+
+def test_audit_response_symbol_rejection():
+    """Kiểm toán vi phạm symbol ảo dẫn tới REJECT."""
+    code = "def real_function(): pass"
+    text = "Đã gọi `hallucinated_function_abc()` để cập nhật dữ liệu."
+    audit = audit_response(text, base_dir=REPO_DIR, source_code=code)
+    assert audit.verdict == "REJECT"
+    assert any("Ảo giác ký hiệu" in v for v in audit.violations)
