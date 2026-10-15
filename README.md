@@ -56,6 +56,7 @@ Antigravity-Harness-Hub/
 │   ├── marketing/skills/                   # 14 skill marketing / nội dung (SKILL.md + references/ + scripts/)
 │   ├── second-brain/skills/                # 7 skill Second Brain Obsidian (query, ingest, lint, memory, canvas, bases...)
 │   ├── apple-inspired-design/skills/       # 1 skill thiết kế chuẩn Apple HIG (apple-inspired-design)
+│   ├── computer/skills/                    # 3 skill bảo dưỡng hệ thống & Second Brain (cham-soc-may-tinh, browser-hygiene, karpathy-second-brain)
 │   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
 │       ├── plugin.json                     # Manifest plugin độc lập
 │       └── skills/impeccable/              # SKILL.md + reference/ (24 commands) + scripts/ (detect.mjs, engines)
@@ -71,7 +72,7 @@ Antigravity-Harness-Hub/
 │   ├── apify_crawler.py                    # Thu thập dữ liệu mạng xã hội qua Apify
 │   └── social_reach.py                     # Adapter thu thập dữ liệu xã hội nâng cao Agent Reach
 ├── configs/                                # Tệp cấu hình phân tầng model và giới hạn vận hành
-│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (48 skill)
+│   └── harness_config.json                 # Model tier, roles, max_rounds, skill_routing (49 skill)
 ├── harness/                                # Lõi thực thi (Harness Core Engine)
 │   ├── app_workflow.py                     # Quản lý vòng đời checkpoint, evidence deduplication & consistency sweep
 │   ├── orchestrator.py                     # ChiefOrchestrator: Bộ điều phối trung tâm
@@ -131,13 +132,14 @@ Antigravity-Harness-Hub/
 | `plugins/code/skills/anti-hallucination-guard/SKILL.md` | Rào chắn chống ảo giác 4 trụ cột: Symbol & AST Grounding, Path & Resource Veracity, Strict Evidence-First, Deterministic Execution Verification. |
 | `plugins/second-brain/` | Bộ 7 kỹ năng tích hợp Second Brain (F:\Obsidian): tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), sơ đồ Canvas và cơ sở dữ liệu Bases. |
 | `plugins/apple-inspired-design/` | Plugin kiểm định và hoàn thiện giao diện chuẩn Apple Human Interface Guidelines (HIG), tích hợp bộ nhớ thiết kế và AI Critic. |
+| `plugins/computer/` | Bộ 3 kỹ năng bảo dưỡng hệ thống máy tính Windows & Second Brain Karpathy: chăm sóc tối ưu PC (`cham-soc-may-tinh`), dọn dẹp trình duyệt tự động & tiến trình mồ côi (`browser-hygiene`), và kiến trúc LLM Wiki (`karpathy-second-brain`). |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `CRITIQUE`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
 | `harness/quality_gate.py` | Kiểm tra định dạng phán quyết của Checker (`VERDICT: APPROVE`, `REJECT`, `ESCALATE`); cung cấp phương thức `evaluate_critique`, `evaluate_audit` cùng các bộ đếm độc lập `critique_rounds`, `qa_rounds`, `total_cycles` phục vụ Decoupled Circuit Breakers. |
 | `harness/orchestrator.py` | Khởi tạo môi trường, tiếp nhận yêu cầu từ người dùng, nạp `TaskContext`, chuyển giao cho Runner thích hợp và gửi kết quả thẩm định. |
 | `harness/runners/` | Đóng gói chu trình 4 bước gồm Maker ➔ Critic ➔ QA Auditor cho từng nhánh (hỗ trợ cờ `fast_track` cho Tier 2 / Hotfix): `app_runner.py` (Architect → Builder → Code Critic → QA Auditor) và `marketing_runner.py` (Researcher → Creator → Content Critic → Compliance Critic/QA). Runner là nơi ghi trace từng bước. |
 | `harness/memory/` | Vòng lặp tự học & bộ nhớ quỹ đạo (Trajectory): thu hoạch bài học kinh nghiệm (`harvester.py`), chưng cất kỹ năng mới (`distiller.py`) và lưu trữ lịch sử thực thi (`trajectory.py`). |
 | `harness/skills/` | Quản lý vòng đời kỹ năng: định tuyến theo từ khóa (`router.py`), quản lý hàng đợi staging và phê duyệt (`manager.py`), đánh giá chất lượng và phát hiện trùng lặp (`curator.py`). |
-| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (48 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
+| `configs/harness_config.json` | Khai báo model tier (`pro`/`flash`), `roles`, `limits` và `skill_routing` (49 skill → keyword). **Lưu ý:** chưa có code nào resolve/gọi model — đây là metadata cấu hình, cần adapter LLM mới dùng được. |
 | `plugins/impeccable/` | Plugin độc lập chuyên sâu về thiết kế, hoàn thiện và kiểm định giao diện Frontend (`plugin.json` + `skills/impeccable/`). Tích hợp 24 lệnh con thiết kế và bộ máy quét 59 detector rules chống AI Slop & lỗi giao diện. |
 | `plugins/impeccable/skills/impeccable/scripts/detect.mjs` | Công cụ CLI kiểm định UI tĩnh độc lập (`impeccable detect`): quét mã nguồn HTML, CSS, JSX, TSX hoặc URL trình duyệt để phát hiện 59 anti-patterns, hỗ trợ output JSON cho QA Auditor tích hợp tự động. |
 | `rubrics/code_critique_rubric.md` | Tiêu chuẩn phản biện logic, spec GAP, boundary edge-cases và clean architecture dành cho Code Critic; tích hợp nguyên tắc Reality Checker (mặc định 'NEEDS WORK', miễn dịch với fantasy approval, chặn pass ảo/dirty mocks). |
@@ -388,7 +390,7 @@ node plugins/impeccable/skills/impeccable/scripts/detect.mjs --no-advisory src/
 
 ### 2.5. Bảng Tra Cứu Lệnh Slash Kỹ Năng Kỹ Thuật & Second Brain (App & Knowledge Branch)
 
-Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (Mục 2.4), hệ thống tích hợp đầy đủ 34 kỹ năng chuyên sâu thuộc nhánh Kỹ thuật (Code), Quản trị tri thức (Second Brain Obsidian) và Thiết kế chuẩn Apple HIG, nâng tổng số lên **48 kỹ năng** có thể kích hoạt trực tiếp trong ô chat hoặc tự động định tuyến:
+Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (Mục 2.4), hệ thống tích hợp đầy đủ 37 kỹ năng chuyên sâu thuộc nhánh Kỹ thuật (Code), Quản trị tri thức (Second Brain Obsidian), Thiết kế chuẩn Apple HIG và Tối ưu hệ thống (Computer), nâng tổng số lên **52 kỹ năng** có thể kích hoạt trực tiếp trong ô chat hoặc tự động định tuyến:
 
 #### 2.5.1. Kỹ Năng Kỹ Thuật & Lập Trình (Code Branch — 26 Kỹ Năng)
 
@@ -438,6 +440,14 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
 | Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
 | :--- | :--- | :--- |
 | `/apple-inspired-design` | Apple-Inspired Design | Thiết kế & kiểm định giao diện chuẩn Apple HIG cho React/Next.js/Tailwind kèm AI critic Gemini |
+
+#### 2.5.4. Kỹ Năng Tối Ưu Máy Tính & Vận Hành Hệ Thống (Computer Branch — 3 Kỹ Năng)
+
+| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
+| :--- | :--- | :--- |
+| `/cham-soc-may-tinh` | Chăm Sóc & Tối Ưu PC | Bảo dưỡng, dọn dẹp Windows, giải phóng RAM, ReTrim SSD, dọn cache công cụ lập trình (pip, npm, pnpm, docker) |
+| `/browser-hygiene` | Browser & Process Hygiene | Rà soát và dọn dẹp an toàn trình duyệt tự động hóa & server dev / tiến trình mồ côi |
+| `/karpathy-second-brain` | Karpathy Second Brain | Xây dựng và vận hành Bộ não thứ 2 Obsidian theo đúng kiến trúc LLM Wiki của Andrej Karpathy |
 
 ---
 

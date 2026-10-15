@@ -2,5 +2,5 @@
   "name": "computer",
   "displayName": "Computer Care & System Optimization Plugin",
   "version": "1.0.0",
-  "description": "Bảo dưỡng, dọn dẹp và tối ưu hóa hệ thống máy tính Windows, quản lý cache công cụ lập trình (pip, npm, pnpm, docker), RAM, SSD, Registry, trình duyệt tự động hóa và tiến trình mồ côi."
+  "description": "Bảo dưỡng, dọn dẹp và tối ưu hóa hệ thống máy tính Windows, quản lý cache công cụ lập trình (pip, npm, pnpm, docker), RAM, SSD, Registry, trình duyệt tự động hóa, tiến trình mồ côi và quản lý Bộ não thứ hai (Second Brain & LLM Wiki Obsidian)."
 }

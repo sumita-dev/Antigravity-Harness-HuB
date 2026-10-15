@@ -17,6 +17,7 @@ DEFAULT_SKILL_DIRS = (
     REPO_ROOT / "plugins" / "impeccable" / "skills",
     REPO_ROOT / "plugins" / "apple-inspired-design" / "skills",
     REPO_ROOT / "plugins" / "second-brain" / "skills",
+    REPO_ROOT / "plugins" / "computer" / "skills",
     REPO_ROOT / "skills",
 )
 

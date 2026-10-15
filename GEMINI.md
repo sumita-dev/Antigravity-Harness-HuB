@@ -145,6 +145,7 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột tự động (Path, AST/Symbol GitNexus, Strict Evidence, Exit Code) |
 | `/cham-soc-may-tinh` | Chăm Sóc & Tối Ưu PC | Bảo dưỡng, dọn dẹp Windows, giải phóng RAM, ReTrim SSD |
 | `/browser-hygiene` | Browser & Process Hygiene | Rà soát và dọn dẹp an toàn trình duyệt tự động & server dev |
+| `/karpathy-second-brain` | Karpathy Second Brain | Vận hành Bộ não thứ 2 Obsidian theo chuẩn LLM Wiki Karpathy |
 
 ### 4.1 Gemini Native App Workflow
 
