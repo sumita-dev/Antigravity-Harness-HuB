@@ -39,22 +39,22 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 ## 2. Kỹ Năng Nhánh Marketing — Lệnh Slash & Gọi Trực Tiếp Trong Ô Chat
 Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng tương ứng từ `plugins/marketing/skills/<tên_skill>/SKILL.md`:
 
-| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
-| :--- | :--- | :--- |
-| `/boc-phot-storytelling` | Bóc Phốt Tài Chính | Kịch bản YouTube 6 format kể chuyện |
-| `/check-youtube-policy` | YouTube Policy Auditor | Rà soát chính sách YPP, bản quyền, EDSA |
-| `/yt-competitor-analyzer` | YouTube Competitor Analyzer | Quét video đối thủ, phát hiện outlier |
-| `/alex-hormozi-offer-builder` | Grand Slam Offer Builder | Offer chuyển đổi cao theo $100M Offers |
-| `/alex-hormozi-money-models` | $100M Money Models | Thang giá trị, dòng tiền, kế hoạch 90 ngày |
-| `/kahneman-creative-ads` | Kahneman Creative Strategy | Creative Canvas 1 trang & 8 vùng sáng tạo |
-| `/traffic-secrets-playbook` | Traffic Secrets Playbook | Traffic 14 bước Russell Brunson |
-| `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 | Content bán hàng 14 công thức & NLP |
-| `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 | Chuẩn Search Engine, Snippet & AI Citations |
-| `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán CPA, ROAS, CPM, Breakdown Effect |
-| `/paid-media-auditor` | Paid Media Auditor | Audit đa kênh Google/Meta qua 200+ checks |
-| `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage qua Meta Graph API |
-| `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Hành trình 6 pha & ma trận kênh Noti |
-| `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng X, YouTube, Reddit |
+| Lệnh Slash | Tên Kỹ Năng |
+| :--- | :--- |
+| `/boc-phot-storytelling` | Kịch bản Bóc Phốt Tài Chính |
+| `/check-youtube-policy` | YouTube Policy Auditor |
+| `/yt-competitor-analyzer` | YouTube Competitor Analyzer |
+| `/alex-hormozi-offer-builder` | Grand Slam Offer Builder |
+| `/alex-hormozi-money-models` | $100M Money Models |
+| `/kahneman-creative-ads` | Kahneman Creative Strategy |
+| `/traffic-secrets-playbook` | Traffic Secrets Playbook |
+| `/cong-thuc-viet-content-by-noti-v4` | 14 Công Thức Viết Content Noti v4 |
+| `/viet-content-seo-geo-v5` | Content Chuẩn SEO + AEO + GEO v5 |
+| `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti |
+| `/paid-media-auditor` | Paid Media Auditor |
+| `/fb-admin` | Facebook Fanpage Manager |
+| `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh |
+| `/social-reach` | Social Reach Scout |
 
 ---
 
@@ -67,46 +67,46 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 ## 4. Kỹ Năng Nhánh Kỹ Thuật (App Branch)
 Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 
-| Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
-| :--- | :--- | :--- |
-| `/app` | App MVP Loop | Xây dựng ứng dụng web/tool từ brief |
-| `/test-driven-development` | TDD Workflow | Red-Green-Refactor, test trước code |
-| `/systematic-debugging` | Systematic Debugging | 4 pha cô lập nguyên nhân gốc rễ |
-| `/karpathy-coder` | Karpathy Coder | 4 nguyên lý lập trình thực dụng |
-| `/security-review` | Security Review | Quét lỗ hổng OWASP, injection, API leak |
-| `/impeccable` | Impeccable Frontend Design | 59 detector rules, 24 design commands |
-| `/verify-ui` | UI Verification | Kiểm chứng giao diện qua Chrome DevTools MCP |
-| `/accessibility` | Accessibility (a11y) | Chuẩn trợ năng WCAG 2.2 Level AA |
-| `/database-migrations` | Database Migrations | Schema migration an toàn, zero-downtime |
-| `/reverse-lab` | Reverse Engineering | An toàn bản quyền, anti-tamper app |
-| `/gitnexus-plan` | GitNexus Plan | Kế hoạch kiến trúc qua Knowledge Graph |
-| `/gitnexus-work` | GitNexus Work | Thực thi kế hoạch kèm impact checks |
-| `/gitnexus-review` | GitNexus Review | Đánh giá PR & blast radius regression |
-| `/ponytail-review` | Simplify & Anti-Overengineering | Cắt giảm abstraction & mã phình dư thừa |
-| `/forensics` | Code Forensics | Truy tìm nguồn gốc lỗi ngầm & race condition |
-| `/why` | Epistemics Why | Điều tra lý do lịch sử & nguồn gốc thiết kế |
-| `/arena` | Multi-Solution Arena | Đối đầu & benchmark đa phương án song song |
-| `/hillclimb` | Hill Climbing Optimization | Tối ưu hiệu năng thực nghiệm, đo latency |
-| `/domain-modeling` | Domain-Driven Design | Mô hình hóa DDD & ubiquitous language |
-| `/verification-before-completion` | Verification Gate | Bắt buộc chạy test chứng minh trước khi xong |
-| `/advisor` | Architecture Advisor | Trọng tài cố vấn độc lập đánh giá rủi ro |
-| `/loop-circuit-breaker` | Loop Circuit Breaker | Ngắt mạch chống lặp vô hạn & cháy token |
-| `/apple-inspired-design` | Apple-Inspired Design | Chuẩn Apple HIG, bộ nhớ thiết kế & AI critic |
-| `/query-wiki` | Query Wiki (F:\Obsidian) | Tra cứu tri thức F:\Obsidian có citation |
-| `/ingest-source` | Ingest Source (F:\Obsidian) | Tiêu hoá tài liệu thô theo 3 kỷ luật |
-| `/lint-wiki` | Lint Wiki (F:\Obsidian) | Rà soát sức khoẻ Vault (broken links, orphans) |
-| `/second-brain-memory` | Second Brain Memory | Đồng bộ facts & handoff vào memory/log.md |
-| `/obsidian-markdown` | Obsidian Markdown | Cú pháp Obsidian, wikilinks, callouts |
-| `/json-canvas` | JSON Canvas | Sơ đồ Canvas (.canvas) chuẩn spec 1.0 |
-| `/obsidian-bases` | Obsidian Bases | Bảng dữ liệu (.base) views, filters, formulas |
-| `/subagent-driven-development` | Subagent-Driven Development | Thực thi kế hoạch bằng subagent từng task |
-| `/receiving-code-review` | Tiếp Nhận Code Review | Tiếp nhận phản biện bản lĩnh, đối soát YAGNI |
-| `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Menu 3 lựa chọn nghiệm thu/merge nhánh |
-| `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán phiên làm việc 7 chiều |
-| `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn 4 trụ cột (Path, AST, Evidence, Exit 0) |
-| `/cham-soc-may-tinh` | Chăm Sóc & Tối Ưu PC | Bảo dưỡng Windows, giải phóng RAM, ReTrim SSD |
-| `/browser-hygiene` | Browser & Process Hygiene | Dọn dẹp trình duyệt tự động & tiến trình mồ côi |
-| `/karpathy-second-brain` | Karpathy Second Brain | Second Brain Obsidian chuẩn LLM Wiki Karpathy |
+| Lệnh Slash | Tên Kỹ Năng |
+| :--- | :--- |
+| `/app` | App MVP Loop |
+| `/test-driven-development` | TDD Workflow |
+| `/systematic-debugging` | Systematic Debugging |
+| `/karpathy-coder` | Karpathy Coder |
+| `/security-review` | Security Review |
+| `/impeccable` | Impeccable Frontend Design |
+| `/verify-ui` | UI Verification |
+| `/accessibility` | Accessibility (a11y) |
+| `/database-migrations` | Database Migrations |
+| `/reverse-lab` | Reverse Engineering |
+| `/gitnexus-plan` | GitNexus Plan |
+| `/gitnexus-work` | GitNexus Work |
+| `/gitnexus-review` | GitNexus Review |
+| `/ponytail-review` | Simplify & Anti-Overengineering |
+| `/forensics` | Code Forensics |
+| `/why` | Epistemics Why |
+| `/arena` | Multi-Solution Arena |
+| `/hillclimb` | Hill Climbing Optimization |
+| `/domain-modeling` | Domain-Driven Design |
+| `/verification-before-completion` | Verification Gate |
+| `/advisor` | Architecture Advisor |
+| `/loop-circuit-breaker` | Loop Circuit Breaker |
+| `/apple-inspired-design` | Apple-Inspired Design |
+| `/query-wiki` | Query Wiki (F:\Obsidian) |
+| `/ingest-source` | Ingest Source (F:\Obsidian) |
+| `/lint-wiki` | Lint Wiki (F:\Obsidian) |
+| `/second-brain-memory` | Second Brain Memory |
+| `/obsidian-markdown` | Obsidian Markdown |
+| `/json-canvas` | JSON Canvas |
+| `/obsidian-bases` | Obsidian Bases |
+| `/subagent-driven-development` | Subagent-Driven Development |
+| `/receiving-code-review` | Tiếp Nhận Code Review |
+| `/finishing-a-development-branch` | Hoàn Tất Nhánh Git |
+| `/diagnosing-harness` | Kiểm Toán Transcript AI |
+| `/anti-hallucination-guard` | Anti-Hallucination Guard |
+| `/cham-soc-may-tinh` | Chăm Sóc & Tối Ưu PC |
+| `/browser-hygiene` | Browser & Process Hygiene |
+| `/karpathy-second-brain` | Karpathy Second Brain |
 
 ### 4.1 Gemini Native App Workflow (`plugins/code/skills/app/SKILL.md` & `docs/app-workflow-guide.md`)
 - **Luồng bắt buộc:** Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → [Nếu UI: sinh 2–4 ảnh concept bằng `generate_image` → Sếp chọn qua `ask_question`] → Builder → Code Critic (GAP & logic) → QA độc lập (tests & local preview) → bàn giao. Dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent.
