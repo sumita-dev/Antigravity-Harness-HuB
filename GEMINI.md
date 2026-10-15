@@ -139,8 +139,3 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 2. **Chủ Động Tiêu Hoá (Auto-Ingest):** Dữ liệu mới trong `sources/` hoặc chat: tự điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Mục tiêu vs thực tế, Giữ mâu thuẫn) thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
 3. **Chủ Động Đúc Kết (Memory Reflection):** Xong việc/có bài học: lưu facts vào `memory/facts/`, `MEMORY.md`; append `wiki/log.md` (`## [YYYY-MM-DD] ...`); cập nhật `_session-handoff.md`.
 4. **Rà Soát Sức Khoẻ (Gap Detection):** Câu hỏi mở: tự append `wiki/_open-questions.md` và cảnh báo mâu thuẫn tri thức.
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-Indexed as **Antigravity-Harness-HuB**. Run `impact({target: "symbolName", direction: "upstream"})` before editing any symbol; warn on HIGH/CRITICAL risk; run `detect_changes()` before committing.
-<!-- gitnexus:end -->
