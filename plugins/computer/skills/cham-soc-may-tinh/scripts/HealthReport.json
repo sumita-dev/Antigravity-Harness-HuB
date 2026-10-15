@@ -1,0 +1,42 @@
+{
+  "Timestamp": "2026-10-15 09:08:26",
+  "HardwareSummary": {
+    "DiskC_FreePercent": 24.8,
+    "DiskC_FreeGB": 77.78,
+    "Chassis": "Laptop",
+    "RAM_UsedPercent": 80.3,
+    "RAM_TotalGB": 15.77
+  },
+  "CoreExecution_90": {
+    "DevCachesCleanableMB": 760.77,
+    "SQLiteSizeMB": 519.31,
+    "WinSxSUpdateMB": 0.08,
+    "TempCacheMB": 0.0,
+    "DockerVhdxGB": 14.31,
+    "SQLiteDBCount": 286,
+    "PrintSpoolStuck": 0,
+    "SSDReTrimSupported": true
+  },
+  "StrategicAdvisory_10": [
+    {
+      "Assessment": "Dung lượng RAM 15.77 GB (dùng 80.3%) và ổ C: (còn trống 24.8%) ở trạng thái ổn định.",
+      "Domain": "Hardware",
+      "Status": "ADVICE_UPGRADE_RAM"
+    },
+    {
+      "Assessment": "Độ trễ phản hồi DNS 1.1.1.1 là  ms.",
+      "Domain": "Network",
+      "Status": "EXCELLENT"
+    },
+    {
+      "Assessment": "Cache lập trình (760.77 MB), Thùng rác (0 MB), CrashDumps (0 MB), Docker (14.31 GB).",
+      "Domain": "DevCaches_Storage",
+      "Status": "CLEANABLE"
+    },
+    {
+      "Assessment": "Cấu hình khởi động an toàn WHQL Driver và WMI nguyên vẹn. Không có dấu hiệu can thiệp lạ.",
+      "Domain": "Security & Boot",
+      "Status": "PROTECTED"
+    }
+  ]
+}

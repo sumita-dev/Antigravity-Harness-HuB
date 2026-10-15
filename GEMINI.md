@@ -143,6 +143,8 @@ Dành cho các tác vụ lập trình, xây dựng ứng dụng và kiểm thử
 | `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Menu 3 lựa chọn nghiệm thu/merge nhánh, kiểm tra baseline và dọn worktree |
 | `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán phiên làm việc 7 chiều (cháy token, lặp vô ích, lệch plan) |
 | `/anti-hallucination-guard` | Anti-Hallucination Guard | Rào chắn chống ảo giác 4 trụ cột tự động (Path, AST/Symbol GitNexus, Strict Evidence, Exit Code) |
+| `/cham-soc-may-tinh` | Chăm Sóc & Tối Ưu PC | Bảo dưỡng, dọn dẹp Windows, giải phóng RAM, ReTrim SSD |
+| `/browser-hygiene` | Browser & Process Hygiene | Rà soát và dọn dẹp an toàn trình duyệt tự động & server dev |
 
 ### 4.1 Gemini Native App Workflow
 
@@ -181,33 +183,23 @@ Runtime Gemini trong Antigravity gọi tác tử native; simulation không thay 
 
 ---
 
-## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain Protocol — F:\Obsidian)
+## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain — F:\Obsidian)
 
-1. **Chủ Động Tra Cứu (Auto-Query Before Planning):**
-   - Khi nhận bất kỳ yêu cầu/nhiệm vụ nào từ Sếp (chiến lược marketing, kiến trúc mã nguồn, format nội dung, tâm lý học kinh doanh, giải quyết lỗi), Quản đốc BẮT BUỘC tự động kiểm tra `F:\Obsidian\wiki\index.md` và các trang wiki liên quan để nạp bối cảnh, quy chuẩn, bài học cũ trước khi lập kế hoạch hay giao việc cho SubAgent.
-   - Tuyệt đối không bắt Sếp phải gõ `/query-wiki`.
-2. **Chủ Động Tiêu Hoá (Auto-Ingest on Raw Material):**
-   - Khi có dữ liệu mới, bài viết, sách, bản ghi chat, research dossier hoặc tài liệu đưa vào `sources/` hoặc xuất hiện trong chat, Quản đốc tự động điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Phân biệt mục tiêu vs thực tế, Giữ mâu thuẫn) để chưng cất thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
-3. **Chủ Động Đúc Kết & Lưu Ký Ức (Autonomous Compounding & Memory Reflection):**
-   - Sau khi hoàn thành một nhiệm vụ hoặc có quyết định/bài học quan trọng, Quản đốc tự động:
-     + Lưu facts/quyết định vào `F:\Obsidian\memory\facts/` và `MEMORY.md`.
-     + Append nhật ký vào `F:\Obsidian\wiki\log.md` (chuẩn `## [YYYY-MM-DD] ...`).
-     + Cập nhật trạng thái bàn giao vào `F:\Obsidian\wiki\_session-handoff.md`.
-4. **Chủ Động Rà Soát Sức Khoẻ (Autonomous Health & Gap Detection):**
-   - Nếu phát hiện câu hỏi chưa giải quyết hoặc lỗ hổng tri thức, tự động append vào `F:\Obsidian\wiki\_open-questions.md` và cảnh báo mâu thuẫn tri thức.
+1. **Chủ Động Tra Cứu (Auto-Query):** Khi nhận việc (marketing, mã nguồn, format, fix bug), Quản đốc BẮT BUỘC tự tra cứu `F:\Obsidian\wiki\index.md` nạp bối cảnh, bài học cũ trước khi lập kế hoạch hay giao SubAgent (không bắt Sếp gõ `/query-wiki`).
+2. **Chủ Động Tiêu Hoá (Auto-Ingest):** Khi có tài liệu mới trong `sources/` hoặc chat, tự điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Mục tiêu vs thực tế, Giữ mâu thuẫn) thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
+3. **Chủ Động Đúc Kết (Memory Reflection):** Xong việc/có bài học: lưu facts vào `memory/facts/` và `MEMORY.md`; append `wiki/log.md` (`## [YYYY-MM-DD] ...`); cập nhật `wiki/_session-handoff.md`.
+4. **Rà Soát Sức Khoẻ (Gap Detection):** Câu hỏi chưa giải quyết tự append `wiki/_open-questions.md` và cảnh báo mâu thuẫn tri thức.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Antigravity-Harness-HuB** (7661 symbols, 18620 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze`.
+Indexed by GitNexus as **Antigravity-Harness-HuB** (7661 symbols, 18620 rels, 300 flows). Run `node .gitnexus/run.cjs analyze` if stale.
 
 ## Always Do
-- **MUST run impact analysis before editing any symbol:** `impact({target: "symbolName", direction: "upstream"})` and report blast radius before modifying any function, class, or method.
+- **MUST run impact analysis before editing any symbol:** `impact({target: "symbolName", direction: "upstream"})` and report blast radius.
 - **MUST run `detect_changes()` before committing** to verify changes only affect expected symbols.
 - **MUST warn user** if impact analysis returns HIGH or CRITICAL risk.
-- Use `query()` to find execution flows; use `context()` for full context on a symbol; use `explain()` for taint findings.
+- Use `query()` for flows; `context()` for symbol context; `explain()` for taint findings.
 
 ## Never Do
 - NEVER edit a function, class, or method without first running `impact` on it.
@@ -215,3 +207,4 @@ This project is indexed by GitNexus as **Antigravity-Harness-HuB** (7661 symbols
 - NEVER rename symbols with find-and-replace — use `rename`.
 - NEVER commit changes without running `detect_changes()`.
 <!-- gitnexus:end -->
+
