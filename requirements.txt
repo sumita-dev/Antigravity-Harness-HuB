@@ -1,6 +1,7 @@
 # Runtime
 python-dotenv>=1.0.0
 requests>=2.31.0
+markitdown>=0.1.7
 
 # Test
 pytest>=8.0.0
