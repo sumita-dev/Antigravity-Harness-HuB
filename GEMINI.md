@@ -55,6 +55,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 | `/fb-admin` | Facebook Fanpage Manager |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh |
 | `/social-reach` | Social Reach Scout |
+| `/flowkit` | AI Video Production Studio (Google Flow / Veo 3) |
 
 ---
 
