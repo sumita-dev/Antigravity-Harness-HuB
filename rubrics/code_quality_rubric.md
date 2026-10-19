@@ -31,6 +31,8 @@
 - **Zero Hardcoded Secrets:** Tuyệt đối không hardcode secret/token/mật khẩu/private keys trong mã nguồn (bắt buộc quét sạch qua `scripts/run_security_audit.py`).
 - **Zero Critical Vulnerabilities:** Phụ thuộc (dependencies trong package.json / requirements.txt) không chứa lỗ hổng bảo mật mức Critical.
 - **Health Check Readiness:** Hệ thống/ứng dụng phải có endpoint `/health` (tiêu chí AC-HEALTH) trả về trạng thái hoạt động, uptime và version phục vụ giám sát và container orchestration.
+- **Adversarial Refutation:** Chủ động tìm cách phản bác giả thuyết lỗ hổng (kiểm tra framework defenses, sanitizers, validation schemas, context isolation upstream) trước khi kết luận.
+- **Phân định `needs_validation`:** Không phỏng đoán mò các ranh giới môi trường ngoài (Cloud IAM, WAF, proxy, OS-level code signing) nếu không thể quan sát trên máy cục bộ; ghi nhận `needs_validation` kèm kế hoạch kiểm chứng cụ thể (`validation_plan`).
 - Kiểm tra & làm sạch đầu vào ở ranh giới hệ thống (chống injection).
 - Không nối chuỗi để tạo câu truy vấn/lệnh hệ thống.
 - Lỗi trả về không rò rỉ thông tin nội bộ (stack trace, đường dẫn, phiên bản).
