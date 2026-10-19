@@ -112,6 +112,8 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 | `/browser-hygiene` | Browser & Process Hygiene |
 | `/karpathy-second-brain` | Karpathy Second Brain |
 | `/doc-to-markdown` | Document to Markdown |
+| `/testcontainers` | Ephemeral Database Sandbox |
+
 
 ### 4.1 Gemini Native App Workflow (`plugins/code/skills/app/SKILL.md` & `docs/app-workflow-guide.md`)
 - **Luồng bắt buộc:** Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec → [Nếu UI: sinh 2–4 ảnh concept bằng `generate_image` → Sếp chọn qua `ask_question`] → Builder → Code Critic (GAP & logic) → QA độc lập (tests & local preview) → bàn giao. Dùng checkpoint `run_harness.py --workflow ...`; route theo stage/next_agent.
