@@ -408,3 +408,98 @@ def test_social_reach_jina_fallback_mock_and_offline(monkeypatch):
     assert "limitations" in err_res
     assert "fallback_suggested" in err_res
 
+
+def test_social_reach_twitter_commands_env_and_fallback(monkeypatch):
+    import shutil
+    import subprocess
+    from scripts.social_reach import run_reach
+
+    synthetic_token = "synthetic_twitter_token_12345"
+    synthetic_ct0 = "synthetic_ct0_abcdef67890"
+    monkeypatch.setattr(
+        "scripts.social_reach.load_agent_reach_config",
+        lambda: {"twitter_auth_token": synthetic_token, "twitter_ct0": synthetic_ct0},
+    )
+
+    captured_calls = []
+
+    def mock_subprocess_run(cmd, env=None, **kwargs):
+        captured_calls.append((cmd, env))
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="ok: true", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: "twitter" if name in ("twitter", "twitter-cli") else ("agent-reach" if name == "agent-reach" else None),
+    )
+
+    # 1. Test với url -> [twitter, tweet, url]
+    res_url = run_reach("twitter", url="https://x.com/user/status/123456")
+    assert res_url["status"] == "success"
+    assert res_url["engine"] == "twitter"
+    assert captured_calls[-1][0] == ["twitter", "tweet", "https://x.com/user/status/123456"]
+    assert captured_calls[-1][1]["PYTHONUTF8"] == "1"
+    assert captured_calls[-1][1]["TWITTER_AUTH_TOKEN"] == synthetic_token
+    assert captured_calls[-1][1]["TWITTER_CT0"] == synthetic_ct0
+
+    # 2. Test với query -> [twitter, search, query]
+    res_query = run_reach("twitter", query="AI agents")
+    assert res_query["status"] == "success"
+    assert captured_calls[-1][0] == ["twitter", "search", "AI agents"]
+
+    # 3. Test không query/url -> [twitter, whoami]
+    res_whoami = run_reach("twitter")
+    assert res_whoami["status"] == "success"
+    assert captured_calls[-1][0] == ["twitter", "whoami"]
+
+    # 4. Test không ghi đè env đã tồn tại
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", "existing_custom_token")
+    run_reach("twitter", query="test")
+    assert captured_calls[-1][1]["TWITTER_AUTH_TOKEN"] == "existing_custom_token"
+
+    # 5. Test fallback khi twitter CLI lỗi -> fallback sang agent-reach
+    def mock_run_twitter_fails(cmd, env=None, **kwargs):
+        captured_calls.append((cmd, env))
+        if cmd[0] == "twitter":
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="Error 404")
+        if cmd[0] == "agent-reach":
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="Agent reach data", stderr="")
+        return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", mock_run_twitter_fails)
+    res_fallback = run_reach("twitter", query="fallback test")
+    assert res_fallback["status"] == "success"
+    assert res_fallback["engine"] == "agent-reach"
+
+    # 6. Test khi tất cả đều lỗi -> status unavailable không crash
+    def mock_all_fail(cmd, env=None, **kwargs):
+        return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="Fatal error")
+
+    monkeypatch.setattr(subprocess, "run", mock_all_fail)
+    res_all_fail = run_reach("twitter", query="all fail")
+    assert res_all_fail["status"] == "unavailable"
+    assert "limitations" in res_all_fail
+    assert "fallback_suggested" in res_all_fail
+
+
+def test_social_reach_twitter_redaction_config_tokens(monkeypatch):
+    from scripts.social_reach import redact_sensitive_data
+
+    secret_auth = "conf_secret_auth_token_9999"
+    secret_ct0 = "conf_secret_ct0_value_8888"
+    monkeypatch.setattr(
+        "scripts.social_reach.load_agent_reach_config",
+        lambda: {"twitter_auth_token": secret_auth, "twitter_ct0": secret_ct0},
+    )
+
+    raw_payload = {
+        "status": "success",
+        "raw_log": f"Sending auth_token={secret_auth} with ct0={secret_ct0}",
+        "raw_token_only": secret_auth,
+    }
+    cleaned = redact_sensitive_data(raw_payload)
+    assert secret_auth not in json.dumps(cleaned)
+    assert secret_ct0 not in json.dumps(cleaned)
+
+

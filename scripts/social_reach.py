@@ -67,6 +67,39 @@ ENV_SECRETS_KEYS = (
 )
 
 
+def load_agent_reach_config() -> dict[str, str]:
+    """Nạp cấu hình auth token / cookie từ ~/.agent-reach/config.yaml nếu tồn tại."""
+    config_path = Path.home() / ".agent-reach" / "config.yaml"
+    if not config_path.is_file():
+        return {}
+
+    try:
+        content = config_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return {}
+
+    data: dict[str, str] = {}
+    try:
+        import yaml  # type: ignore
+
+        loaded = yaml.safe_load(content)
+        if isinstance(loaded, dict):
+            for k, v in loaded.items():
+                if v is not None:
+                    data[str(k).strip()] = str(v).strip()
+            return data
+    except Exception:
+        pass
+
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        data[k.strip()] = v.strip().strip("'\"")
+    return data
+
+
 def redact_sensitive_data(value: Any) -> Any:
     """Bóc tách và che giấu các token, cookie, sessionid và credentials nhạy cảm."""
     if isinstance(value, dict):
@@ -91,6 +124,15 @@ def redact_sensitive_data(value: Any) -> Any:
             env_val = os.environ.get(env_key, "").strip()
             if env_val and len(env_val) >= 4:
                 text = text.replace(env_val, "[REDACTED]")
+
+        try:
+            cfg = load_agent_reach_config()
+            for cfg_val in cfg.values():
+                val_str = str(cfg_val).strip()
+                if val_str and len(val_str) >= 4:
+                    text = text.replace(val_str, "[REDACTED]")
+        except Exception:
+            pass
 
         for pattern, repl in SENSITIVE_TEXT_PATTERNS:
             text = pattern.sub(repl, text)
@@ -117,8 +159,8 @@ def check_doctor() -> dict[str, Any]:
 
     platforms = {
         "twitter": {
-            "ready": bool(agent_reach_bin or xreach_bin or twitter_bin),
-            "engine": "agent-reach" if agent_reach_bin else ("xreach" if xreach_bin else ("twitter" if twitter_bin else None)),
+            "ready": bool(twitter_bin or agent_reach_bin or xreach_bin),
+            "engine": "twitter" if twitter_bin else ("agent-reach" if agent_reach_bin else ("xreach" if xreach_bin else None)),
             "fallback_suggested": "Google Dorking: site:x.com or site:twitter.com via search_web",
         },
         "reddit": {
@@ -271,45 +313,127 @@ def run_reach(
         return fetch_jina_fallback(url=url, query=query, timeout=timeout)
 
     if platform == "twitter":
+        proc_env = os.environ.copy()
+        proc_env["PYTHONUTF8"] = "1"
+
+        cfg = load_agent_reach_config()
+        if "TWITTER_AUTH_TOKEN" not in proc_env:
+            token = cfg.get("twitter_auth_token") or cfg.get("TWITTER_AUTH_TOKEN") or cfg.get("auth_token")
+            if token:
+                proc_env["TWITTER_AUTH_TOKEN"] = token
+                proc_env.setdefault("AUTH_TOKEN", token)
+
+        if "TWITTER_CT0" not in proc_env:
+            ct0 = cfg.get("twitter_ct0") or cfg.get("TWITTER_CT0") or cfg.get("ct0")
+            if ct0:
+                proc_env["TWITTER_CT0"] = ct0
+                proc_env.setdefault("CT0", ct0)
+
+        twitter_bin = shutil.which("twitter") or shutil.which("twitter-cli")
         agent_reach_bin = shutil.which("agent-reach")
         xreach_bin = shutil.which("xreach")
-        twitter_bin = shutil.which("twitter") or shutil.which("twitter-cli")
-        cmd = None
-        if agent_reach_bin:
-            cmd = [agent_reach_bin, "twitter"] + ([query] if query else ([url] if url else []))
-        elif xreach_bin:
-            cmd = [xreach_bin] + ([query] if query else ([url] if url else []))
-        elif twitter_bin:
-            cmd = [twitter_bin] + ([query] if query else ([url] if url else []))
 
-        if cmd:
+        # 1. Ưu tiên gọi lệnh twitter CLI
+        if twitter_bin:
+            if url:
+                cmd = [twitter_bin, "tweet", url]
+            elif query:
+                cmd = [twitter_bin, "search", query]
+            else:
+                cmd = [twitter_bin, "whoami"]
+
             try:
                 proc = subprocess.run(
                     cmd,
+                    env=proc_env,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
                     encoding="utf-8",
                     errors="replace",
                 )
-                return {
-                    "status": "success" if proc.returncode == 0 else "error",
-                    "platform": "twitter",
-                    "exit_code": proc.returncode,
-                    "output": proc.stdout or proc.stderr,
-                }
-            except Exception as exc:
-                return {
-                    "status": "unavailable",
-                    "platform": "twitter",
-                    "limitations": f"Execution error: {exc}",
-                    "fallback_suggested": "Use Google Dorking: site:x.com or site:twitter.com via search_web",
-                }
+                if proc.returncode == 0:
+                    return {
+                        "status": "success",
+                        "platform": "twitter",
+                        "engine": "twitter",
+                        "exit_code": 0,
+                        "output": proc.stdout or proc.stderr,
+                    }
+                # Nếu không có query/url và whoami thất bại, thử status
+                if not url and not query:
+                    status_proc = subprocess.run(
+                        [twitter_bin, "status"],
+                        env=proc_env,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                    if status_proc.returncode == 0:
+                        return {
+                            "status": "success",
+                            "platform": "twitter",
+                            "engine": "twitter",
+                            "exit_code": 0,
+                            "output": status_proc.stdout or status_proc.stderr,
+                        }
+            except Exception:
+                pass
+
+        # 2. Fallback sang agent-reach nếu twitter-cli chưa cài hoặc lệnh fail
+        if agent_reach_bin:
+            cmd = [agent_reach_bin, "twitter"] + ([query] if query else ([url] if url else []))
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    env=proc_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                if proc.returncode == 0:
+                    return {
+                        "status": "success",
+                        "platform": "twitter",
+                        "engine": "agent-reach",
+                        "exit_code": 0,
+                        "output": proc.stdout or proc.stderr,
+                    }
+            except Exception:
+                pass
+
+        # 3. Fallback sang xreach nếu có
+        if xreach_bin:
+            cmd = [xreach_bin] + ([query] if query else ([url] if url else []))
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    env=proc_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                if proc.returncode == 0:
+                    return {
+                        "status": "success",
+                        "platform": "twitter",
+                        "engine": "xreach",
+                        "exit_code": 0,
+                        "output": proc.stdout or proc.stderr,
+                    }
+            except Exception:
+                pass
 
         return {
             "status": "unavailable",
             "platform": "twitter",
-            "limitations": "Agent-Reach CLI not installed or platform offline",
+            "limitations": "Twitter CLI or Agent-Reach adapter not installed or command failed",
             "fallback_suggested": "Use Google Dorking: site:x.com or site:twitter.com via search_web",
         }
 
