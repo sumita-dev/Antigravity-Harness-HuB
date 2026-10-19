@@ -31,6 +31,7 @@
 
 ### Trụ cột 4: Khả Năng Bảo Trì & Kiến Trúc Sạch (Maintainability & Clean Design)
 - **Surgical Diff:** Mã nguồn có tuân thủ 4 nguyên lý Karpathy (thay đổi tối thiểu, giải quyết đúng mục tiêu)?
+- **Chống Thiên Kiến Phức Tạp (Anti-Complexity Bias):** Giữ nguyên codebase tối giản ban đầu là kết quả hoàn toàn hợp lệ và đáng kỳ vọng. CẤM TUYỆT ĐỐI cộng điểm cho các giải pháp cố tình tạo thêm abstraction/lớp thừa (over-engineering, speculative generics, factory/wrapper một lần dùng). Phải ưu tiên giải pháp ít dòng mã nhất, ít tầng trung gian nhất mà vẫn giải quyết triệt để yêu cầu.
 - Có code rác (dead code), code comment-out hoặc console.log/print thừa trong luồng xử lý không?
 - Xử lý ngoại lệ: Có hiện tượng "nuốt lỗi" (catch generic Exception rồi bỏ qua âm thầm) không?
 - Tách biệt trách nhiệm: Hàm có quá dài (>50 dòng) hoặc xử lý quá nhiều việc không?
@@ -47,8 +48,9 @@
 | 4 | Bằng chứng thực chứng (Reality Check) | Bắt buộc | Thiếu bằng chứng thực thi, tự phong 'zero issues' |
 | 5 | Không nuốt lỗi (No Silent Fail) | Bắt buộc | try/catch rỗng, che giấu lỗi hệ thống |
 | 6 | Không vượt Blast Radius | Bắt buộc | Sửa các module ngoài phạm vi Spec |
-| 7 | Đặt tên & Cấu trúc mã | Nên | Tên biến tối nghĩa, hàm vi phạm Single Responsibility |
-| 8 | Tách biệt logic và biểu diễn | Nên | Trộn lẫn logic nghiệp vụ vào tầng UI/Controller |
+| 7 | Chống Thiên Kiến Phức Tạp | Bắt buộc | Cố tình tạo thêm abstraction/lớp thừa, over-engineering |
+| 8 | Đặt tên & Cấu trúc mã | Nên | Tên biến tối nghĩa, hàm vi phạm Single Responsibility |
+| 9 | Tách biệt logic và biểu diễn | Nên | Trộn lẫn logic nghiệp vụ vào tầng UI/Controller |
 
 ---
 

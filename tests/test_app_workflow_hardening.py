@@ -4,10 +4,25 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+import shutil
+from test_app_workflow import optional_browser_collector, reviewed, command, receipt
 
 import pytest
 
 from harness.app_workflow import AppWorkflowStore, WorkflowError
+
+
+def signed_plan(criteria):
+    applicable = [ac for ac in criteria if ac.get("applicable", True)]
+    plan = []
+    non_ui = [ac["id"] for ac in applicable if not ac["ui"]]
+    if non_ui:
+        plan.append(dict(command(*non_ui), browser=None))
+    for ac in applicable:
+        if ac["ui"]:
+            plan.append(dict(command(ac["id"]), id="BROWSER_" + ac["id"]))
+    return plan
 
 
 def prepared(tmp_path, *, criteria=None, **extra):
@@ -18,6 +33,7 @@ def prepared(tmp_path, *, criteria=None, **extra):
     store.create("task", "build", project)
     spec = {"scope": "app", "design": "local", "contracts": "api", "risks": "none",
             "evidence_root": str(tmp_path / "evidence"),
+            "verification_commands": signed_plan(criteria or [{"id":"UI", "ui":True},{"id":"API", "ui":False}]),
             "acceptance_criteria": criteria or [
                 {"id": "UI", "description": "render", "ui": True},
                 {"id": "API", "description": "serve", "ui": False}], **extra}
@@ -25,26 +41,45 @@ def prepared(tmp_path, *, criteria=None, **extra):
     state = store.submit_spec("task", spec, "architect")
     store.review_design("task", "APPROVE", "reviewer", state["spec_sha256"], "checked")
     store.sign_off("task", state["spec_sha256"], "SIGN_OFF: approved")
-    state = store.submit_implementation("task", "builder", "built")
+    state = reviewed(store, "task", "builder", "built")
     return store, project, state
 
 
 def payload(tmp_path, state, *, partial=False):
-    log = tmp_path / "evidence" / "qa.log"
-    log.write_text("test pass")
+    store = AppWorkflowStore(tmp_path / "brain")
+    runs = {}
+    commands = []
+    for contract in state["spec"]["verification_commands"]:
+        if partial and contract.get("browser") and "DONE" not in contract["ac_ids"]:
+            continue
+        run, directory = receipt(store, state, command_id=contract["id"])
+        commands.append({"id": contract["id"], "receipt_id": run["receipt_id"]})
+        for ac_id in contract["ac_ids"]: runs[ac_id] = (run, directory)
+    checks = []
+    for ac in state["spec"]["acceptance_criteria"]:
+        if not ac.get("applicable", True):
+            checks.append({"id": ac["id"], "status": "N/A", "reason": ac["na_reason"]})
+        elif ac["ui"] and partial and ac["id"] != "DONE":
+            checks.append({"id": ac["id"], "status": "NOT_VERIFIED", "reason": "browser pending"})
+        else:
+            run, directory = runs[ac["id"]]
+            output = tmp_path / "evidence" / (ac["id"] + ".png" if ac["ui"] else "qa.log")
+            shutil.copyfile(directory / ("browser.png" if ac["ui"] else "stdout.bin"), output)
+            check = {"id": ac["id"], "status": "PASS", "evidence": str(output)}
+            if ac["ui"]: check.update(receipt_id=run["receipt_id"], actor="qa")
+            checks.append(check)
     return {"spec_sha256": state["spec_sha256"], "manifest_sha256": state["manifest_sha256"],
-            "report": "independent checks", "commands": [{"command": "pytest", "cwd": state["project_root"],
-            "exit_code": 0, "log": str(log)}], "preview": {"url": "http://localhost:3000",
-            "checks": [{"id": "UI", "status": "NOT_VERIFIED", "reason": "browser absent"} if partial
-                       else {"id": "UI", "status": "PASS", "evidence": str(log)},
-                       {"id": "API", "status": "PASS", "evidence": str(log)}]}}
+            "report": "independent checks", "commands": commands,
+            "preview": {"url": "http://localhost:3000", "checks": checks}}
 
 
 def browser(tmp_path, state):
-    image = tmp_path / "evidence" / "screen.png"
-    image.write_bytes(b"png")
+    store = AppWorkflowStore(tmp_path / "brain")
+    run, directory = receipt(store, state, "browser-qa", "BROWSER_UI")
+    image = tmp_path / "evidence" / "browser-screen.png"
+    shutil.copyfile(directory / "browser.png", image)
     return {"spec_sha256": state["spec_sha256"], "manifest_sha256": state["manifest_sha256"],
-            "url": "http://localhost:3000", "checks": [{"id": "UI", "status": "PASS", "evidence": str(image)}]}
+            "url": "http://localhost:3000", "checks": [{"id": "UI", "status": "PASS", "evidence": str(image), "receipt_id": run["receipt_id"], "actor": "browser-qa"}]}
 
 
 def overwrite(store, state):
@@ -111,7 +146,7 @@ def test_design_partial_is_rejected(tmp_path):
     store = AppWorkflowStore(tmp_path / "brain")
     store.create("task", "build", project)
     spec = {"scope": "app", "design": "api", "contracts": "api", "risks": "none",
-            "acceptance_criteria": [{"id": "API", "description": "api", "ui": False}]}
+            "acceptance_criteria": [{"id": "API", "description": "api", "ui": False}], "verification_commands": [dict(command("API"), browser=None)]}
     state = store.submit_spec("task", spec, "architect")
     with pytest.raises(WorkflowError):
         store.review_design("task", "PARTIAL_APPROVE", "reviewer", state["spec_sha256"], "partial")
@@ -152,7 +187,7 @@ def test_evidence_outside_authorized_roots_rejected(tmp_path):
     data = payload(tmp_path, state)
     outside = tmp_path / "outside.log"
     outside.write_text("untrusted")
-    data["commands"][0]["log"] = str(outside)
+    data["preview"]["checks"][1]["evidence"] = str(outside)
     with pytest.raises(WorkflowError):
         store.audit("task", "APPROVE", "qa", data)
 
@@ -162,29 +197,30 @@ def test_legacy_implementation_checkpoints_fail_closed(tmp_path, stage):
     store, _, state = prepared(tmp_path)
     state.update(schema_version=1, stage=stage, next_agent=store.NEXT_AGENT[stage])
     overwrite(store, state)
-    with pytest.raises(WorkflowError, match="legacy|Legacy"):
-        store.status("task")
+    legacy = store.status("task")
+    assert legacy["read_only"] is True
+    assert legacy["verification_status"] == "NOT_VERIFIED"
+    with pytest.raises(WorkflowError):
+        store.audit("task", "APPROVE", "qa", {"report": "not revalidated"})
 
 
-def test_pristine_v1_implementation_migrates_without_repeating_signoff(tmp_path):
+def test_pristine_v1_implementation_requires_explicit_authority_revalidation(tmp_path):
     store, _, state = prepared(tmp_path)
-    state["stage"] = "IMPLEMENTATION"
-    state["next_agent"] = "builder"
-    for key in ("manifest", "manifest_sha256", "implementation_report"):
-        state.pop(key)
-    state["schema_version"] = 1
-    state["events"] = state["events"][:-1]
-    state["reject_counts"] = {"design": 1, "code": 1}
+    state.update(stage="IMPLEMENTATION", next_agent="builder", schema_version=1)
     original = copy.deepcopy(state)
     overwrite(store, state)
-    migrated = store.status("task")
-    assert migrated["schema_version"] == 2
-    assert migrated["sign_off"] == original["sign_off"]
-    assert migrated["actors"] == original["actors"]
-    assert migrated["reject_counts"] == original["reject_counts"]
+    legacy = store.status("task")
+    assert legacy["read_only"] is True
+    assert legacy["verification_status"] == "NOT_VERIFIED"
+    assert json.loads((store.root / "task.json").read_text()) == original
+    with pytest.raises(WorkflowError):
+        store.submit_implementation("task", "builder", "built")
+    migrated = store.migrate_legacy("task", "revalidate authority")
+    assert migrated["schema_version"] == 3
+    assert migrated["stage"] == "DESIGN"
+    assert "sign_off" not in migrated
     assert migrated["events"][:-1] == original["events"]
-    assert migrated["events"][-1]["action"] == "migrate-schema"
-    assert store.submit_implementation("task", "builder", "built")["stage"] == "AUDIT"
+    assert migrated["reject_counts"] == original["reject_counts"]
 
 
 @pytest.mark.parametrize("action", ["revise", "resubmit"])
@@ -195,7 +231,7 @@ def test_replacement_clears_every_downstream_aggregate(tmp_path, action):
     if action == "resubmit":
         state = store.audit("task", "REJECT", "qa", {"spec_sha256": state["spec_sha256"],
                            "manifest_sha256": state["manifest_sha256"], "report": "bug"})
-        state = store.submit_implementation("task", "builder", "fixed")
+        state = reviewed(store, "task", "builder", "fixed")
     else:
         state = store.revise("task", "new design")
     for key in ("audit", "overall_verdict", "browser_status", "functional_status", "http_status",
@@ -205,14 +241,17 @@ def test_replacement_clears_every_downstream_aggregate(tmp_path, action):
 
 
 def test_signed_command_contract_is_exact(tmp_path):
-    store, _, state = prepared(tmp_path, verification_commands=[
-        {"id": "TEST", "command": "pytest", "cwd": ".", "ac_ids": ["API"]}])
+    store, _, state = prepared(tmp_path)
     data = payload(tmp_path, state)
-    data["commands"][0].update(id="TEST", ac_ids=["API"])
-    data["commands"][0]["command"] = "echo pass"
+    data["commands"][0]["id"] = "UNSIGNED"
     with pytest.raises(WorkflowError):
         store.audit("task", "APPROVE", "qa", data)
-    data["commands"][0]["command"] = "pytest"
+    data["commands"][0]["id"] = "TEST"
+    functional_receipt = data["commands"][0]["receipt_id"]
+    data["commands"][0]["receipt_id"] = data["commands"][1]["receipt_id"]
+    with pytest.raises(WorkflowError, match="contract|binding"):
+        store.audit("task", "APPROVE", "qa", data)
+    data["commands"][0]["receipt_id"] = functional_receipt
     assert store.audit("task", "APPROVE", "qa", data)["stage"] == "APPROVED"
 
 
@@ -257,14 +296,14 @@ def test_symlink_paths_cannot_supply_source_or_evidence(tmp_path, target):
             store.audit("task", "APPROVE", "qa", payload(tmp_path, state))
         else:
             data = payload(tmp_path, state)
-            data["commands"][0]["log"] = str(tmp_path / "evidence" / ("external.log" if target == "evidence" else "alias/file"))
+            data["preview"]["checks"][1]["evidence"] = str(tmp_path / "evidence" / ("external.log" if target == "evidence" else "alias/file"))
             store.audit("task", "APPROVE", "qa", data)
 
 
 def test_evidence_traversal_is_rejected_even_inside_signed_root(tmp_path):
     store, _, state = prepared(tmp_path)
     data = payload(tmp_path, state)
-    data["commands"][0]["log"] = str(tmp_path / "evidence" / ".." / "evidence" / "qa.log")
+    data["preview"]["checks"][1]["evidence"] = str(tmp_path / "evidence" / ".." / "evidence" / "qa.log")
     with pytest.raises(WorkflowError, match="traversal"):
         store.audit("task", "APPROVE", "qa", data)
 
@@ -274,7 +313,7 @@ def test_approved_status_revalidates_qa_and_signoff_records(tmp_path, field):
     store, _, state = prepared(tmp_path)
     state = store.audit("task", "APPROVE", "qa", payload(tmp_path, state))
     if field == "command":
-        state["audit"]["commands"][0]["exit_code"] = 1
+        state["audit"]["commands"][0]["receipt_id"] = "0" * 32
     elif field == "actor":
         state["actors"]["qa_auditor"] = "builder"
     elif field == "verdict":
@@ -293,9 +332,7 @@ def test_signed_inapplicability_is_required_and_browser_covers_only_pending_ids(
                 {"id": "DONE", "description": "done", "ui": True}]
     store, _, state = prepared(tmp_path, criteria=criteria)
     data = payload(tmp_path, state, partial=True)
-    data["preview"]["checks"].extend([
-        {"id": "OPTION", "status": "N/A", "reason": "outside scope"},
-        {"id": "DONE", "status": "PASS", "evidence": data["commands"][0]["log"]}])
+    assert {check["id"] for check in data["preview"]["checks"]} == {"UI", "API", "OPTION", "DONE"}
     state = store.audit("task", "PARTIAL_APPROVE", "qa", data)
     state = store.verify_browser("task", "browser-qa", browser(tmp_path, state))
     assert state["audit"]["preview"]["checks"][2]["status"] == "N/A"
@@ -347,7 +384,7 @@ def test_legacy_audited_revalidation_preserves_task_history_and_reject_counts(tm
     overwrite(store, state)
     assert callable(getattr(store, "migrate_legacy", None))
     migrated = store.migrate_legacy("task", "revalidate legacy audit")
-    assert migrated["schema_version"] == 2
+    assert migrated["schema_version"] == 3
     assert migrated["task_id"] == original["task_id"]
     assert migrated["stage"] == "DESIGN"
     assert migrated["actors"] == original["actors"]
@@ -363,9 +400,13 @@ def test_legacy_revalidation_cannot_reopen_escalated(tmp_path):
     store, _, state = prepared(tmp_path)
     state.update(schema_version=1, stage="ESCALATED", next_agent=None, reject_counts={"design": 0, "code": 2})
     overwrite(store, state)
-    assert callable(getattr(store, "migrate_legacy", None))
+    migrated = store.migrate_legacy("task", "restart")
+    assert migrated["schema_version"] == 3
+    assert migrated["stage"] == "ESCALATED"
+    assert migrated["next_agent"] is None
+    assert migrated["reject_counts"] == state["reject_counts"]
     with pytest.raises(WorkflowError):
-        store.migrate_legacy("task", "restart")
+        store.revise("task", "restart")
 
 
 @pytest.mark.parametrize("change", [{"schema_version": []}, {"schema_version": True}, {"stage": []},
@@ -419,7 +460,7 @@ def test_ntfs_junctions_cannot_escape_source_or_evidence(tmp_path, kind):
             store.audit("task", "APPROVE", "qa", payload(tmp_path, state))
         else:
             data = payload(tmp_path, state)
-            data["commands"][0]["log"] = str(link / "source.py")
+            data["preview"]["checks"][1]["evidence"] = str(link / "source.py")
             store.audit("task", "APPROVE", "qa", data)
 
 

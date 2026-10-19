@@ -6,7 +6,7 @@ role: maker
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: pro
 workspace: inherit
 description: >
   Xây dựng và thực thi kịch bản kiểm thử E2E bằng Playwright theo chuẩn Page Object Model (POM),

@@ -1,6 +1,6 @@
 # Gemini native app workflow
 
-Antigravity gọi tác tử thật; CLI chỉ lưu/kiểm checkpoint/hash, không gọi LLM, chạy test hay browser. Simulation không có `--workflow` không chứng minh app đạt. Các gate này áp dụng app native; bảo trì harness đã được Sếp giao không tạo thêm product task hoặc human signoff giả.
+Antigravity gọi tác tử thật; CLI lưu/kiểm checkpoint/hash; chỉ `--workflow execute` chạy command argv đã ký và browser collector nếu đã khai báo. CLI không gọi LLM hay tự khởi chạy native agents. Simulation không có `--workflow` không chứng minh app đạt. Các gate này áp dụng app native; bảo trì harness đã được Sếp giao không tạo thêm product task hoặc human signoff giả.
 
 ## Quy trình Phát triển Toàn diện (End-to-End App Development Workflow)
 
@@ -43,6 +43,8 @@ py -3.12 run_harness.py --workflow spec --task-id app-smoke --actor architect-1 
 py -3.12 run_harness.py --workflow design-review --task-id app-smoke --actor reviewer-1 --payload .brain/artifacts/app-smoke/design-review.json --json
 py -3.12 run_harness.py --workflow sign-off --task-id app-smoke --payload .brain/artifacts/app-smoke/sign-off.json --json
 py -3.12 run_harness.py --workflow implementation --task-id app-smoke --actor builder-1 --payload .brain/artifacts/app-smoke/implementation.json --json
+py -3.12 run_harness.py --workflow code-review --task-id app-smoke --actor critic-1 --payload .brain/artifacts/app-smoke/code-review.json --json
+py -3.12 run_harness.py --workflow execute --task-id app-smoke --actor qa-1 --payload .brain/artifacts/app-smoke/execute.json --json
 py -3.12 run_harness.py --workflow audit --task-id app-smoke --actor qa-1 --payload .brain/artifacts/app-smoke/audit.json --json
 ```
 
@@ -92,12 +94,16 @@ Style & Aesthetic: [Apple-inspired minimalist / Linear data-dense / Modern SaaS]
 
 Spec năm mục `scope/design/contracts/acceptance_criteria/risks`; scope/design/contracts/risks là nonempty strings. AC có id/description/ui, `applicable` default true; false cần `na_reason`. **Bắt buộc có ít nhất 1 Acceptance Criteria về dữ liệu mẫu (AC-SEED)** cung cấp sẵn dữ liệu mẫu thực tế, phong phú để demo ngay khi khởi động. **Bắt buộc có tiêu chí kiểm tra trạng thái sức khỏe (AC-HEALTH)** cung cấp endpoint `/health` trả về trạng thái, uptime và version phục vụ monitoring/container. Mọi applicable AC kể cả non-UI phải PASS có evidence. N/A chỉ khi Spec đánh dấu false, reason khớp signed na_reason.
 
-Spec mới có yêu cầu test/build phải kê khai `verification_commands`: nonempty list {id,command,cwd,ac_ids}, cwd exact root-relative (bao gồm ".") resolve theo project_root. QA commands là {id,command,cwd,ac_ids,exit_code,log}; cwd ABSOLUTE nằm trong project, exit_code integer 0, command và AC IDs khớp Spec. Legacy Spec chưa có command list vẫn phải có command/log hợp lệ và evidence mỗi applicable AC.
+Schema 3 mặc định bắt buộc signed `verification_commands`: nonempty list `{id,argv,cwd,ac_ids}`, argv là list string không chạy shell, cwd root-relative. Mỗi automated applicable AC phải thuộc ít nhất một command; UI kiểm tay khai báo `verification:"manual_browser"` và giữ NOT_VERIFIED khi chưa có browser execution. Command có thể kèm `timeout`, `report:{kind:"junit"|"ruff",path:"relative-new-report.xml"}` và `browser:{url,assertions:[{selector,text?}]}`. Report phải mới trong lần chạy; khai báo output directory trong signed `snapshot_exclusions` nếu nằm trong project. Receipt/log nằm ngoài snapshot, không tự bỏ qua source.
+
+Sau implementation là persisted CRITIQUE; `code-review` nhận `{verdict,spec_sha256,manifest_sha256,report}`. Critic khác architect/builder. APPROVE mới sang AUDIT; source đổi làm review stale. Fast-track chỉ qua signed Spec `fast_track:{tier:"minor",skip_critique:true,reason:"..."}` được reviewer và human duyệt. Reject counters riêng `critic_rounds`, `qa_rounds` và `total_cycles` tồn tại qua restart/revise; lần reject thứ hai cùng pha hoặc tổng lần ba ESCALATED.
+
+`execute` payload `{command_id:"tests"}` chạy đúng signed command bằng actor QA độc lập, kiểm snapshot trước và sau. Kết quả chứa `execution_receipt.receipt_id`. Audit commands chỉ cần `{id,receipt_id}`; caller exit_code=0 hoặc log tự viết không đủ. Receipt binding task/actor/spec/manifest/command và artifact hashes được kiểm lại khi audit/status. Native actor identity vẫn DECLARED, receipt không xác thực người gọi hoặc chứng minh native runtime đã hoạt động.
 
 Ví dụ schema dưới chỉ minh họa; thay command/AC theo stack thật và paths bằng file evidence đã quan sát, không nộp placeholder:
 
 ```json
-{"scope":"Python CLI source/tests","design":"Existing parser and pure command handler","contracts":"Invalid input exits nonzero","acceptance_criteria":[{"id":"AC1","description":"Valid and invalid input regression tests pass","ui":false},{"id":"AC-SEED","description":"Seed data file mockData.json provided and loaded successfully on startup","ui":false},{"id":"AC-HEALTH","description":"Health check endpoint /health returns ok status and uptime","ui":false}],"risks":"No external writes","verification_commands":[{"id":"tests","command":"python -m pytest -q","cwd":".","ac_ids":["AC1","AC-SEED","AC-HEALTH"]}],"snapshot_exclusions":["coverage"]}
+{"scope":"Python CLI source/tests","design":"Existing parser and pure command handler","contracts":"Invalid input exits nonzero","acceptance_criteria":[{"id":"AC1","description":"Valid and invalid input regression tests pass","ui":false},{"id":"AC-SEED","description":"Seed data file mockData.json provided and loaded successfully on startup","ui":false},{"id":"AC-HEALTH","description":"Health check endpoint /health returns ok status and uptime","ui":false}],"risks":"No external writes","verification_commands":[{"id":"tests","argv":["python","-m","pytest","-q"],"cwd":".","ac_ids":["AC1","AC-SEED","AC-HEALTH"]}],"snapshot_exclusions":["coverage"]}
 ```
 
 Review {verdict APPROVE|REJECT|ESCALATE,spec_sha256,report TEXT}; design PARTIAL_APPROVE forbidden. Signoff {spec_sha256,human_message raw}. CLI accepts whole phrase Duyệt / Duyệt Spec này / Duyệt bản đặc tả này / SIGN_OFF: approved / Bắt đầu code đi, case-insensitive, trim ngoài, optional prefix Sếp:. Không dấu câu cuối hoặc câu điều kiện; không sửa raw message để hợp grammar.
@@ -105,10 +111,10 @@ Review {verdict APPROVE|REJECT|ESCALATE,spec_sha256,report TEXT}; design PARTIAL
 Implementation {report TEXT}; ghi checkout, diff và test/build/preview evidence. Audit {verdict,spec_sha256,manifest_sha256,report TEXT,commands,preview:{url,checks}}. `report` app là TEXT, không tự đọc path. Hash lấy từ checkpoint hiện tại.
 
 ```json
-{"verdict":"APPROVE","spec_sha256":"FROM_CURRENT_CHECKPOINT","manifest_sha256":"FROM_CURRENT_CHECKPOINT","report":"QA independently reran commands and checked AC1 and AC-SEED","commands":[{"id":"tests","command":"python -m pytest -q","cwd":"ABSOLUTE_APP_DIRECTORY","ac_ids":["AC1","AC-SEED"],"exit_code":0,"log":"ABSOLUTE_EVIDENCE_FILE"}],"preview":{"checks":[{"id":"AC1","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"},{"id":"AC-SEED","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"}]}}
+{"verdict":"APPROVE","spec_sha256":"FROM_CURRENT_CHECKPOINT","manifest_sha256":"FROM_CURRENT_CHECKPOINT","report":"QA independently reran commands and checked AC1 and AC-SEED","commands":[{"id":"tests","receipt_id":"FROM_EXECUTE_RESULT"}],"preview":{"checks":[{"id":"AC1","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"},{"id":"AC-SEED","status":"PASS","evidence":"ABSOLUTE_EVIDENCE_FILE"}]}}
 ```
 
-`preview.checks` bao gồm mỗi AC đúng một lần cả UI/non-UI. UI applicable cần local URL hợp lệ (localhost/127.0.0.1/::1), PASS evidence. Non-UI không cần URL nhưng vẫn PASS có evidence. Optional `functional/http_smoke/browser` records có status và evidence/log khi PASS, reason khi NOT_VERIFIED. functional_status dựa commands và non-UI checks hợp lệ; explicit functional NOT_VERIFIED không bị tự nâng. HTTP thiếu evidence vẫn NOT_VERIFIED; browser_status theo applicable UI AC, không biến thiếu kiểm thành PASS.
+`preview.checks` bao gồm mỗi AC đúng một lần cả UI/non-UI. UI applicable cần local URL hợp lệ (localhost/127.0.0.1/::1); PASS phải có `receipt_id`, matching signed browser command assertions/AC/URL và physical evidence. Screenshot/log bất kỳ không chứng minh browser execution. UI reviewer provenance ghi EXECUTED_BROWSER và actor identity DECLARED. Non-UI không cần URL nhưng vẫn PASS có evidence. Optional `functional/http_smoke/browser` records có status và evidence/log khi PASS, reason khi NOT_VERIFIED. functional_status dựa commands và non-UI checks hợp lệ; explicit functional NOT_VERIFIED không bị tự nâng. HTTP thiếu evidence vẫn NOT_VERIFIED; browser_status theo applicable UI AC, không biến thiếu kiểm thành PASS.
 
 ## Partial audit và browser promotion
 
@@ -134,7 +140,7 @@ py -3.12 run_harness.py --workflow revise --task-id app-smoke --payload .brain/a
 py -3.12 run_harness.py --workflow migrate-legacy --task-id legacy-app --payload .brain/artifacts/legacy-app/revalidation.json --json
 ```
 
-Schema 2 hardened. Pristine v1 DESIGN/DESIGN_REVIEW/SIGN_OFF/IMPLEMENTATION tự migration khi không có prior implementation/audit/manifest/browser history, giữ task ID/counters/events/raw signoff và kiểm hash/actors. v1 AUDIT/AUDIT_PENDING_BROWSER/APPROVED fail closed; migrate-legacy {reason} archive old authority trong legacy_revalidation, giữ identity/history/counters/actors, về DESIGN cần review/human signoff/implementation/QA mới. Corrupt state không được đoán sửa; không grandfather approval hoặc tạo task mới để xóa counter.
+Schema 1/2 là read-only NOT_VERIFIED qua status, không tự nâng approval. `migrate-legacy {reason}` archive authority cũ trong legacy_revalidation, giữ task identity/history/counters/actors, đổi schema3 và về DESIGN để review/signoff/implementation/critique/execution/QA lại. Corrupt state không được đoán sửa; không tạo task mới để xóa counter.
 
 ## Giai đoạn E2E Playwright & UAT
 

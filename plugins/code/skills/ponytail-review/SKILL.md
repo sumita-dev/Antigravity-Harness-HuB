@@ -39,6 +39,10 @@ End with the only metric that matters: `net: -<N> lines possible.`
 
 If there is nothing to cut, say `Lean already. Ship.` and stop.
 
+## Chống Thiên Kiến Phức Tạp (Anti-Complexity Bias)
+
+Giữ nguyên codebase tối giản ban đầu là kết quả hoàn toàn hợp lệ và đáng kỳ vọng. Cấm cộng điểm cho các giải pháp cố tình tạo thêm abstraction/lớp thừa (wrappers, speculative interfaces, single-use helpers). Nếu một chức năng có thể giải quyết mà không cần thêm tầng trung gian, giữ nguyên sự tinh gọn ban đầu là phương án chiến thắng.
+
 ## Boundaries
 
 Scope: over-engineering and complexity only. Correctness bugs, security holes,

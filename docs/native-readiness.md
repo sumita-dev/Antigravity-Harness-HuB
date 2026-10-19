@@ -49,3 +49,10 @@ Ghi actual invocation/schema/actor/context/checkout/tool status/commands/exit/ev
 Cổng human Spec là behavior sản phẩm native Antigravity khi tạo app; không tự áp vào việc Codex sửa/audit harness đã được Sếp giao. Planning checkpoint harness-completion cũ được giữ nguyên trong `.brain/artifacts/harness-completion/maintenance-checkpoint-archive.json`, không còn product job active, không ghi signoff/APPROVED giả. Canonical design/spec/review artifacts vẫn giữ để đối chiếu, không sửa approval hashes hồi tố.
 
 Runtime .brain/ hoàn toàn gitignored; integrity scanning source bỏ generated .brain fixtures, trong khi Git-tracking integrity tests vẫn kiểm runtime tracking và .env.example. Archive không có .git phải báo test_env_example_duoc_commit không chứng minh tracked state; không bỏ/skip test hay claim Git verification pass.
+
+
+## Local execution receipts (schema 3 app)
+
+App checkpoint schema 3 giữ receipts do local runner tạo cho argv/cwd/exit/output hashes và current manifest; marketing giữ schema 2. Tests của receipt store chỉ quan sát hành vi local, không chứng minh native dispatch, actor identity, model availability hoặc browser. Model policy export resolve config tier và vẫn DECLARED. Native Antigravity E2E vẫn NOT_VERIFIED.
+
+Dùng CLI schema 3 theo `docs/app-workflow-guide.md`; không tái dùng payload report schema 2 để claim runner verification. Chi tiết optional requirement/task/AC/verification mapping, dependency APPROVED, bounded skill composition và Chief-only decomposition ở `docs/upgrade-policy.md`.

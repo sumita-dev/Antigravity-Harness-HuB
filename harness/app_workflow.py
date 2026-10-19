@@ -1,4 +1,4 @@
-"""Persistent checkpoints for Gemini's native agents; no agent/API execution.
+"""Persistent native checkpoints and explicit signed-command execution; no agent/API execution.
 
 Actor IDs and execution reports are supplied by the runtime, not authenticated.
 Each task is one atomic JSON transaction containing state, events and evidence.
@@ -6,6 +6,7 @@ Each task is one atomic JSON transaction containing state, events and evidence.
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
@@ -52,11 +53,11 @@ def _is_link(path):
 
 class AppWorkflowStore:
     NEXT_AGENT = {"DESIGN": "architect", "DESIGN_REVIEW": "design_reviewer", "SIGN_OFF": "human",
-                  "IMPLEMENTATION": "builder", "AUDIT": "qa_auditor",
+                  "IMPLEMENTATION": "builder", "CRITIQUE": "code_critic", "AUDIT": "qa_auditor",
                   "AUDIT_PENDING_BROWSER": "human_browser_verification",
                   "APPROVED": None, "ESCALATED": None}
     EXCLUDED_DIRS = {".git", ".gitnexus", ".brain", "node_modules", ".venv", "venv", ".pytest_cache", ".cache"}
-    DOWNSTREAM = {"manifest", "manifest_sha256", "implementation_report", "audit", "evidence",
+    DOWNSTREAM = {"execution_runs", "code_review", "manifest", "manifest_sha256", "implementation_report", "audit", "evidence",
                   "overall_verdict", "browser_status", "functional_status", "http_status", "qa_actor_id",
                   "browser_verification", "browser_verification_request"}
 
@@ -92,7 +93,7 @@ class AppWorkflowStore:
             raise WorkflowError(f"Cannot read workflow: {exc}") from exc
         if not isinstance(state, dict):
             raise WorkflowError("Workflow must be an object")
-        if (type(state.get("schema_version")) is not int or state["schema_version"] not in {1, 2}
+        if (type(state.get("schema_version")) is not int or state["schema_version"] not in {1, 2, 3}
                 or not isinstance(state.get("stage"), str) or state["stage"] not in self.NEXT_AGENT):
             raise WorkflowError("Unsupported or corrupt workflow schema/stage")
         if state.get("task_id") != path.stem or not isinstance(state.get("events"), list):
@@ -102,7 +103,7 @@ class AppWorkflowStore:
         if any(not isinstance(actor, str) or not actor.strip() for actor in state["actors"].values()):
             raise WorkflowError("Corrupt actor identity")
         makers = {state["actors"][role] for role in ("architect", "builder") if role in state["actors"]}
-        checkers = {state["actors"][role] for role in ("design_reviewer", "qa_auditor", "browser_verifier") if role in state["actors"]}
+        checkers = {state["actors"][role] for role in ("design_reviewer", "code_critic", "qa_auditor", "browser_verifier") if role in state["actors"]}
         if makers & checkers:
             raise WorkflowError("Maker and Checker actor must differ")
         counters = state.get("reject_counts")
@@ -118,31 +119,23 @@ class AppWorkflowStore:
         if any(not isinstance(item, dict) or not isinstance(item.get("path"), str)
                or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256", ""))) for item in state["evidence"]):
             raise WorkflowError("Corrupt evidence record")
-        if state["stage"] in {"DESIGN_REVIEW", "SIGN_OFF", "IMPLEMENTATION", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
+        if state["schema_version"] < 3:
+            if allow_legacy_revalidation:
+                return state
+            raise WorkflowError("Legacy checkpoint is read-only NOT_VERIFIED; migrate-legacy explicitly")
+        if state["stage"] in {"DESIGN_REVIEW", "SIGN_OFF", "IMPLEMENTATION", "CRITIQUE", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
             if not isinstance(state.get("spec"), dict) or _hash(_canonical(state["spec"])) != state.get("spec_sha256"):
                 raise WorkflowError("Corrupt spec binding")
             self._validate_spec(state["spec"], Path(state["project_root"]))
-        if state["stage"] in {"SIGN_OFF", "IMPLEMENTATION", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
+        if state["stage"] in {"SIGN_OFF", "IMPLEMENTATION", "CRITIQUE", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
             self._validate_design(state, signed=state["stage"] != "SIGN_OFF")
-        if state["schema_version"] == 1:
-            if "spec" in state or "spec_sha256" in state:
-                if not isinstance(state.get("spec"), dict) or _hash(_canonical(state["spec"])) != state.get("spec_sha256"):
-                    raise WorkflowError("Corrupt legacy spec binding")
-                self._validate_spec(state["spec"], Path(state["project_root"]))
-                _text(state["actors"].get("architect"), "architect actor")
-            forbidden = self.DOWNSTREAM - {"evidence"}
-            dirty = (state["stage"] not in {"DESIGN", "DESIGN_REVIEW", "SIGN_OFF", "IMPLEMENTATION"}
-                    or any(key in state for key in forbidden) or state["evidence"]
-                    or any(not isinstance(event, dict) or event.get("action") in {
-                        "implementation", "audit", "verify_browser", "audit_pending_browser"} for event in state["events"]))
-            if allow_legacy_revalidation and state["stage"] in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
-                pass
-            elif dirty:
-                raise WorkflowError("Legacy implementation checkpoint requires manual revalidation; preserve task history and counters")
-            else:
-                state["schema_version"] = 2
-                self._save(path, state, "migrate-schema", "orchestrator")
-        if state["stage"] in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
+        if state["schema_version"] == 3:
+            for name in ("critic_rounds", "qa_rounds", "total_cycles"):
+                if type(state.get(name)) is not int or state[name] < 0:
+                    raise WorkflowError("Corrupt round counters")
+            if (state["critic_rounds"] >= 2 or state["qa_rounds"] >= 2 or state["total_cycles"] >= 3) and state["stage"] != "ESCALATED":
+                raise WorkflowError("Exhausted round budget requires ESCALATED")
+        if state["stage"] in {"CRITIQUE", "AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
             if not isinstance(state.get("manifest"), dict) or _hash(_canonical(state["manifest"])) != state.get("manifest_sha256"):
                 raise WorkflowError("Corrupt manifest binding")
         return state
@@ -182,6 +175,8 @@ class AppWorkflowStore:
             _text(item.get("description"), "AC description")
             if not item.get("applicable", True):
                 _text(item.get("na_reason"), "inapplicable AC na_reason")
+            if "verification" in item and (item["verification"] != "manual_browser" or not item["ui"]):
+                raise WorkflowError("manual_browser verification only applies to UI ACs")
             ids.add(ac_id)
         exclusions = spec.get("snapshot_exclusions", [])
         if not isinstance(exclusions, list):
@@ -202,7 +197,9 @@ class AppWorkflowStore:
                 if not isinstance(command, dict):
                     raise WorkflowError("Spec command must be an object")
                 command_id = _text(command.get("id"), "command id")
-                _text(command.get("command"), "command")
+                argv = command.get("argv")
+                if not isinstance(argv, list) or not argv or any(not isinstance(a, str) or not a for a in argv):
+                    raise WorkflowError("Signed verification command argv list required")
                 cwd = self._relative_path(command.get("cwd"), "command cwd", allow_dot=True)
                 if not (root / cwd).resolve().is_relative_to(root.resolve()):
                     raise WorkflowError("Spec command cwd must be inside project")
@@ -405,8 +402,9 @@ class AppWorkflowStore:
         with self._locked(task_id) as path:
             if path.exists():
                 raise WorkflowError("Task already exists")
-            state = {"schema_version": 2, "task_id": task_id, "description": _text(description, "description"),
+            state = {"schema_version": 3, "task_id": task_id, "description": _text(description, "description"),
                      "project_root": str(project), "stage": "DESIGN", "revision": 0, "events": [],
+                     "critic_rounds": 0, "qa_rounds": 0, "total_cycles": 0,
                      "reject_counts": {"design": 0, "code": 0}, "actors": {}, "evidence": []}
             return self._save(path, state, "init", "orchestrator")
 
@@ -416,7 +414,20 @@ class AppWorkflowStore:
             state = self._load(path)
             self._stage(state, "DESIGN")
             self._validate_spec(spec, Path(state["project_root"]))
-            if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor")}:
+            if not spec.get("verification_commands"):
+                raise WorkflowError("Signed verification_commands plan required")
+            from harness.traceability import validate_traceability
+            try:
+                validate_traceability(spec)
+            except ValueError as exc:
+                raise WorkflowError(str(exc)) from exc
+            coverage = {i for c in spec["verification_commands"] for i in c["ac_ids"]}
+            if any(ac["id"] not in coverage for ac in spec["acceptance_criteria"] if ac.get("applicable", True) and ac.get("verification") != "manual_browser"):
+                raise WorkflowError("Verification plan must cover every automated AC")
+            policy = spec.get("fast_track")
+            if policy is not None and (not isinstance(policy, dict) or policy.get("tier") != "minor" or policy.get("skip_critique") is not True or not isinstance(policy.get("reason"), str) or not policy["reason"].strip()):
+                raise WorkflowError("Fast-track requires explicit minor tier, skip_critique and reason")
+            if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor"), state["actors"].get("code_critic")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             self._clear_downstream(state)
             state.pop("design_review", None)
@@ -476,14 +487,107 @@ class AppWorkflowStore:
         with self._locked(task_id) as path:
             state = self._load(path)
             self._stage(state, "IMPLEMENTATION")
-            if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor")}:
+            if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor"), state["actors"].get("code_critic")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             self._binding(state, state.get("sign_off", {}).get("spec_sha256"), "spec_sha256")
             manifest, digest = self._manifest(state)
             self._clear_downstream(state)
-            state.update(manifest=manifest, manifest_sha256=digest, implementation_report=report, stage="AUDIT", evidence=[])
+            state.update(manifest=manifest, manifest_sha256=digest, implementation_report=report, stage="AUDIT" if state["spec"].get("fast_track") else "CRITIQUE", evidence=[])
             state["actors"]["builder"] = actor
             return self._save(path, state, "implementation", actor)
+
+    def _round_decision(self, state, phase, verdict, approved):
+        if verdict == "REJECT":
+            state[phase + "_rounds"] += 1
+            state["total_cycles"] += 1
+            state["stage"] = "ESCALATED" if state[phase + "_rounds"] >= 2 or state["total_cycles"] >= 3 else "IMPLEMENTATION"
+        elif verdict == "ESCALATE":
+            state["stage"] = "ESCALATED"
+        else:
+            state["stage"] = approved
+
+    def _current_review(self, state):
+        if self._manifest(state)[1] != state.get("manifest_sha256"):
+            raise WorkflowError("Implementation changed since submission; return to Builder explicitly")
+        if state["spec"].get("fast_track"):
+            self._validate_design(state)
+            return
+        review = state.get("code_review", {})
+        if review.get("verdict") != "APPROVE":
+            raise WorkflowError("Current approved code review required")
+        for key in ("spec_sha256", "manifest_sha256"):
+            self._binding(state, review.get(key), key)
+        actor = _text(review.get("actor"), "code critic actor")
+        if actor != state["actors"].get("code_critic") or actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
+            raise WorkflowError("Independent code critic required")
+        _text(review.get("report"), "code review report")
+
+    def review_code(self, task_id, verdict, actor, spec_sha256, manifest_sha256, report):
+        self._verdict(verdict)
+        if verdict == "PARTIAL_APPROVE":
+            raise WorkflowError("Code review requires full verdict")
+        actor = _text(actor, "actor")
+        report = _text(report, "report")
+        with self._locked(task_id) as path:
+            state = self._load(path)
+            self._stage(state, "CRITIQUE")
+            for key, value in (("spec_sha256", spec_sha256), ("manifest_sha256", manifest_sha256)):
+                self._binding(state, value, key)
+            if self._manifest(state)[1] != manifest_sha256:
+                raise WorkflowError("Implementation changed since submission")
+            if actor in {state["actors"].get("architect"), state["actors"].get("builder")}:
+                raise WorkflowError("Maker and Checker actor must differ")
+            state["actors"]["code_critic"] = actor
+            state["code_review"] = dict(verdict=verdict, actor=actor, report=report, spec_sha256=spec_sha256, manifest_sha256=manifest_sha256, provenance="DECLARED native actor; identity not authenticated")
+            self._round_decision(state, "critic", verdict, "AUDIT")
+            return self._save(path, state, "code-review", actor)
+
+    def _verify_receipt(self, state, receipt_id, actor, contract):
+        actor = _text(actor, "execution actor")
+        if actor in {state["actors"].get("architect"), state["actors"].get("builder")}:
+            raise WorkflowError("Independent execution actor required")
+        if not receipt_id:
+            raise WorkflowError("Execution receipt required; caller logs/exit codes are not execution evidence")
+        run = state.get("execution_runs", {}).get(receipt_id)
+        if not isinstance(run, dict) or run.get("actor") != actor or run.get("spec_sha256") != state["spec_sha256"] or run.get("manifest_sha256") != state["manifest_sha256"]:
+            raise WorkflowError("Receipt must be recorded by workflow execute after source snapshot verification")
+        from harness.execution_evidence import ExecutionEvidenceStore, EvidenceError
+        if contract is not None:
+            contract = dict(contract, cwd=str((Path(state["project_root"]) / contract["cwd"]).resolve()))
+        try:
+            store = ExecutionEvidenceStore(self.root.parent / "execution_evidence")
+            receipt = store.verify(receipt_id, task_id=state["task_id"], actor=actor, spec_sha256=state["spec_sha256"], manifest_sha256=state["manifest_sha256"], command=contract)
+            if contract is None:
+                signed = next((c for c in state["spec"]["verification_commands"] if c["id"] == receipt["command"].get("id")), None)
+                if signed is None:
+                    raise WorkflowError("Browser receipt must match a signed command")
+                return self._verify_receipt(state, receipt_id, actor, signed)
+            return receipt
+        except EvidenceError as exc:
+            raise WorkflowError(str(exc)) from exc
+
+    def execute(self, task_id, actor, command_id):
+        actor = _text(actor, "actor")
+        with self._locked(task_id) as path:
+            state = self._load(path)
+            if state["stage"] not in {"AUDIT", "AUDIT_PENDING_BROWSER"}:
+                raise WorkflowError("Expected AUDIT or AUDIT_PENDING_BROWSER")
+            self._current_review(state)
+            if actor in {state["actors"].get("architect"), state["actors"].get("builder")}:
+                raise WorkflowError("Independent QA actor required")
+            contract = next((c for c in state["spec"]["verification_commands"] if c["id"] == command_id), None)
+            if contract is None:
+                raise WorkflowError("Unknown signed command ID")
+            if state["stage"] == "AUDIT_PENDING_BROWSER":
+                _, pending = self._current_audit(state, "PARTIAL_APPROVE")
+                if not contract.get("browser") or not set(contract["ac_ids"]).issubset(pending):
+                    raise WorkflowError("Pending stage only permits signed browser commands for pending UI ACs")
+            from harness.execution_evidence import ExecutionEvidenceStore
+            receipt = ExecutionEvidenceStore(self.root.parent / "execution_evidence").run(task_id=task_id, actor=actor, spec_sha256=state["spec_sha256"], manifest_sha256=state["manifest_sha256"], argv=contract["argv"], cwd=str((Path(state["project_root"]) / contract["cwd"]).resolve()), ac_ids=contract["ac_ids"], timeout=contract.get("timeout", 60), command_id=command_id, report=contract.get("report"), browser=contract.get("browser"))
+            self._current_review(state)
+            state.setdefault("execution_runs", {})[receipt["receipt_id"]] = dict(actor=actor, command_id=command_id, spec_sha256=state["spec_sha256"], manifest_sha256=state["manifest_sha256"])
+            saved = self._save(path, state, "execute", actor)
+            return dict(saved, execution_receipt=receipt)
 
     def _checks(self, checks, expected, name):
         if not isinstance(checks, list) or any(
@@ -511,6 +615,7 @@ class AppWorkflowStore:
         if verdict not in {"APPROVE", "PARTIAL_APPROVE"} or not isinstance(payload, dict):
             raise WorkflowError("Current approved or partial QA audit required")
         self._validate_design(state)
+        self._current_review(state)
         self._binding(state, payload.get("spec_sha256"), "spec_sha256")
         self._binding(state, payload.get("manifest_sha256"), "manifest_sha256")
         if self._manifest(state)[1] != state["manifest_sha256"]:
@@ -523,29 +628,21 @@ class AppWorkflowStore:
         declared = state["spec"].get("verification_commands")
         if declared is not None:
             declared_by_id = {command["id"]: command for command in declared}
-            supplied = self._checks(commands, declared_by_id, "QA commands")
+            required = dict(declared_by_id)
+            if verdict == "PARTIAL_APPROVE":
+                ui_ids = {ac["id"] for ac in state["spec"]["acceptance_criteria"] if ac["ui"]}
+                required = {key: contract for key, contract in required.items() if not (contract.get("browser") and set(contract["ac_ids"]).issubset(ui_ids))}
+            supplied_ids = {c.get("id") for c in commands if isinstance(c, dict)}
+            if not set(required).issubset(supplied_ids) or not supplied_ids.issubset(declared_by_id) or len(supplied_ids) != len(commands):
+                raise WorkflowError("QA commands must cover every required signed command exactly once")
         else:
             supplied = None
         project = self._safe_path(state["project_root"], "project_root")
         for command in commands:
             if not isinstance(command, dict):
                 raise WorkflowError("Command must be an object")
-            cmd_str = _text(command.get("command"), "command")
-            cwd = self._safe_path(command.get("cwd"), "QA cwd")
-            if not cwd.is_dir() or not cwd.is_relative_to(project):
-                raise WorkflowError("QA cwd must be inside project")
-            if type(command.get("exit_code")) is not int or command["exit_code"] != 0:
-                raise WorkflowError("QA commands must exit zero")
-            if supplied is not None:
-                contract = declared_by_id[command["id"]]
-                ac_ids = command.get("ac_ids")
-                if (command.get("command") != contract["command"]
-                        or cwd != (project / contract["cwd"]).resolve()
-                        or not isinstance(ac_ids, list) or any(not isinstance(i, str) for i in ac_ids)
-                        or len(ac_ids) != len(set(ac_ids)) or set(ac_ids) != set(contract["ac_ids"])):
-                    raise WorkflowError("QA command does not match signed verification command contract")
-            self._add_evidence(evidence_map, command.get("log"),
-                               purpose=f"qa_command: {cmd_str}", state=state)
+            receipt = self._verify_receipt(state, command.get("receipt_id"), command.get("actor") or payload.get("actor") or state["actors"].get("qa_auditor"), declared_by_id.get(command.get("id")))
+            # Receipt artifact hashes are revalidated by the execution store on every status/audit.
         preview = payload.get("preview")
         if not isinstance(preview, dict):
             raise WorkflowError("Preview checks required")
@@ -562,6 +659,12 @@ class AppWorkflowStore:
                 continue
             applicable_ui |= ac["ui"]
             if status == "PASS":
+                if ac["ui"]:
+                    receipt = self._verify_receipt(state, check.get("receipt_id"), check.get("actor") or payload.get("actor"), None)
+                    browser = receipt.get("command", {}).get("browser")
+                    if not browser or not browser.get("assertions") or ac["id"] not in receipt["command"].get("ac_ids", []) or browser.get("url") != preview.get("url"):
+                        raise WorkflowError("UI PASS requires recorded browser execution assertions and matching AC/URL")
+                    check["provenance"] = "EXECUTED_BROWSER; actor identity DECLARED"
                 self._add_evidence(evidence_map, check.get("evidence"),
                                    purpose=f"ac_check: {ac['id']}", state=state)
             elif status == "NOT_VERIFIED" and ac["ui"]:
@@ -638,6 +741,7 @@ class AppWorkflowStore:
                 raise WorkflowError("Maker and Checker actor must differ")
             evidence_map, pending, statuses = {}, set(), {}
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
+                payload = dict(payload, actor=actor)
                 evidence_map, pending, statuses = self._validate_approval(state, payload, verdict)
             state.pop("browser_verification", None)
             state.pop("browser_verification_request", None)
@@ -653,7 +757,9 @@ class AppWorkflowStore:
             state["browser_status"] = "PASS" if verdict == "APPROVE" and any(
                 ac["ui"] and ac.get("applicable", True) for ac in state["spec"]["acceptance_criteria"]) else "NOT_VERIFIED"
             approved_stage = "AUDIT_PENDING_BROWSER" if verdict == "PARTIAL_APPROVE" else "APPROVED"
-            self._decision(state, "code", verdict, approved_stage, "IMPLEMENTATION")
+            self._round_decision(state, "qa", verdict, approved_stage)
+            if verdict == "REJECT":
+                state["reject_counts"]["code"] += 1
             return self._save(path, state, "audit", actor)
 
     def verify_browser(self, task_id, actor, payload):
@@ -682,7 +788,7 @@ class AppWorkflowStore:
                     raise WorkflowError(f"Browser check for UI AC {ac_id} must have status PASS")
                 ev_file = check.get("evidence") or check.get("screenshot") or check.get("log")
                 self._evidence(ev_file, state=state)
-                checks_by_id[ac_id] = dict(check, evidence=ev_file)
+                checks_by_id[ac_id] = dict(check, evidence=ev_file, actor=actor)
             updated = json.loads(json.dumps(state["audit"]))
             for check in updated["preview"]["checks"]:
                 if check["id"] in checks_by_id:
@@ -690,6 +796,11 @@ class AppWorkflowStore:
                     check.pop("reason", None)
             # A browser result supplies only the UI evidence; independent functional QA is retained.
             updated.pop("browser", None)
+            by_command = {c["id"]: c for c in updated["commands"]}
+            for check in checks_by_id.values():
+                receipt = self._verify_receipt(state, check.get("receipt_id"), actor, None)
+                by_command[receipt["command"]["id"]] = {"id": receipt["command"]["id"], "receipt_id": check["receipt_id"], "actor": actor}
+            updated["commands"] = list(by_command.values())
             evidence_map, _, statuses = self._validate_approval(state, updated, "APPROVE")
             for item in state["evidence"]:
                 norm = os.path.normcase(os.path.abspath(item["path"]))
@@ -740,12 +851,12 @@ class AppWorkflowStore:
             return self._save(path, state, "revise", "orchestrator")
 
     def migrate_legacy(self, task_id, reason):
-        """Invalidate v1 audit authority without discarding the task's provenance or counters."""
+        """Invalidate legacy audit authority without discarding the task's provenance or counters."""
         reason = _text(reason, "reason")
         with self._locked(task_id) as path:
             state = self._load(path, allow_legacy_revalidation=True)
-            if state["schema_version"] != 1 or state["stage"] not in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
-                raise WorkflowError("Only legacy audited checkpoints may request explicit revalidation")
+            if state["schema_version"] not in {1, 2}:
+                raise WorkflowError("Only schema1/2 checkpoints may request explicit revalidation")
             authority_keys = self.DOWNSTREAM | {"spec", "spec_sha256", "design_review", "sign_off"}
             actors = dict(state["actors"])
             state["legacy_revalidation"] = {"previous_stage": state["stage"], "reason": reason,
@@ -754,12 +865,18 @@ class AppWorkflowStore:
             state["actors"] = actors
             for key in ("spec", "spec_sha256", "design_review", "sign_off"):
                 state.pop(key, None)
-            state.update(schema_version=2, stage="DESIGN", revision_reason=reason)
+            state.update(schema_version=3, stage="DESIGN", revision_reason=reason, critic_rounds=state.get("critic_rounds", 0), qa_rounds=state.get("qa_rounds", state["reject_counts"]["code"]), total_cycles=state.get("total_cycles", state["reject_counts"]["code"]))
+            if state["legacy_revalidation"]["previous_stage"] == "ESCALATED" or any(n >= 2 for n in state["reject_counts"].values()) or state["critic_rounds"] >= 2 or state["qa_rounds"] >= 2 or state["total_cycles"] >= 3:
+                state["stage"] = "ESCALATED"
             return self._save(path, state, "migrate-legacy", "orchestrator")
 
     def status(self, task_id):
         with self._locked(task_id) as path:
-            state = self._load(path)
+            state = self._load(path, allow_legacy_revalidation=True)
+            if state["schema_version"] < 3:
+                return dict(state, verification_status="NOT_VERIFIED", read_only=True)
+            if state["stage"] in {"AUDIT", "AUDIT_PENDING_BROWSER", "APPROVED"}:
+                self._current_review(state)
             if state["stage"] in {"APPROVED", "AUDIT_PENDING_BROWSER"}:
                 self._current_audit(state, "APPROVE" if state["stage"] == "APPROVED" else "PARTIAL_APPROVE")
             return state

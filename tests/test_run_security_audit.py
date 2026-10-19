@@ -76,7 +76,7 @@ def test_ignore_test_fixtures_and_dummy_values(tmp_path: Path):
     fixture_file.write_text(
         """
 # File test với mock token
-MOCK_AWS = "AKIA9999999999MOCKXX"
+MOCK_AWS = "AKIA9999999999MOCKXX" # allow-secret
 MOCK_OPENAI = "sk-dummy12345678901234567890"
 """,
         encoding="utf-8",
@@ -135,7 +135,7 @@ def test_cli_execution(tmp_path: Path):
         capture_output=True,
         text=True,
     )
-    assert res_json.returncode == 0
+    assert res_json.returncode == 1
     data = json.loads(res_json.stdout)
     assert data["passed"] is False
     assert data["summary"]["critical"] == 1

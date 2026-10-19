@@ -48,7 +48,7 @@ def _skill_dirs():
 def _doc_files():
     for p in REPO.rglob("*"):
         parts = p.relative_to(REPO).parts
-        if not p.is_file() or ".git" in parts or ".venv" in parts or ".gitnexus" in parts or ".brain" in parts or ".sessions" in parts:
+        if not p.is_file() or ".git" in parts or ".venv" in parts or ".gitnexus" in parts or ".brain" in parts or ".sessions" in parts or ".harness-upgrade-backups" in parts:
             continue
         if any(part.startswith(".pytest") for part in parts):
             continue
@@ -253,4 +253,37 @@ def test_no_phantom_python_scripts_in_skill_codeblocks():
                     if not (skill / script_rel).exists() and not (REPO / script_rel).exists():
                         missing.append(f"{skill.relative_to(REPO).as_posix()}: {script_rel}")
     assert not missing, f"Script python ảo trong code block SKILL.md: {missing}"
+
+
+def test_all_python_scripts_compile():
+    """Duyệt toàn bộ file .py trong repo (bỏ qua .git, .venv, .brain, scratch, third_party nếu có) và gọi compile(source, path, 'exec') để đảm bảo 100% file python không có lỗi cú pháp."""
+    bad_files = []
+    excluded_dirs = {".git", ".venv", ".brain", "scratch", "third_party", ".gitnexus", ".sessions", ".harness-upgrade-backups"}
+    for p in REPO.rglob("*.py"):
+        parts = p.relative_to(REPO).parts
+        if any(part in excluded_dirs or part.startswith(".pytest") for part in parts):
+            continue
+        try:
+            source = p.read_text(encoding="utf-8")
+            compile(source, str(p), "exec")
+        except Exception as e:
+            bad_files.append(f"{p.relative_to(REPO)}: {e}")
+    assert not bad_files, f"File python bị lỗi cú pháp: {bad_files}"
+
+
+def test_skill_script_references_exist():
+    """Quét các câu lệnh gọi script dạng python ...scripts/<name>.py trong các SKILL.md, đảm bảo các script đó tồn tại trên đĩa."""
+    missing = []
+    pat = re.compile(r"(?:python|python3)\s+(?:-[^\s]+\s+)*(?:(?:\./)?((?:[\w./\-]+/)?scripts/[\w./\-]+\.py))")
+    for skill in _skill_dirs():
+        f = skill / "SKILL.md"
+        if not f.exists():
+            continue
+        text = f.read_text(encoding="utf-8")
+        matches = pat.findall(text)
+        for script_rel in matches:
+            if not (skill / script_rel).exists() and not (REPO / script_rel).exists():
+                missing.append(f"{skill.relative_to(REPO).as_posix()}: {script_rel}")
+    assert not missing, f"Script python được tham chiếu trong SKILL.md không tồn tại trên đĩa: {missing}"
+
 

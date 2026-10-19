@@ -84,7 +84,9 @@ def test_dispatch_subagents_schema():
     assert "system_prompt" in architect_data
     assert architect_data["role"] == "maker"
     assert architect_data["branch"] == "app"
-    assert architect_data["model"] == "inherit"
+    assert architect_data["model"] == "pro"
+    assert architect_data["model_preference"] == "Gemini 3.1 Pro"
+    assert architect_data["runtime_policy"]["enforcement"] == "DECLARED"
     assert "Metadata only" in architect_data["runtime_enforcement"]
     reviewer = next(agent for agent in agents if agent["name"] == "design_reviewer")
     assert reviewer["role"] == "checker"

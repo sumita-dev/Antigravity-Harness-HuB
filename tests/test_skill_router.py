@@ -133,3 +133,50 @@ def test_orchestrator_auto_routing():
     context2, _ = orchestrator.process_task("làm app cho điện thoại", branch="auto")
     assert context2.branch == "app"
     assert context2.active_skill == "app"
+
+
+def test_multiline_dependencies_and_missing_dependency_are_explicit(tmp_path):
+    root = tmp_path / 'root'
+    root.mkdir()
+    (root / 'SKILL.md').write_text('---\ndependencies:\n  - missing\n---\nRoot')
+    loader = SkillLoader(search_dirs=[tmp_path])
+    assert loader.get_skill_dependencies('root') == ['missing']
+    with pytest.raises(ValueError, match='missing'):
+        loader.load_instructions('root')
+
+
+def test_composition_applies_dimensions_deduplicates_and_enforces_budget(tmp_path):
+    import json
+    config = tmp_path / 'config.json'
+    config.write_text(json.dumps({'skill_composition': {'max_skills': 2, 'max_chars': 1000,
+        'stage': {'IMPLEMENTATION': ['tdd']}, 'role': {'builder': ['tdd']},
+        'stack': {'python': ['python']}, 'risk': {'high': ['security']}}}))
+    for name in ('tdd', 'python', 'security'):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / 'SKILL.md').write_text(name)
+    router = SkillRouter(str(config))
+    loader = SkillLoader(search_dirs=[tmp_path])
+    with pytest.raises(ValueError, match='budget'):
+        router.compose('IMPLEMENTATION', 'builder', 'python', 'high', loader=loader)
+    result = router.compose('IMPLEMENTATION', 'builder', 'python', 'low', loader=loader)
+    assert result['skills'] == ['tdd', 'python']
+    assert 'tdd' in result['instructions']
+    with pytest.raises(ValueError, match='budget'):
+        router.compose('IMPLEMENTATION', 'builder', 'python', 'low', loader=loader, max_chars=2)
+
+
+@pytest.mark.parametrize('field,expected', [('', []), ('dependencies: [base]\n', ['base']), ('dependencies:\n  - base\n', ['base'])])
+def test_dependency_parser_ignores_unrelated_legacy_description_yaml(tmp_path, field, expected):
+    skill = tmp_path / 'legacy'
+    skill.mkdir()
+    # Existing disk-cleanup descriptions contain unquoted colon-space prose.
+    (skill / 'SKILL.md').write_text('---\nname: legacy\ndescription: cache cleanup: pip, npm\n' + field + '---\nBody', encoding='utf-8')
+    assert SkillLoader(search_dirs=[tmp_path]).get_skill_dependencies('legacy') == expected
+
+
+def test_invalid_dependency_yaml_has_useful_error(tmp_path):
+    skill = tmp_path / 'broken'
+    skill.mkdir()
+    (skill / 'SKILL.md').write_text('---\ndependencies: [unterminated\n---\nBody')
+    with pytest.raises(ValueError, match='Invalid dependencies.*broken'):
+        SkillLoader(search_dirs=[tmp_path]).get_skill_dependencies('broken')

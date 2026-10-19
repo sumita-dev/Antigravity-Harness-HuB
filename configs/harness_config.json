@@ -15,7 +15,9 @@
     "qa": "flash",
     "compliance_critic": "flash",
     "content_critic": "flash",
-    "apple_design_critic": "flash"
+    "apple_design_critic": "flash",
+    "e2e_engineer": "pro",
+    "e2e_critic": "flash"
   },
   "limits": {
     "max_critique_rounds": 2,
@@ -732,6 +734,80 @@
         "bộ não thứ 2 karpathy",
         "secondbrain karpathy",
         "obsidian karpathy"
+      ]
+    }
+  },
+  "runtime_policy": {
+    "enforcement": "DECLARED",
+    "dispatch_owner": "chief",
+    "allow_nested_subagents": false,
+    "model_selection": "configured_tier",
+    "note": "Preferences only; native runtime capabilities require observed evidence."
+  },
+  "skill_composition": {
+    "max_skills": 8,
+    "max_chars": 64000,
+    "stage": {
+      "IMPLEMENTATION": [
+        "test-driven-development"
+      ],
+      "CRITIQUE": [
+        "security-review"
+      ],
+      "DESIGN": [
+        "app",
+        "domain-modeling"
+      ],
+      "DESIGN_REVIEW": [
+        "accessibility"
+      ],
+      "AUDIT": [
+        "verification-before-completion"
+      ]
+    },
+    "role": {
+      "builder": [
+        "test-driven-development"
+      ],
+      "qa_auditor": [
+        "verification-before-completion"
+      ],
+      "architect": [
+        "domain-modeling"
+      ],
+      "design_reviewer": [
+        "accessibility"
+      ],
+      "code_critic": [
+        "security-review"
+      ],
+      "e2e_engineer": [
+        "verify-ui",
+        "accessibility"
+      ],
+      "e2e_critic": [
+        "verify-ui",
+        "accessibility"
+      ],
+      "apple_design_critic": [
+        "apple-inspired-design",
+        "accessibility"
+      ]
+    },
+    "stack": {
+      "database": [
+        "database-migrations"
+      ],
+      "ui": [
+        "accessibility"
+      ]
+    },
+    "risk": {
+      "high": [
+        "security-review"
+      ],
+      "critical": [
+        "security-review"
       ]
     }
   }

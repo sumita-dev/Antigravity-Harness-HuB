@@ -6,7 +6,7 @@ role: critic
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: flash
 workspace: inherit
 description: >
   Tác tử phản biện & kiểm định chất lượng thiết kế UI độc lập chuẩn Apple HIG:

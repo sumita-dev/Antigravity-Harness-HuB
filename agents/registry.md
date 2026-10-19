@@ -19,7 +19,7 @@ Bảng này là metadata và hợp đồng prompt, không phải schema API Anti
 
 ## Routing và ràng buộc
 
-Luôn đọc checkpoint `stage`/`next_agent` trước keyword; keyword chỉ chọn skill khi chưa có workflow hoặc bổ sung chuyên môn. App: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec SHA256 → Builder → QA độc lập. Marketing content: Researcher → Creator → Critic; `research-only`: Researcher → Critic. APPROVED/ESCALATED không dispatch Maker mới tự động.
+Luôn đọc checkpoint `stage`/`next_agent` trước keyword; keyword chỉ chọn skill khi chưa có workflow hoặc bổ sung chuyên môn. App: Architect → Design Reviewer độc lập → Sếp duyệt đúng Spec SHA256 → Builder → Code Critic độc lập → QA độc lập. Marketing content: Researcher → Creator → Critic; `research-only`: Researcher → Critic. APPROVED/ESCALATED không dispatch Maker mới tự động.
 
 REJECT lần đầu quay Maker của pha; REJECT thứ hai trong cùng pha chuyển ESCALATED ngay. Counters design/code của app và audit marketing tồn tại qua restart/resubmit/revise; không tạo task ID mới để bỏ gate.
 

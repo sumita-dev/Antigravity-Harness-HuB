@@ -27,7 +27,7 @@ from pathlib import Path
 
 
 def workflow_action(args):
-    """Record native-agent checkpoints; does not run agents or claim tests ran."""
+    """Record native checkpoints; execute explicitly runs signed verification commands."""
     store = AppWorkflowStore()
     payload = {}
     if args.payload:
@@ -47,6 +47,10 @@ def workflow_action(args):
     if args.workflow == "design-review":
         return store.review_design(args.task_id, payload.get("verdict"), args.actor,
                                    payload.get("spec_sha256"), payload.get("report"))
+    if args.workflow == "code-review":
+        return store.review_code(args.task_id, payload.get("verdict"), args.actor, payload.get("spec_sha256"), payload.get("manifest_sha256"), payload.get("report"))
+    if args.workflow == "execute":
+        return store.execute(args.task_id, args.actor, payload.get("command_id"))
     if args.workflow == "sign-off":
         return store.sign_off(args.task_id, payload.get("spec_sha256"), payload.get("human_message"))
     if args.workflow == "implementation":
@@ -92,8 +96,8 @@ def main(argv=None) -> int:
     parser.add_argument("--marketing-workflow", choices=["init", "status", "research", "content", "audit", "revise", "publish-prepare", "publish-authorize", "publish-reconcile"],
                         help="Native marketing evidence checkpoints; no agents or external writes executed")
     parser.add_argument("--marketing-mode", choices=["content", "research-only"], default="content")
-    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "audit", "audit-pending-browser", "verify-browser", "revise", "migrate-legacy"],
-                        help="Checkpoint thật cho native agents; không tự gọi LLM hoặc chạy test")
+    parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "code-review", "execute", "audit", "audit-pending-browser", "verify-browser", "revise", "migrate-legacy"],
+                        help="Native checkpoints; execute runs signed commands, never calls LLM agents")
     parser.add_argument("--project-root", help="Thư mục app local (workflow init)")
     parser.add_argument("--actor", help="ID phiên tác tử do runtime cung cấp")
     parser.add_argument("--payload", help="File JSON artifact/checkpoint")

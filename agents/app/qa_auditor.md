@@ -6,7 +6,7 @@ role: checker
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: flash
 workspace: inherit
 description: >
   Thẩm định độc lập sản phẩm của Builder: đối chiếu với đặc tả Architect,

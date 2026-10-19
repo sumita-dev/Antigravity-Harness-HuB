@@ -50,3 +50,17 @@ Khi chuyển giao phiên hoặc kết thúc đợt làm việc lớn:
 - **File liên quan**: ...
 - **Status**: active | clear
 ```
+
+### 4. Đúc kết Bài học Kinh nghiệm (Triad Lesson Schema)
+Mọi bài học kinh nghiệm (lessons learned) được đúc kết vào Vault Obsidian (`F:\Obsidian\memory\facts/` hoặc `F:\Obsidian\wiki\log.md`) bắt buộc phải tuân theo cấu trúc Triad Lesson Schema gồm 3 trường:
+- **cue**: Chỉ dấu / ngữ cảnh kích hoạt (tình huống, triệu chứng lỗi hoặc tín hiệu nhận diện).
+- **lesson**: Hành động chuẩn / bài học rút ra (quy tắc xử lý, kiến trúc chuẩn, giải pháp khắc phục).
+- **evidence**: Bằng chứng thực chứng xác thực (commit hash, Spec SHA256, log lỗi thực tế hoặc lệnh kiểm chứng có `exit code == 0`).
+
+Định dạng mẫu:
+```markdown
+- **cue**: <Chỉ dấu kích hoạt hoặc triệu chứng lỗi>
+- **lesson**: <Hành động chuẩn / giải pháp rút ra>
+- **evidence**: <Bằng chứng: hash, log lỗi hoặc exit code == 0>
+```
+

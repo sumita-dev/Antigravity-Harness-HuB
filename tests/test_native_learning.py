@@ -10,6 +10,7 @@ Bao gồm:
 """
 
 import json
+import sys
 from pathlib import Path
 import pytest
 
@@ -49,11 +50,12 @@ def test_app_workflow_auto_hook_approved(tmp_path):
         "design": "REST webhook handler",
         "contracts": "POST /stripe/webhook",
         "risks": "Idempotency",
+        "evidence_root": str(tmp_path),
         "acceptance_criteria": [
             {"id": "AC1", "description": "Xử lý thành công webhook", "ui": False, "applicable": True}
         ],
         "verification_commands": [
-            {"id": "cmd-1", "command": "python -c 'pass'", "cwd": ".", "ac_ids": ["AC1"]}
+            {"id": "cmd-1", "argv": [sys.executable, "-c", "print('verified')"], "cwd": ".", "ac_ids": ["AC1"]}
         ]
     }
     store.submit_spec(task_id, spec, "architect-1")
@@ -67,12 +69,17 @@ def test_app_workflow_auto_hook_approved(tmp_path):
     store.sign_off(task_id, state["spec_sha256"], "Duyệt")
 
     # Tạo file log kiểm thử trước khi nộp implementation để manifest khớp chính xác
-    log_file = project_root / "test.log"
+    log_file = tmp_path / "test.log"
     log_file.write_text("OK", encoding="utf-8")
 
     # Implementation
     store.submit_implementation(task_id, "builder-1", "Done implement")
     state = store.status(task_id)
+
+    # Persist independent Critic review and collect actual command evidence.
+    store.review_code(task_id, "APPROVE", "critic-1", state["spec_sha256"],
+                      state["manifest_sha256"], "Logic and signed contracts checked")
+    state = store.execute(task_id, "auditor-1", "cmd-1")
 
     # Audit -> APPROVE
     audit_payload = {
@@ -80,7 +87,7 @@ def test_app_workflow_auto_hook_approved(tmp_path):
         "spec_sha256": state["spec_sha256"],
         "manifest_sha256": state["manifest_sha256"],
         "commands": [
-            {"id": "cmd-1", "command": "python -c 'pass'", "cwd": str(project_root), "exit_code": 0, "log": str(log_file), "ac_ids": ["AC1"]}
+            {"id": "cmd-1", "receipt_id": state["execution_receipt"]["receipt_id"]}
         ],
         "preview": {
             "checks": [
@@ -124,6 +131,10 @@ def test_app_workflow_auto_hook_escalated(tmp_path):
         "design": "Design",
         "contracts": "Contracts",
         "risks": "Risks",
+        "verification_commands": [
+            {"id": "cmd-1", "argv": [sys.executable, "-c", "print('verified')"],
+             "cwd": ".", "ac_ids": ["AC1"]}
+        ],
         "acceptance_criteria": [
             {"id": "AC1", "description": "Tiêu chí 1", "ui": False, "applicable": True}
         ]

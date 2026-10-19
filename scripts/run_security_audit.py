@@ -107,44 +107,13 @@ def is_test_or_fixture_path(file_path: Path) -> bool:
 
 def is_safe_dummy_value(matched_text: str, line: str) -> bool:
     """Kiểm tra xem chuỗi khớp có phải là mock/dummy placeholder an toàn hay không."""
-    low_matched = matched_text.lower()
-    low_line = line.lower()
-
-    # Bỏ qua nếu có comment chỉ thị an toàn rõ ràng
-    if any(
-        kw in low_line
-        for kw in (
-            "# nosec",
-            "// nosec",
-            "# allow-secret",
-            "// allow-secret",
-            "# pragma: allowlist secret",
-        )
-    ):
+    # Suppress only explicit token prefixes or deliberate inline allowlisting.
+    if re.search(r"(?:#|//)\s*(?:nosec|allow-secret|pragma: allowlist secret)\b", line, re.I):
         return True
-
-    # Bỏ qua nếu chuỗi secret chứa từ khóa placeholder
-    for kw in SAFE_DUMMY_KEYWORDS:
-        if kw in low_matched:
-            return True
-
-    # Bỏ qua nếu dòng chứa các chú thích mẫu
-    if any(
-        comment_kw in low_line
-        for comment_kw in (
-            "# example",
-            "// example",
-            "# dummy",
-            "// dummy",
-            "# mock",
-            "// mock",
-            "# sample",
-            "// sample",
-        )
-    ):
-        return True
-
-    return False
+    return bool(re.fullmatch(
+        r"(?:sk-(?:proj-|ant-)?|gh[pousr]_)?(?:dummy|fake|mock|placeholder|xxxx|changeme|your_key|your_token|your_secret|replace_me)[A-Za-z0-9_-]*",
+        matched_text, re.I,
+    ))
 
 
 def mask_secret(secret_str: str) -> str:
@@ -159,19 +128,15 @@ def scan_file_for_secrets(file_path: Path, app_root: Path) -> list[dict[str, Any
     findings: list[dict[str, Any]] = []
     rel_path = str(file_path.relative_to(app_root))
 
-    # Nếu file thuộc test fixtures và không được chỉ định quét kỹ, bỏ qua
-    if is_test_or_fixture_path(file_path):
-        return findings
-
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return findings
+    except OSError:
+        raise
 
     lines = content.splitlines()
     for line_num, line in enumerate(lines, start=1):
         # Bỏ qua dòng trống hoặc quá dài
-        if not line.strip() or len(line) > 1000:
+        if not line.strip():
             continue
 
         for secret_name, pattern in SECRET_PATTERNS.items():
@@ -197,7 +162,10 @@ def scan_directory_for_secrets(app_dir: Path) -> list[dict[str, Any]]:
     """Duyệt đệ quy thư mục để tìm secrets trong tất cả các tệp mã nguồn/cấu hình."""
     findings: list[dict[str, Any]] = []
 
-    for root, dirs, files in os.walk(app_dir):
+    def fail_walk(error: OSError) -> None:
+        raise error
+
+    for root, dirs, files in os.walk(app_dir, onerror=fail_walk):
         # Lọc bỏ thư mục bỏ qua
         dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
 
@@ -207,176 +175,153 @@ def scan_directory_for_secrets(app_dir: Path) -> list[dict[str, Any]]:
             # Bỏ qua tệp nhị phân hoặc kích thước lớn (> 1MB)
             try:
                 if file_path.stat().st_size > 1024 * 1024:
-                    continue
+                    raise OSError(f"Secret scan size limit exceeded: {file_path}")
             except OSError:
-                continue
+                raise
 
             findings.extend(scan_file_for_secrets(file_path, app_dir))
 
     return findings
 
 
-def audit_npm_dependencies(app_dir: Path) -> dict[str, Any]:
-    """Kiểm tra lỗ hổng phụ thuộc Node.js bằng npm audit hoặc fallback."""
-    pkg_json = app_dir / "package.json"
-    if not pkg_json.exists():
-        return {"status": "SKIPPED", "reason": "No package.json found"}
-
-    npm_path = shutil.which("npm")
-    if not npm_path:
-        return {
-            "status": "FALLBACK",
-            "reason": "npm CLI not found, performed basic heuristic check",
-            "vulnerabilities": {"critical": 0, "high": 0, "moderate": 0, "low": 0},
-        }
-
+def _scan_dependencies(app_dir: Path, ecosystem: str) -> dict[str, Any]:
+    """Accept only validated scanner results; exit 1 can mean findings."""
+    npm = ecosystem == "npm"
+    manifest = app_dir / ("package.json" if npm else "requirements.txt")
+    manifest_names = {"package.json"} if npm else {"requirements.txt", "pyproject.toml", "Pipfile", "poetry.lock", "Pipfile.lock", "setup.py", "setup.cfg"}
+    unsupported = []
+    def fail_walk(error: OSError) -> None:
+        raise error
+    for root, dirs, files in os.walk(app_dir, onerror=fail_walk):
+        dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
+        for name in files:
+            if name not in manifest_names and not (not npm and name.startswith("requirements") and name.endswith((".txt", ".in"))):
+                continue
+            candidate = Path(root) / name
+            if candidate != manifest:
+                unsupported.append(str(candidate.relative_to(app_dir)))
+    if unsupported:
+        return {"status": "NOT_VERIFIED", "required": True,
+                "reason": "Unsupported or nested dependency manifests require separate audits", "manifests": unsupported}
+    if not manifest.exists():
+        return {"status": "NOT_VERIFIED", "required": False, "reason": f"No {manifest.name} found"}
+    tool = shutil.which("npm" if npm else "pip-audit")
+    if not tool:
+        return {"status": "NOT_VERIFIED", "required": True, "reason": "Required scanner not installed"}
+    command = [tool, "audit", "--json"] if npm else [tool, "-r", str(manifest), "--format", "json"]
     try:
-        proc = subprocess.run(
-            ["npm", "audit", "--json"],
-            cwd=str(app_dir),
-            capture_output=True,
-            text=True,
-            timeout=20,
-            shell=os.name == "nt",
-        )
-        if proc.stdout.strip():
-            audit_data = json.loads(proc.stdout)
-            vuln_summary = audit_data.get("metadata", {}).get(
-                "vulnerabilities", {}
-            ) or audit_data.get("vulnerabilities", {})
-            return {
-                "status": "SUCCESS",
-                "tool": "npm audit",
-                "vulnerabilities": vuln_summary,
-                "advisories_count": len(audit_data.get("advisories", {})),
-            }
+        proc = subprocess.run(command, cwd=str(app_dir), capture_output=True, text=True, timeout=25,
+                              shell=npm and os.name == "nt")
+        if proc.returncode not in (0, 1):
+            raise ValueError(f"Scanner exit code {proc.returncode}")
+        data = json.loads(proc.stdout)
+        counts = dict.fromkeys(("critical", "high", "moderate", "low", "unknown"), 0)
+        if npm:
+            if not isinstance(data, dict) or "error" in data:
+                raise ValueError("Invalid npm audit response")
+            summary = data.get("metadata", {}).get("vulnerabilities")
+            if not isinstance(summary, dict) or not all(key in summary for key in ("critical", "high", "moderate", "low")):
+                raise ValueError("Missing npm vulnerability summary")
+            for key in counts:
+                value = summary.get(key, 0)
+                if type(value) is not int or value < 0:
+                    raise ValueError("Invalid vulnerability count")
+                counts[key] = value
         else:
-            return {
-                "status": "FALLBACK",
-                "reason": "npm audit returned empty output (possibly no lockfile)",
-                "vulnerabilities": {"critical": 0, "high": 0, "moderate": 0, "low": 0},
-            }
-    except Exception as e:
-        return {
-            "status": "FALLBACK",
-            "reason": f"npm audit execution fallback: {e}",
-            "vulnerabilities": {"critical": 0, "high": 0, "moderate": 0, "low": 0},
-        }
+            deps = data.get("dependencies") if isinstance(data, dict) else data
+            if not isinstance(deps, list) or (isinstance(data, dict) and "error" in data):
+                raise ValueError("Missing Python dependency results")
+            targets = [line for line in manifest.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
+            if targets and not deps:
+                raise ValueError("Empty Python results for nonempty requirements")
+            for dep in deps:
+                if not isinstance(dep, dict) or not isinstance(dep.get("vulns"), list) or not isinstance(dep.get("name"), str) or not dep["name"].strip() or dep.get("skip_reason"):
+                    raise ValueError("Incomplete Python dependency result")
+                for vuln in dep["vulns"]:
+                    if not isinstance(vuln, dict) or not vuln.get("id"):
+                        raise ValueError("Invalid Python vulnerability")
+                    severity = str(vuln.get("severity", "unknown")).lower()
+                    severity = "moderate" if severity == "medium" else severity
+                    counts[severity if severity in counts else "unknown"] += 1
+            normalize = lambda name: re.sub(r"[-_.]+", "-", name).lower()
+            expected = set()
+            for target in targets:
+                requirement = re.split(r"\s+#", target, maxsplit=1)[0].strip()
+                match = re.fullmatch(
+                    r"([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[A-Za-z0-9_,. -]+\])?"
+                    r"(?:\s*(?:===|~=|==|!=|<=|>=|<|>)\s*[A-Za-z0-9.*+!_-]+(?:\s*,\s*(?:===|~=|==|!=|<=|>=|<|>)\s*[A-Za-z0-9.*+!_-]+)*)?",
+                    requirement,
+                )
+                if not match:
+                    return {"status": "NOT_VERIFIED", "required": True,
+                            "reason": "Unsupported requirement syntax prevents dependency coverage verification",
+                            "tool": "pip-audit", "returncode": proc.returncode,
+                            "vulnerabilities": {**counts, "found": sum(counts.values())}}
+                expected.add(normalize(match.group(1)))
+            actual = {normalize(dep["name"]) for dep in deps}
+            if not expected.issubset(actual):
+                raise ValueError("Python results do not cover named requirement targets")
+        found = sum(counts.values())
+        if proc.returncode == 1 and not found:
+            raise ValueError("Scanner exit 1 without vulnerability findings")
+        return {"status": "FAIL" if found else "PASS", "required": True,
+                "tool": "npm audit" if npm else "pip-audit", "returncode": proc.returncode,
+                "vulnerabilities": {**counts, "found": found}}
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError) as exc:
+        return {"status": "ERROR", "required": True, "reason": f"Scanner failed: {exc}"}
+
+
+def audit_npm_dependencies(app_dir: Path) -> dict[str, Any]:
+    return _scan_dependencies(app_dir, "npm")
 
 
 def audit_python_dependencies(app_dir: Path) -> dict[str, Any]:
-    """Kiểm tra lỗ hổng phụ thuộc Python bằng pip-audit hoặc fallback."""
-    req_file = app_dir / "requirements.txt"
-    if not req_file.exists():
-        return {"status": "SKIPPED", "reason": "No requirements.txt found"}
-
-    pip_audit_path = shutil.which("pip-audit")
-    if not pip_audit_path:
-        # Fallback: Quét heuristic requirements.txt
-        req_lines = req_file.read_text(encoding="utf-8", errors="ignore").splitlines()
-        unpinned = [
-            line.strip()
-            for line in req_lines
-            if line.strip() and not line.strip().startswith("#") and "==" not in line
-        ]
-        return {
-            "status": "FALLBACK",
-            "reason": "pip-audit CLI not found, performed heuristic requirements analysis",
-            "unpinned_dependencies": unpinned,
-            "vulnerabilities": {"critical": 0, "high": 0, "moderate": 0, "low": 0},
-        }
-
-    try:
-        proc = subprocess.run(
-            ["pip-audit", "-r", str(req_file), "--format", "json"],
-            cwd=str(app_dir),
-            capture_output=True,
-            text=True,
-            timeout=25,
-        )
-        if proc.stdout.strip():
-            audit_data = json.loads(proc.stdout)
-            vuln_count = len(audit_data.get("dependencies", []))
-            return {
-                "status": "SUCCESS",
-                "tool": "pip-audit",
-                "vulnerabilities": {"found": vuln_count},
-            }
-        else:
-            return {
-                "status": "SUCCESS",
-                "tool": "pip-audit",
-                "vulnerabilities": {"found": 0},
-            }
-    except Exception as e:
-        return {
-            "status": "FALLBACK",
-            "reason": f"pip-audit execution fallback: {e}",
-            "vulnerabilities": {"critical": 0, "high": 0, "moderate": 0, "low": 0},
-        }
+    return _scan_dependencies(app_dir, "python")
 
 
-def run_security_audit(
-    app_dir: str | Path = ".", fail_on_critical: bool = False
-) -> dict[str, Any]:
-    """Hàm chạy toàn diện Security Audit trên app_dir."""
+def run_security_audit(app_dir: str | Path = ".", fail_on_critical: bool = False) -> dict[str, Any]:
+    """Default report blocks CRITICAL, HIGH and UNKNOWN; flag selects critical-only policy."""
     target_dir = Path(app_dir).resolve()
-    if not target_dir.exists():
+    if not target_dir.is_dir():
         raise FileNotFoundError(f"App directory '{target_dir}' does not exist.")
+    scan_error = None
+    secrets = []
+    deps = {}
+    try:
+        secrets = scan_directory_for_secrets(target_dir)
+        deps = {"npm": audit_npm_dependencies(target_dir), "python": audit_python_dependencies(target_dir)}
+    except OSError as exc:
+        scan_error = f"Incomplete filesystem scan: {exc}"
 
-    # 1. Quét Secrets
-    secrets_found = scan_directory_for_secrets(target_dir)
-
-    # 2. Quét Dependency
-    npm_result = audit_npm_dependencies(target_dir)
-    python_result = audit_python_dependencies(target_dir)
-
-    # Tính tổng lỗi
-    critical_count = len(secrets_found)
-    high_count = 0
-    medium_count = 0
-    low_count = 0
-
-    # Cộng dồn từ npm vulnerabilities nếu có
-    if npm_result.get("status") == "SUCCESS":
-        vulns = npm_result.get("vulnerabilities", {})
-        if isinstance(vulns, dict):
-            critical_count += int(vulns.get("critical", 0))
-            high_count += int(vulns.get("high", 0))
-            medium_count += int(vulns.get("moderate", 0))
-            low_count += int(vulns.get("low", 0))
-
-    passed = critical_count == 0
-
-    report: dict[str, Any] = {
-        "app_dir": str(target_dir),
-        "passed": passed,
-        "summary": {
-            "critical": critical_count,
-            "high": high_count,
-            "medium": medium_count,
-            "low": low_count,
-            "secrets_found": len(secrets_found),
-        },
-        "secrets": secrets_found,
-        "dependencies": {
-            "npm": npm_result,
-            "python": python_result,
-        },
-    }
-
-    return report
+    summary = dict.fromkeys(("critical", "high", "medium", "low", "unknown"), 0)
+    summary["critical"] = len(secrets)
+    summary["secrets_found"] = len(secrets)
+    for result in deps.values():
+        for severity in ("critical", "high", "moderate", "low", "unknown"):
+            summary["medium" if severity == "moderate" else severity] += result.get("vulnerabilities", {}).get(severity, 0)
+    incomplete = [r for r in deps.values() if r["required"] and r["status"] in ("ERROR", "NOT_VERIFIED")]
+    blocking = ["CRITICAL", "UNKNOWN"] if fail_on_critical else ["CRITICAL", "HIGH", "UNKNOWN"]
+    status = ("ERROR" if any(r["status"] == "ERROR" for r in incomplete) else "NOT_VERIFIED") if incomplete else (
+        "FAIL" if any(summary[k.lower()] for k in blocking) else "PASS")
+    if scan_error:
+        status = "ERROR"
+    return {"app_dir": str(target_dir), "status": status, "scan_error": scan_error, "passed": status == "PASS",
+            "policy": {"blocking_severities": blocking, "required_scans_must_complete": True},
+            "summary": summary, "secrets": secrets, "dependencies": deps}
 
 
 def format_markdown_report(report: dict[str, Any]) -> str:
     """Định dạng kết quả kiểm toán thành báo cáo Markdown trực quan."""
     summary = report["summary"]
-    status_text = "PASSED" if report["passed"] else "FAILED (Critical Issues Detected)"
+    status_text = report["status"]
 
     lines = [
         "# BÁO CÁO THẨM ĐỊNH AN TOÀN BẢO MẬT (SECURITY AUDIT REPORT)",
         f"- **Thư mục ứng dụng:** `{report['app_dir']}`",
         f"- **Trạng thái:** **{status_text}**",
+        "",
+        f"Policy: block {', '.join(report['policy']['blocking_severities'])}; required dependency scans must complete successfully.",
+        "--fail-on-critical selects CRITICAL and UNKNOWN blocking policy; incomplete scans always fail.",
         "",
         "## 1. Tổng Kết Rủi Ro",
         "| Mức độ | Số lượng | Đánh giá |",
@@ -384,6 +329,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         f"| **CRITICAL** | {summary['critical']} | {'Nguy cơ rò rỉ secret hoặc lỗ hổng nghiêm trọng' if summary['critical'] > 0 else 'An toàn'} |",
         f"| **HIGH** | {summary['high']} | {'Cần xử lý trước khi deploy production' if summary['high'] > 0 else 'An toàn'} |",
         f"| **MEDIUM** | {summary['medium']} | Khuyến nghị nâng cấp |",
+        f"| **UNKNOWN** | {summary['unknown']} | Requires severity verification |",
         f"| **LOW** | {summary['low']} | Cảnh báo nhẹ |",
         "",
     ]
@@ -403,8 +349,8 @@ def format_markdown_report(report: dict[str, Any]) -> str:
     lines.append("")
     lines.append("## 3. Dependency Vulnerability Audit")
     deps = report["dependencies"]
-    lines.append(f"- **Node.js (npm):** Trạng thái: `{deps['npm'].get('status')}` ({deps['npm'].get('reason', 'OK')})")
-    lines.append(f"- **Python:** Trạng thái: `{deps['python'].get('status')}` ({deps['python'].get('reason', 'OK')})")
+    lines.append(f"- **Node.js (npm):** Trạng thái: `{deps.get('npm', {}).get('status', 'ERROR')}` ({deps.get('npm', {}).get('reason', report.get('scan_error') or 'OK')})")
+    lines.append(f"- **Python:** Trạng thái: `{deps.get('python', {}).get('status', 'ERROR')}` ({deps.get('python', {}).get('reason', report.get('scan_error') or 'OK')})")
 
     lines.append("")
     lines.append(f"**KẾT LUẬN CUỐI CÙNG:** {'APPROVED' if report['passed'] else 'REJECTED'}")
@@ -453,7 +399,7 @@ def main() -> int:
     else:
         print(format_markdown_report(report))
 
-    if args.fail_on_critical and not report["passed"]:
+    if not report["passed"]:
         return 1
 
     return 0

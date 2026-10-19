@@ -6,7 +6,7 @@ role: checker
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: flash
 workspace: inherit
 description: >
   Đối chiếu Spec năm mục với codebase, 8 trụ cột bằng chứng và rubric thiết kế trước khi trình Sếp duyệt.

@@ -8,7 +8,7 @@
 # Antigravity Harness Hub — Quy Chuẩn Vận Hành & Điều Phối Tác Tử
 
 ## Phạm Vi Product Gates Và Bảo Trì Harness
-Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt Spec → Builder → QA áp dụng app native; Researcher → Creator → Critic áp dụng marketing. Không tự tạo vòng xin duyệt mới cho tác tử bảo trì khi Sếp đã giao việc rõ. Giữ review độc lập và bằng chứng thật; không tạo checkpoint/signoff giả. Quy chuẩn tối cao dự án trên **Antigravity 2.0**. AI là **Quản đốc Hệ thống (Chief Orchestrator)**, tuân thủ Maker-Checker và cầu dao ngắt mạch.
+Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt Spec → Builder → Code Critic → QA áp dụng app native; Researcher → Creator → Critic áp dụng marketing. Không tự tạo vòng xin duyệt mới cho tác tử bảo trì khi Sếp đã giao việc rõ. Giữ review độc lập và bằng chứng thật; không tạo checkpoint/signoff giả. Quy chuẩn tối cao dự án trên **Antigravity 2.0**. AI là **Quản đốc Hệ thống (Chief Orchestrator)**, tuân thủ Maker-Checker và cầu dao ngắt mạch.
 
 ---
 
@@ -33,6 +33,9 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
     - Pre-Flight Symbol Grounding: Maker gọi GitNexus `impact()` & `context()` trước khi sửa hàm/class; kèm log thật (`exit code == 0`) và file vật lý.
     - Strict Evidence Filter: Critic REJECT ngay nếu dùng Red Flag Phrases (`should work`, `probably`, `chắc là`...) hoặc thiếu log.
     - Physical Path & Exit Code 0: QA kiểm tra 100% file tồn tại (`Path.exists()`) và rerun test bắt buộc `exit code == 0`.
+15. **Kinh Tế Học Ngữ Cảnh & Thứ Bậc Scaffolding (Context Budget Economics):**
+    - Quy tắc ưu tiên chi phí context: `Skill (On-demand)` ➔ `Script (Deterministic)` ➔ `SubAgent (Large in, small out)` ➔ `Plugin/Hook (In-the-loop)` ➔ `Always-on text` cuối cùng.
+    - Luôn có trần ngân sách `always_on_max` (như GEMINI.md <= 24,000 bytes); thêm mới nội dung vào Always-on bắt buộc phải cắt gọt nội dung cũ. Tri thức động và hướng dẫn chi tiết phải chuyển vào Skill/Script/SubAgent thay vì nhồi nhét vào Always-on context.
 
 ---
 
@@ -129,7 +132,7 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 ---
 
 ## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
-- `harness/app_workflow.py` & `marketing_workflow.py`: Lưu checkpoint/evidence stores (schema 2); CLI không gọi agents/browser.
+- `harness/app_workflow.py`: checkpoint app schema 3, receipts thực thi local và CRITIQUE trước QA; `marketing_workflow.py` giữ schema 2. CLI không gọi native agents/browser. Xem `docs/upgrade-policy.md`.
 - `harness/orchestrator.py` & `runners/`: Mô phỏng state machine (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`), không thay SubAgent.
 - CLI & Router: `python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]`.
 - Quy tắc bất biến: (1) Không hardcode secret (`.env` / `.env.example`); (2) Không commit `.brain/`; (3) Giữ `pytest -q` xanh 100%; (4) Cài `pip install -r requirements.txt`.
@@ -139,5 +142,5 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 ## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain — F:\Obsidian)
 1. **Chủ Động Tra Cứu (Auto-Query):** Nhận việc: Quản đốc BẮT BUỘC tự tra cứu `F:\Obsidian\wiki\index.md` nạp bối cảnh, bài học cũ trước khi lập kế hoạch hay giao việc cho SubAgent.
 2. **Chủ Động Tiêu Hoá (Auto-Ingest):** Dữ liệu mới trong `sources/` hoặc chat: tự điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Mục tiêu vs thực tế, Giữ mâu thuẫn) thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
-3. **Chủ Động Đúc Kết (Memory Reflection):** Xong việc/có bài học: lưu facts vào `memory/facts/`, `MEMORY.md`; append `wiki/log.md` (`## [YYYY-MM-DD] ...`); cập nhật `_session-handoff.md`.
+3. **Chủ Động Đúc Kết (Memory Reflection & Triad Lesson Schema):** Xong việc/có bài học: lưu facts vào `memory/facts/`, `MEMORY.md`; append `wiki/log.md` (`## [YYYY-MM-DD] ...`); cập nhật `_session-handoff.md`. Đúc kết bài học bắt buộc theo cấu trúc Triad Lesson Schema gồm 3 trường: `cue` (chỉ dấu/ngữ cảnh kích hoạt), `lesson` (hành động chuẩn cần làm), `evidence` (bằng chứng thực chứng: hash commit/spec, log lỗi thực tế hoặc exit code).
 4. **Rà Soát Sức Khoẻ (Gap Detection):** Câu hỏi mở: tự append `wiki/_open-questions.md` và cảnh báo mâu thuẫn tri thức.

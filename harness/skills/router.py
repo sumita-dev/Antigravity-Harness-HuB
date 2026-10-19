@@ -6,6 +6,7 @@ pipeline chạy từ bất kỳ thư mục nào cũng tìm đúng file.
 
 import json
 import re
+import yaml
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -30,10 +31,13 @@ MARKETING_HINTS = ("marketing", "sale", "content", "story", "ads", "seo",
 class SkillRouter:
     def __init__(self, config_path: Optional[str] = None):
         self.routing_table = {}
+        self.composition = {}
         path = Path(config_path) if config_path else DEFAULT_CONFIG
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
-                self.routing_table = json.load(f).get("skill_routing", {})
+                config = json.load(f)
+                self.routing_table = config.get("skill_routing", {})
+                self.composition = config.get("skill_composition", {})
 
     def route(self, task_description: str) -> Tuple[Optional[str], str]:
         text = task_description.lower()
@@ -54,6 +58,43 @@ class SkillRouter:
             return None, "marketing"
 
         return None, "app"
+
+
+    def compose(self, stage, role, stack, risk, task_description="", *,
+                max_skills=None, max_chars=None, loader=None):
+        """Compose existing skills; fail explicitly rather than truncate policy."""
+        selected = []
+        for dimension, value in (("stage", stage), ("role", role), ("stack", stack), ("risk", risk)):
+            for name in self.composition.get(dimension, {}).get(value, []):
+                if name not in selected:
+                    selected.append(name)
+        keyword, _ = self.route(task_description)
+        if keyword and keyword not in selected:
+            selected.append(keyword)
+        skill_limit = self.composition.get("max_skills", 6) if max_skills is None else max_skills
+        char_limit = self.composition.get("max_chars", 48000) if max_chars is None else max_chars
+        if not isinstance(skill_limit, int) or not isinstance(char_limit, int) or skill_limit < 0 or char_limit < 0:
+            raise ValueError("Invalid composition budget")
+        loader = loader or SkillLoader()
+        closure = []
+        def expand(name, active):
+            if name in active:
+                raise ValueError(f"Skill dependency cycle: {name}")
+            if name in closure:
+                return
+            if not loader.find_skill_path(name):
+                raise ValueError(f"Missing skill dependency: {name}")
+            for dependency in loader.get_skill_dependencies(name):
+                expand(dependency, active | {name})
+            closure.append(name)
+        for name in selected:
+            expand(name, set())
+        if len(closure) > skill_limit:
+            raise ValueError("Skill composition exceeds skill budget")
+        instructions = "\n\n".join(loader.load_instructions(name, include_dependencies=False) for name in closure)
+        if len(instructions) > char_limit:
+            raise ValueError("Skill composition exceeds context budget")
+        return {"skills": closure, "instructions": instructions, "chars": len(instructions)}
 
 
 class SkillLoader:
@@ -83,14 +124,25 @@ class SkillLoader:
         if not match:
             return []
             
-        frontmatter = match.group(1)
-        dep_match = re.search(r'dependencies:\s*\[(.*?)\]', frontmatter)
-        if dep_match:
-            deps_str = dep_match.group(1)
-            deps = [d.strip(' "\'') for d in deps_str.split(',')]
-            return [d for d in deps if d]
-            
-        return []
+        # Legacy frontmatter contains prose that is not valid YAML. Only the
+        # declared dependency field belongs to this parser's contract.
+        lines = match.group(1).splitlines()
+        starts = [i for i, line in enumerate(lines) if re.match(r"^dependencies\s*:", line)]
+        if not starts:
+            return []
+        if len(starts) != 1:
+            raise ValueError(f"Invalid dependencies: {skill_name} (duplicate field)")
+        start = starts[0]
+        end = next((i for i in range(start + 1, len(lines))
+                    if re.match(r"^[A-Za-z_][\w-]*\s*:", lines[i])), len(lines))
+        try:
+            metadata = yaml.safe_load("\n".join(lines[start:end]))
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Invalid dependencies: {skill_name}") from exc
+        deps = metadata.get("dependencies", [])
+        if not isinstance(deps, list) or any(not isinstance(d, str) or not d for d in deps):
+            raise ValueError(f"Invalid dependencies: {skill_name}")
+        return deps
 
     def load_instructions(self, skill_name: Optional[str], include_dependencies: bool = True, _visited: Optional[set] = None) -> Optional[str]:
         if not skill_name:
@@ -120,6 +172,8 @@ class SkillLoader:
         result = []
         for dep in deps:
             dep_content = self.load_instructions(dep, include_dependencies=True, _visited=_visited)
+            if dep_content is None:
+                raise ValueError(f"Missing skill dependency: {dep}")
             if dep_content:
                 result.append(f"<!-- DEPENDENCY: {dep} -->\n{dep_content}")
                 

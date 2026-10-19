@@ -6,7 +6,7 @@ role: checker
 enable_write_tools: false
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: flash
 workspace: inherit
 description: >
   Trọng tài độc lập thẩm định chất lượng kịch bản và kết quả kiểm thử E2E:
