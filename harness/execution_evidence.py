@@ -201,10 +201,11 @@ class ExecutionEvidenceStore:
             'collector_pid':os.getpid(), 'resolved_executable':None, 'tool_version_status':'NOT_VERIFIED',
             'actor_identity_status':'DECLARED', 'native_isolation_status':'NOT_VERIFIED'}
         try:
-            executable = Path(argv[0])
-            if executable.is_absolute() or any(separator in argv[0] for separator in ('/', '\\')):
+            raw_exe = argv[0].replace('\\', '/') if os.name != 'nt' else argv[0]
+            executable = Path(raw_exe)
+            if executable.is_absolute() or any(separator in raw_exe for separator in ('/', '\\')):
                 executable = executable if executable.is_absolute() else Path(command['cwd'])/executable
-                resolved = str(_safe(executable).resolve()) if executable.is_file() else None
+                resolved = str(executable.resolve()) if executable.is_file() else None
             else:
                 # Never let shutil.which inject the collector's current directory.
                 search_dirs = os.environ.get('PATH','').split(os.pathsep)
@@ -221,13 +222,13 @@ class ExecutionEvidenceStore:
                     for extension in extensions:
                         candidate = directory/(argv[0]+extension)
                         if candidate.is_file() and os.access(candidate,os.X_OK):
-                            resolved = str(candidate)
+                            resolved = str(candidate.resolve())
                             break
                     if resolved:
                         break
             if not resolved:
                 raise EvidenceError('Executable not found')
-            resolved = str(_safe(resolved).resolve())
+            resolved = str(Path(resolved).resolve())
             if os.name == 'nt' and Path(resolved).suffix.lower() in {'.bat','.cmd'}:
                 raise EvidenceError('Batch commands require a shell; use a direct executable')
             execution_context['resolved_executable'] = resolved
