@@ -1,6 +1,7 @@
 ---
 name: cham-soc-may-tinh
-description: BẢO DƯỠNG VÀ TỐI ƯU HÓA MÁY TÍNH WINDOWS theo phương pháp đối soát thực nghiệm 2 chiều. Hỗ trợ bảo dưỡng định kỳ nhanh và điều tra chuyên sâu theo hiện tượng cụ thể, phân tích nguyên nhân qua bộ công cụ nội tại kết hợp tra cứu tài liệu bên ngoài, lập trước biên bản kỹ thuật LATEST_CSSK.md với 3 chốt chặn đọc lại bắt buộc. Hỗ trợ rà soát và giải phóng dung lượng ổ C chuyên sâu: cache công cụ lập trình (pip, npm, pnpm, docker), crash dumps / WER, thùng rác (recycle bin) và làm mới DNS Resolver. Kích hoạt khi người dùng nói 'máy tính chậm', 'dọn rác máy', 'tối ưu windows', 'bảo dưỡng pc', 'giải phóng ram', 'alt tab bị giật', 'chuyển ứng dụng khựng', 'máy đơ', 'computer-optimize', 'dọn dẹp và tối ưu máy tính', 'dọn cache pip npm pnpm', 'dọn docker'.
+description: >-
+  BẢO DƯỠNG VÀ TỐI ƯU HÓA MÁY TÍNH WINDOWS theo phương pháp đối soát thực nghiệm 2 chiều. Hỗ trợ bảo dưỡng định kỳ nhanh và điều tra chuyên sâu theo hiện tượng cụ thể, phân tích nguyên nhân qua bộ công cụ nội tại kết hợp tra cứu tài liệu bên ngoài, lập trước biên bản kỹ thuật LATEST_CSSK.md với 3 chốt chặn đọc lại bắt buộc. Hỗ trợ rà soát và giải phóng dung lượng ổ C chuyên sâu: cache công cụ lập trình (pip, npm, pnpm, docker), crash dumps / WER, thùng rác (recycle bin) và làm mới DNS Resolver. Kích hoạt khi người dùng nói 'máy tính chậm', 'dọn rác máy', 'tối ưu windows', 'bảo dưỡng pc', 'giải phóng ram', 'alt tab bị giật', 'chuyển ứng dụng khựng', 'máy đơ', 'computer-optimize', 'dọn dẹp và tối ưu máy tính', 'dọn cache pip npm pnpm', 'dọn docker'.
 ---
 
 # Kỹ Năng: Chăm Sóc & Tối Ưu Hóa Máy Tính Windows (Targeted PC Care Engine)
