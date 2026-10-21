@@ -34,7 +34,8 @@ def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> No
                 ["taskkill", "/F", "/T", "/PID", str(pid)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                check=False
+                check=False,
+                timeout=5
             )
         except Exception:
             pass
@@ -47,15 +48,23 @@ def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> No
                         ["taskkill", "/F", "/IM", proc_name],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
-                        check=False
+                        check=False,
+                        timeout=5
                     )
                 except Exception:
                     pass
     else:
-        # POSIX
+        # POSIX: Chỉ kill process group nếu khác process group của tiến trình hiện tại (tránh tự kill test runner)
         import signal
         try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            target_pgid = os.getpgid(pid)
+            current_pgid = os.getpgrp() if hasattr(os, "getpgrp") else os.getpid()
+            if target_pgid != current_pgid:
+                os.killpg(target_pgid, signal.SIGKILL)
+            else:
+                os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         except Exception:
             try:
                 os.kill(pid, signal.SIGKILL)
@@ -103,7 +112,9 @@ def run_command_with_timeout(
             cwd=cwd,
             env=env,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            start_new_session=os.name != "nt",
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
 
         try:
@@ -119,6 +130,10 @@ def run_command_with_timeout(
         except subprocess.TimeoutExpired:
             elapsed = time.time() - start_time
             kill_process_tree(proc.pid, cleanup_names=cleanup_names)
+            try:
+                proc.kill()
+            except Exception:
+                pass
             try:
                 stdout, stderr = proc.communicate(timeout=2.0)
             except Exception:

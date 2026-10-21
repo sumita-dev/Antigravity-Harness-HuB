@@ -566,6 +566,57 @@ def normalize_raw_ad(node: Dict[str, Any]) -> AdCreative:
     return AdNormalizer.normalize_node(node)
 
 
+def _parse_ad_start_date(text: str) -> str:
+    """Bóc tách ngày bắt đầu chạy quảng cáo từ text node của Meta Ads Library sang YYYY-MM-DD hoặc N/A."""
+    # Tiếng Việt: 'Ngày bắt đầu chạy: 16 Tháng 4, 2026' hoặc '16 thg 4, 2026'
+    m_vn = re.search(
+        r'(?:Ngày bắt đầu chạy|Bắt đầu chạy vào):\s*(\d{1,2})\s+(?:Tháng|thg)\s+(\d{1,2}),?\s+(\d{4})',
+        text,
+        re.IGNORECASE,
+    )
+    if m_vn:
+        day, month, year = int(m_vn.group(1)), int(m_vn.group(2)), int(m_vn.group(3))
+        try:
+            return datetime.date(year, month, day).isoformat()
+        except Exception:
+            pass
+
+    # Tiếng Anh
+    months = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+        "january": 1, "february": 2, "march": 3, "april": 4, "june": 6,
+        "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    }
+    m_en1 = re.search(r'Started running on\s*([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})', text, re.IGNORECASE)
+    if m_en1:
+        mon_str, day, year = m_en1.group(1).lower(), int(m_en1.group(2)), int(m_en1.group(3))
+        if mon_str in months:
+            try:
+                return datetime.date(year, months[mon_str], day).isoformat()
+            except Exception:
+                pass
+
+    m_en2 = re.search(r'Started running on\s*(\d{1,2})\s+([a-zA-Z]+),?\s+(\d{4})', text, re.IGNORECASE)
+    if m_en2:
+        day, mon_str, year = int(m_en2.group(1)), m_en2.group(2).lower(), int(m_en2.group(3))
+        if mon_str in months:
+            try:
+                return datetime.date(year, months[mon_str], day).isoformat()
+            except Exception:
+                pass
+
+    m_dmy = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', text)
+    if m_dmy:
+        day, month, year = int(m_dmy.group(1)), int(m_dmy.group(2)), int(m_dmy.group(3))
+        try:
+            return datetime.date(year, month, day).isoformat()
+        except Exception:
+            pass
+
+    return "N/A"
+
+
 # ==============================================================================
 # 7. MULTI-TIER SCRAPING ENGINE
 # ==============================================================================
@@ -592,15 +643,15 @@ class MetaScraperEngine:
             logger.info("Chế độ --seed / --seed-only được kích hoạt. Nạp bộ dữ liệu mẫu tức thì.")
             return self._load_seed(keyword, limit)
 
-        # Tier 1: Thử truy vấn Web GraphQL / Endpoint mô phỏng
+        # Tier 1: Cào dữ liệu thực tế và realtime từ Meta Ads Library bằng Playwright Chromium
         try:
-            logger.info("Tier 1: Đang thử kết nối trực tiếp endpoint Meta Ads Library...")
-            ads = self._fetch_tier1(target_url, limit)
+            logger.info("Tier 1: Đang khởi chạy Playwright Chromium cào dữ liệu thực tế từ Meta Ads Library...")
+            ads = self._fetch_tier1_playwright(target_url, limit)
             if ads:
                 coverage = compute_coverage(ads, requested=limit)
-                return ads, coverage, "tier1_web"
+                return ads, coverage, "tier1_playwright_live"
         except Exception as e:
-            logger.warning(f"Tier 1 thất bại ({e}). Chuyển sang Tier 2...")
+            logger.warning(f"Tier 1 (Playwright) thất bại ({e}). Chuyển sang kiểm tra Tier 2...")
 
         # Tier 2: Thử Graph API nếu có META_ACCESS_TOKEN
         token = os.getenv("META_ACCESS_TOKEN")
@@ -612,11 +663,13 @@ class MetaScraperEngine:
                     coverage = compute_coverage(ads, requested=limit)
                     return ads, coverage, "tier2_graph_api"
             except Exception as e:
-                logger.warning(f"Tier 2 thất bại ({e}). Chuyển sang Tier 3 Fallback...")
+                logger.warning(f"Tier 2 (Graph API) thất bại ({e}).")
 
-        # Tier 3 & 4: Fallback về Rich Seed Data + URL chính xác
-        logger.info("Kích hoạt Tier 3/4 Graceful Seed Fallback (Offline / Rate-limited Mode).")
-        return self._load_seed(keyword, limit)
+        # TUYỆT ĐỐI CẤM TỰ Ý FALLBACK VỀ SEED_ADS KHI KHÔNG CÓ CỜ --seed
+        raise RuntimeError(
+            f"Không thể cào dữ liệu trực tiếp từ Meta Ads Library cho từ khóa '{keyword}'. "
+            f"Vui lòng kiểm tra kết nối mạng hoặc thử lại. Nếu muốn xem dữ liệu mẫu thẩm định, hãy thêm cờ --seed."
+        )
 
     def _load_seed(self, keyword: str, limit: int) -> tuple[List[AdCreative], CoverageMetrics, str]:
         """Lọc và chuẩn hóa dữ liệu mẫu seed."""
@@ -636,36 +689,194 @@ class MetaScraperEngine:
         coverage = compute_coverage(ads, requested=limit)
         return ads, coverage, "tier4_seed_fallback"
 
-    def _fetch_tier1(self, target_url: str, limit: int) -> List[AdCreative]:
-        """Thử nghiệm fetch nhẹ nhàng (mô phỏng browser handshake)."""
-        # Nếu không có network thực hoặc bị WAF chặn, sẽ raise exception để fallback
-        import urllib.request
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8",
-        }
-        req = urllib.request.Request(target_url, headers=headers)
-        # Timeout 3s để không nghẽn luồng
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            content = resp.read().decode("utf-8", errors="ignore")
-            # Parse thô nếu có script JSON embedded
-            found_ids = re.findall(r'"adArchiveID":"(\d+)"', content)
-            if not found_ids:
-                raise RuntimeError("Meta trả về trang rỗng hoặc yêu cầu checkpoint/captcha.")
-            # Tạo node tối thiểu
-            nodes = []
-            for fid in found_ids[:limit]:
-                nodes.append({
-                    "id": fid,
-                    "ad_archive_id": fid,
-                    "page_name": "Meta Advertiser",
-                    "body_text": f"Mẫu quảng cáo trích xuất từ Meta Ads Library (ID: {fid})",
+    def _fetch_tier1_playwright(self, target_url: str, limit: int) -> List[AdCreative]:
+        """Cào dữ liệu thực tế 100% từ Meta Ads Library bằng Playwright Chromium."""
+        from playwright.sync_api import sync_playwright
+        from bs4 import BeautifulSoup
+
+        ads: List[AdCreative] = []
+        seen_ids: set[str] = set()
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                user_agent = (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+                )
+                page = browser.new_page(user_agent=user_agent)
+                page.set_extra_http_headers({
+                    "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
                 })
-            return [AdNormalizer.normalize_node(n) for n in nodes]
+                page.goto(target_url, timeout=35000, wait_until="networkidle")
+                page.wait_for_timeout(4000)
+
+                # Cuộn trang nhẹ để kích hoạt tải thêm bài quảng cáo
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+                page.wait_for_timeout(2000)
+
+                html_content = page.content()
+                browser.close()
+        except Exception as e:
+            logger.error(f"Lỗi kết nối Playwright Chromium: {e}")
+            raise RuntimeError(f"Playwright Chromium không thể truy cập Meta Ads Library: {e}") from e
+
+        soup = BeautifulSoup(html_content, "html.parser")
+        id_nodes = soup.find_all(string=re.compile(r'ID thư viện:\s*\d+|Library ID:\s*\d+'))
+        if not id_nodes:
+            raise RuntimeError("Meta Ads Library không trả về thẻ quảng cáo nào (trang rỗng hoặc bị checkpoint).")
+
+        for node in id_nodes:
+            if len(ads) >= limit:
+                break
+            text = str(node).strip()
+            ad_id_match = re.search(r'\d+', text)
+            if not ad_id_match:
+                continue
+            ad_id = ad_id_match.group(0)
+            if ad_id in seen_ids:
+                continue
+
+            # Tìm thẻ div card bao bọc (chứa đúng 1 node ID thư viện)
+            curr = node.parent
+            card = None
+            for _ in range(16):
+                if not curr or curr.name in ('body', 'html'):
+                    break
+                ids_inside = curr.find_all(string=re.compile(r'ID thư viện:\s*\d+|Library ID:\s*\d+'))
+                if len(ids_inside) > 1:
+                    break
+                if len(ids_inside) == 1:
+                    card = curr
+                    curr_text = curr.get_text(" ", strip=True)
+                    has_sponsored = bool(re.search(r'Được tài trợ|Sponsored', curr_text, re.IGNORECASE))
+                    if has_sponsored:
+                        # Đã chạm ranh giới card hoàn chỉnh chứa Fanpage & nội dung bài viết, dừng lại ngay tránh trôi lên body
+                        break
+                curr = curr.parent
+
+            if not card:
+                continue
+
+            seen_ids.add(ad_id)
+            card_text = card.get_text("\n", strip=True)
+            lines = [line.strip() for line in card_text.split("\n") if line.strip()]
+
+            start_date = _parse_ad_start_date(card_text)
+
+            # Bóc tách tên Fanpage và nội dung bài viết quảng cáo thực tế
+            page_name = "Meta Advertiser"
+            body_text = ""
+            cta_text = None
+
+            sponsored_idx = -1
+            for idx, line in enumerate(lines):
+                if re.search(r'^(Được tài trợ|Sponsored)', line, re.IGNORECASE):
+                    sponsored_idx = idx
+                    if idx > 0:
+                        page_name = lines[idx - 1]
+                    elif idx + 1 < len(lines):
+                        page_name = lines[idx + 1]
+                    break
+
+            content_lines = []
+            if sponsored_idx != -1:
+                raw_body = lines[sponsored_idx + 1:]
+                cta_candidates = {
+                    'gửi tin nhắn', 'send message', 'tìm hiểu thêm', 'learn more',
+                    'mua ngay', 'shop now', 'đăng ký', 'sign up',
+                    'liên hệ với chúng tôi', 'contact us', 'nhận báo giá', 'get quote',
+                    'gọi ngay', 'call now', 'cài đặt ngay', 'install now',
+                    'sử dụng ứng dụng', 'use app'
+                }
+                for bl in raw_body:
+                    if bl.lower() in cta_candidates:
+                        cta_text = bl
+                        break
+                    content_lines.append(bl)
+                body_text = "\n".join(content_lines).strip()
+            else:
+                body_text = card_text.strip()
+
+            # Bóc tách tiêu đề / headline nổi bật
+            title = None
+            heading_node = card.find(lambda tag: tag.name in ['h1', 'h2', 'h3', 'h4', 'strong'] and tag.get_text(strip=True))
+            if heading_node:
+                h_text = heading_node.get_text(strip=True)
+                if (
+                    h_text
+                    and h_text.lower() not in [page_name.lower(), 'được tài trợ', 'sponsored']
+                    and not re.search(r'ID thư viện|Library ID', h_text, re.I)
+                ):
+                    title = h_text
+
+            if not title:
+                if content_lines:
+                    first_line = content_lines[0].strip()
+                    if first_line and len(first_line) > 5:
+                        title = first_line[:120]
+                elif body_text:
+                    first_line = body_text.split("\n")[0].strip()
+                    if first_line and len(first_line) > 5:
+                        title = first_line[:120]
+
+            # Bóc tách domain / caption nếu có
+            caption = None
+            link_url = None
+            for line in lines:
+                if re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(/.*)?$', line):
+                    caption = line
+                    link_url = f"https://{line}" if not line.startswith("http") else line
+                    break
+
+            # Bóc tách số lượng nhóm quảng cáo sử dụng chung creative
+            variants = 1
+            var_match = re.search(
+                r'(\d+)\s+quảng cáo sử dụng nội dung|(\d+)\s+ads use this creative',
+                card_text,
+                re.IGNORECASE,
+            )
+            if var_match:
+                try:
+                    variants = int(var_match.group(1) or var_match.group(2))
+                except Exception:
+                    variants = 1
+
+            # Bóc tách media URLs (ảnh thật) và avatar nếu có
+            all_imgs = [
+                img.get("src")
+                for img in card.find_all("img")
+                if img.get("src") and (img.get("src").startswith("http://") or img.get("src").startswith("https://"))
+            ]
+            avatar_url = all_imgs[0] if all_imgs else None
+            media_imgs = all_imgs[1:] if len(all_imgs) > 1 else all_imgs
+            has_video = bool(card.find("video"))
+            media_type = "video" if has_video else ("image" if media_imgs else "all")
+            snapshot_url = f"https://www.facebook.com/ads/library/?id={ad_id}"
+
+            raw_node = {
+                "id": ad_id,
+                "ad_archive_id": ad_id,
+                "page_name": page_name,
+                "page_profile_picture_url": avatar_url,
+                "start_date": start_date,
+                "body_text": body_text,
+                "title": title,
+                "caption": caption,
+                "link_url": link_url,
+                "variant_count": variants,
+                "media_type": media_type,
+                "media_urls": media_imgs,
+                "ad_snapshot_url": snapshot_url,
+                "cta_text": cta_text,
+                "publisher_platforms": ["facebook", "instagram"],
+            }
+            ads.append(AdNormalizer.normalize_node(raw_node))
+
+        return ads
+
+    # Alias tương thích ngược
+    _fetch_tier1 = _fetch_tier1_playwright
 
     def _fetch_tier2_graph_api(self, keyword: str, country: str, limit: int, token: str) -> List[AdCreative]:
         """Truy vấn Meta Graph API ads_archive."""

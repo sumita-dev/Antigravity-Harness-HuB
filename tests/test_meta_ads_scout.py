@@ -31,6 +31,7 @@ from scripts.meta_ads_scout import (
     ReportExporter,
     ScoutReport,
     SEED_ADS,
+    _parse_ad_start_date,
     build_cli_parser,
     build_meta_ads_url,
     compute_coverage,
@@ -493,3 +494,56 @@ def test_repo_and_cli_end_to_end(tmp_path: Path):
         "--output-dir", out_dir,
     ])
     assert exit_bad_country == 1
+
+
+# ==============================================================================
+# TEST 9: PARSE AD START DATE HELPER
+# ==============================================================================
+
+def test_parse_ad_start_date_formats():
+    """Kiểm tra độ chính xác của hàm bóc tách ngày bắt đầu chạy quảng cáo."""
+    assert _parse_ad_start_date("Ngày bắt đầu chạy: 16 Tháng 4, 2026") == "2026-04-16"
+    assert _parse_ad_start_date("Bắt đầu chạy vào: 5 thg 12, 2025") == "2025-12-05"
+    assert _parse_ad_start_date("Started running on April 16, 2026") == "2026-04-16"
+    assert _parse_ad_start_date("Started running on 16 Apr, 2026") == "2026-04-16"
+    assert _parse_ad_start_date("15/07/2025") == "2025-07-15"
+    assert _parse_ad_start_date("Không có ngày tháng nào") == "N/A"
+
+
+# ==============================================================================
+# TEST 10: ANTI-SILENT FALLBACK IN FETCH (PLAYWRIGHT LIVE VS SEED)
+# ==============================================================================
+
+def test_fetch_strictly_forbids_silent_fallback_when_live_fails(monkeypatch):
+    """Khi không truyền cờ --seed, nếu Playwright và API thất bại, BẮT BUỘC ném RuntimeError thay vì tự ý fallback về Seed."""
+    engine = MetaScraperEngine()
+
+    # 1. Chế độ có cờ seed (--seed / use_seed_only=True) -> Nạp seed bình thường
+    ads_seed, cov_seed, tier_seed = engine.fetch("sơ sinh", use_seed_only=True)
+    assert len(ads_seed) > 0
+    assert tier_seed == "tier4_seed_fallback"
+
+    # 2. Chế độ Live: Giả lập Playwright thành công -> trả về tier1_playwright_live
+    fake_ad = AdNormalizer.normalize_node({
+        "id": "live_123",
+        "page_name": "Live Page",
+        "start_date": "2026-04-16",
+        "body_text": "Live ad content",
+    })
+    monkeypatch.setattr(engine, "_fetch_tier1_playwright", lambda url, limit: [fake_ad])
+    ads_live, cov_live, tier_live = engine.fetch("sơ sinh", use_seed_only=False)
+    assert len(ads_live) == 1
+    assert ads_live[0].id == "live_123"
+    assert tier_live == "tier1_playwright_live"
+
+    # 3. Chế độ Live: Giả lập Playwright lỗi và không có META_ACCESS_TOKEN -> Ném RuntimeError
+    monkeypatch.delenv("META_ACCESS_TOKEN", raising=False)
+    monkeypatch.setattr(engine, "_fetch_tier1_playwright", lambda url, limit: (_ for _ in ()).throw(RuntimeError("Network blocked")))
+
+    with pytest.raises(RuntimeError) as exc_info:
+        engine.fetch("sơ sinh", use_seed_only=False)
+
+    err_msg = str(exc_info.value)
+    assert "Không thể cào dữ liệu trực tiếp từ Meta Ads Library" in err_msg
+    assert "--seed" in err_msg
+

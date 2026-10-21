@@ -20,3 +20,4 @@ pytest-cache-files*
 .gitnexus/
 
 .vscode/
+reports/

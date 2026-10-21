@@ -17,8 +17,8 @@ def test_safe_runner_success():
 
 
 def test_safe_runner_timeout():
-    cmd = [sys.executable, "-c", "import time; time.sleep(10)"]
-    res = run_command_with_timeout(cmd, timeout_sec=1.0)
+    cmd = [sys.executable, "-c", "import time; time.sleep(5)"]
+    res = run_command_with_timeout(cmd, timeout_sec=0.5)
     assert res["status"] == "TIMEOUT"
     assert res["exit_code"] == TIMEOUT_EXIT_CODE
     assert res["timed_out"] is True
