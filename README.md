@@ -278,7 +278,7 @@ Mode `research-only` bỏ CREATION, vẫn independent Critic audit. Bốn requir
 
 ### 2.3. Gọi Trực Tiếp Kỹ Năng Nhánh Marketing Trong Ô Chat (Slash Commands)
 
-Toàn bộ 14 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
+Toàn bộ 15 kỹ năng của nhánh Marketing đã được tích hợp đầy đủ và có thể gọi trực tiếp trong ô chat Antigravity bằng lệnh Slash `/<tên_lệnh>`:
 
 | Lệnh Slash trong Chat | Kỹ Năng | Trọng Tâm Xử Lý |
 | :--- | :--- | :--- |
@@ -297,6 +297,7 @@ Toàn bộ 14 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/meta-ad-scout` | Meta Ads Scout & Creative Angle | Trinh sát đối thủ Meta Ads Library theo từ khóa, bóc tách creative vít mạnh, Hook/Offer/Angle & Dashboard HTML |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
 | `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, Reddit, YouTube, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast, Jina Reader) |
+| `/youtube-suggest` | YouTube Autocomplete & Keyword Scout | Thu thập từ khóa gợi ý tự động trên thanh tìm kiếm YouTube (Google Suggest API), mở rộng Alphabet Soup (A-Z, 0-9) và Modifiers câu hỏi/so sánh, xuất file CSV/JSON |
 
 ---
 

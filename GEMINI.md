@@ -59,6 +59,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 | `/meta-ad-scout` | Meta Ads Scout & Creative Angle |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh |
 | `/social-reach` | Social Reach Scout |
+| `/youtube-suggest` | YouTube Autocomplete & Keyword Suggest Scout |
 | `/flowkit` | AI Video Production Studio (Google Flow / Veo 3) |
 
 ---

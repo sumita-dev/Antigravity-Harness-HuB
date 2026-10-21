@@ -17,7 +17,8 @@ MARKETING_SKILLS = [
     "meta-ads-analyzer-mod-by-noti",
     "fb-admin",
     "framework-marketing-da-kenh",
-    "meta-ad-scout"
+    "meta-ad-scout",
+    "youtube-suggest"
 ]
 
 CODE_SKILLS = [
