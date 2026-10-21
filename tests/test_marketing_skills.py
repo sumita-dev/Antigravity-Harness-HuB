@@ -136,9 +136,16 @@ def test_agents_skills_json_configured():
         with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         assert "entries" in data, f"Missing 'entries' in {config_path}"
+        assert data["entries"] == [], f"skills.json in {config_path} must be empty [] to avoid duplicate skill discovery with plugins.json"
+
+def test_agents_plugins_json_configured():
+    for config_path in [".agents/plugins.json", ".agent/plugins.json"]:
+        assert os.path.exists(config_path), f"Missing {config_path}"
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert "entries" in data, f"Missing 'entries' in {config_path}"
         paths = [e.get("path") for e in data["entries"]]
-        assert any("marketing" in p for p in paths), f"Marketing skills path not in entries of {config_path}"
-        assert any("code" in p for p in paths), f"Code skills path not in entries of {config_path}"
+        assert "plugins" in paths, f"'plugins' path not in entries of {config_path}"
 
 def test_gemini_md_documents_all_marketing_skills():
     assert os.path.exists("GEMINI.md"), "Missing GEMINI.md"

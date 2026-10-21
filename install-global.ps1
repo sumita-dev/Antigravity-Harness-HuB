@@ -36,12 +36,20 @@ foreach ($dir in $DirsToCreate) {
     }
 }
 
-# 2. Xóa bỏ file rule rời rạc cũ nếu có (tránh trùng lặp)
+# 2. Xóa bỏ file rule rời rạc cũ và dọn dẹp .agent thừa (tránh trùng lặp)
 $LegacyLooseRule = Join-Path $GlobalRulesDir "harness_orchestrator.md"
 if (Test-Path $LegacyLooseRule) {
     Remove-Item -Path $LegacyLooseRule -Force -ErrorAction SilentlyContinue
 }
-$SourceGemini = Join-Path $RepoRoot "GEMINI.md"
+$LegacyGlobalAgent = Join-Path $GlobalConfigDir ".agent"
+if (Test-Path $LegacyGlobalAgent) {
+    Remove-Item -Path $LegacyGlobalAgent -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Đã dọn dẹp thư mục .agent dư thừa trong Global" -ForegroundColor Green
+}
+$LegacyPluginRule = Join-Path $GlobalPluginsDir "code\rules\AGENTS.md"
+if (Test-Path $LegacyPluginRule) {
+    Remove-Item -Path $LegacyPluginRule -Force -ErrorAction SilentlyContinue
+}
 
 # 3. Đồng bộ Plugins & Skills
 $SourcePlugins = Join-Path $RepoRoot "plugins"
@@ -74,13 +82,28 @@ if (Test-Path $SourceConfig) {
     Write-Host "[OK] Đã cài đặt cấu hình định tuyến: $DestConfig" -ForegroundColor Green
 }
 
-# 6. Cài đặt Rule vào Global Plugin Code (Đảm bảo Antigravity nạp rule qua Plugin engine duy nhất)
-$PluginCodeRulesDir = Join-Path $GlobalPluginsDir "code\rules"
-if (-not (Test-Path $PluginCodeRulesDir)) {
-    New-Item -ItemType Directory -Path $PluginCodeRulesDir -Force | Out-Null
+# 6. Cài đặt Rule Toàn cục tinh gọn vào Global Config (Context Budget Economics < 8KB)
+$GlobalGeminiTemplate = Join-Path $RepoRoot "configs\global_gemini.md"
+$DestGlobalGemini = Join-Path $GlobalConfigDir "GEMINI.md"
+if (Test-Path $GlobalGeminiTemplate) {
+    Copy-Item -Path $GlobalGeminiTemplate -Destination $DestGlobalGemini -Force
+    Write-Host "[OK] Đã cài đặt Rule Toàn cục tinh gọn (< 8KB): $DestGlobalGemini" -ForegroundColor Green
 }
-Copy-Item -Path $SourceGemini -Destination (Join-Path $PluginCodeRulesDir "AGENTS.md") -Force
-Write-Host "[OK] Đã cài đặt Rule tập trung vào Global Plugin Code: $PluginCodeRulesDir\AGENTS.md" -ForegroundColor Green
+
+# 7. Chuẩn hóa .agents trong Global (tránh duplicate skills qua plugins.json)
+$DotAgentsDir = Join-Path $GlobalConfigDir ".agents"
+if (-not (Test-Path $DotAgentsDir)) {
+    New-Item -ItemType Directory -Path $DotAgentsDir -Force | Out-Null
+}
+$GlobalSkillsJson = Join-Path $DotAgentsDir "skills.json"
+'{"entries": []}' | Out-File -FilePath $GlobalSkillsJson -Encoding utf8 -Force
+if (Test-Path (Join-Path $RepoRoot ".agents\plugins.json")) {
+    Copy-Item -Path (Join-Path $RepoRoot ".agents\plugins.json") -Destination (Join-Path $DotAgentsDir "plugins.json") -Force
+}
+if (Test-Path (Join-Path $RepoRoot ".agents\hooks.json")) {
+    Copy-Item -Path (Join-Path $RepoRoot ".agents\hooks.json") -Destination (Join-Path $DotAgentsDir "hooks.json") -Force
+}
+Write-Host "[OK] Đã chuẩn hóa .agents Toàn cục (skills.json rỗng để nạp qua plugins)" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan

@@ -1,13 +1,3 @@
 {
-  "entries": [
-    {
-      "path": "plugins/code/skills"
-    },
-    {
-      "path": "plugins/marketing/skills"
-    },
-    {
-      "path": "plugins/second-brain/skills"
-    }
-  ]
+  "entries": []
 }
