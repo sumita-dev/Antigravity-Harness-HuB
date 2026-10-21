@@ -24,7 +24,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 7. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):** Đối soát tính ĐÚNG và ĐỦ. Thiếu thông tin: BẮT BUỘC hỏi qua `ask_question`, cấm tự suy đoán.
 8. **Biên Bản Giao Nhận (Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):** Metadata, Context, Acceptance Criteria `[ ] Checklist`, Evidence (diffs, logs, test outputs) và Verdict (`PASS`/`FAIL`, tối đa 2 lần retry trước khi `ESCALATED`).
 9. **Tự Động Điều Phối Profile Plugin (Autonomous Profile Switching Gate):** Quản đốc tự chuyển profile qua `switch-profile.ps1` hoặc `config.json`: Kỹ thuật -> `code`; Marketing -> `marketing`; Lai ghép -> `all`.
-10. **Cấm Polling Chủ Động & Bắt Buộc Đón Reactive Wakeup (Zero-Polling Invariant):** CẤM gọi `manage_task` (status) trong loop. Bắt buộc dừng turn đón Reactive Wakeup khi task hoàn tất.
+10. **Cấm Polling Chủ Động, Đón Reactive Wakeup & Cầu Dao Dead-man's Switch (Zero-Polling Invariant):** CẤM gọi `manage_task` (status) trong loop. Bắt buộc dừng turn đón Reactive Wakeup khi task hoàn tất. Khi đẩy task chạy ngầm có nguy cơ dài hạn (>1 phút, batch/COM/network), BẮT BUỘC đặt kèm timer qua `schedule(DurationSeconds=180)` làm Dead-man's Switch để tự đánh thức kiểm tra nếu task không tự kết thúc, chống ngủ đông vô hạn.
 11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
 12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent gửi về digest < 100 từ kèm hash, exit code, verdict. Log dài/diff ghi ra disk/artifact directory.
 13. **Cắt Phiên Ngắt Mạch Ngữ Cảnh (Session Rollover Gate):** Chạm 40 turns hoặc transcript > 250 KB: cảnh báo, ghi `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị mở phiên mới.
@@ -56,6 +56,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti |
 | `/paid-media-auditor` | Paid Media Auditor |
 | `/fb-admin` | Facebook Fanpage Manager |
+| `/meta-ad-scout` | Meta Ads Scout & Creative Angle |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh |
 | `/social-reach` | Social Reach Scout |
 | `/flowkit` | AI Video Production Studio (Google Flow / Veo 3) |

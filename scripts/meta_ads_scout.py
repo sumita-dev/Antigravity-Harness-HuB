@@ -407,7 +407,7 @@ class CreativeAngleAnalyzer:
         # 6. Trích xuất Pain Points
         pain_points = []
         pain_patterns = [
-            (r"hăm tã|hăm đỏ", "Bé bị hăm tã, ngứa ngáy khó chịu"),
+            (r"hăm tã|hăm đỏ|hăm loét|hăm", "Bé bị hăm tã, ngứa ngáy khó chịu"),
             (r"nôn trớ|ọc sữa|trào ngược", "Con hay trào ngược, ọc sữa sau bú khiến mẹ lo lắng"),
             (r"hóa chất|kích ứng|mỏng gấp 5 lần", "Lo sợ da bé bị dị ứng bởi hóa chất độc hại"),
             (r"đau nửa đầu|mất ngủ|hay quên", "Đau đầu, hay quên, mất ngủ kéo dài làm suy giảm chất lượng sống"),
@@ -461,29 +461,61 @@ class CreativeAngleAnalyzer:
 # 6. AD NORMALIZER
 # ==============================================================================
 
+def compute_coverage(ads: List[AdCreative], requested: int) -> CoverageMetrics:
+    """Tính toán chỉ số bao phủ và phát hiện các trường dữ liệu bị thiếu."""
+    collected = len(ads)
+    missing = set()
+    fields_to_check = [
+        ("body_text", lambda a: not a.body_text),
+        ("title", lambda a: not a.title),
+        ("caption", lambda a: not a.caption),
+        ("cta_text", lambda a: not a.cta_text),
+        ("link_url", lambda a: not a.link_url),
+        ("media_urls", lambda a: not a.media_urls),
+        ("page_profile_picture_url", lambda a: not a.page_profile_picture_url),
+        ("start_date", lambda a: a.start_date in (None, "", "N/A")),
+    ]
+    for ad in ads:
+        for fname, check_fn in fields_to_check:
+            if check_fn(ad):
+                missing.add(fname)
+    missing_fields = sorted(list(missing))
+    return CoverageMetrics(
+        requested=requested,
+        collected=collected,
+        failed=max(0, requested - collected),
+        complete=(collected >= requested),
+        missing_fields=missing_fields,
+    )
+
+
 class AdNormalizer:
     """Chuẩn hóa dữ liệu thô từ Meta sang Data Model AdCreative an toàn."""
 
     @staticmethod
     def normalize_node(node: Dict[str, Any]) -> AdCreative:
         today = datetime.date.today()
-        start_date_str = node.get("start_date") or today.isoformat()
-
-        # Tính days_active trung thực
-        days_active = node.get("days_active")
-        if days_active is None:
-            try:
-                start_dt = datetime.date.fromisoformat(start_date_str[:10])
-                days_active = max(1, (today - start_dt).days)
-            except Exception:
-                days_active = 1
+        raw_start = node.get("start_date")
+        if raw_start and isinstance(raw_start, str) and raw_start.strip():
+            start_date_str = raw_start.strip()
+            days_active = node.get("days_active")
+            if days_active is None:
+                try:
+                    start_dt = datetime.date.fromisoformat(start_date_str[:10])
+                    days_active = max(0, (today - start_dt).days)
+                except Exception:
+                    days_active = 0
+        else:
+            start_date_str = "N/A"
+            days_active = 0
 
         ad_id = str(node.get("id") or node.get("ad_archive_id") or "N/A")
         archive_id = str(node.get("ad_archive_id") or ad_id)
-        snapshot_url = (
-            node.get("ad_snapshot_url")
-            or f"https://www.facebook.com/ads/library/?id={archive_id}"
-        )
+        raw_snapshot = node.get("ad_snapshot_url")
+        if raw_snapshot and isinstance(raw_snapshot, str) and (raw_snapshot.startswith("http://") or raw_snapshot.startswith("https://")):
+            snapshot_url = raw_snapshot
+        else:
+            snapshot_url = f"https://www.facebook.com/ads/library/?id={archive_id}"
 
         # Trích xuất platforms
         platforms = node.get("publisher_platforms") or ["facebook"]
@@ -497,12 +529,19 @@ class AdNormalizer:
             if isinstance(m, str) and (m.startswith("http://") or m.startswith("https://")):
                 media_urls.append(m)
 
+        raw_avatar = node.get("page_profile_picture_url")
+        avatar_url = (
+            str(raw_avatar)
+            if raw_avatar and isinstance(raw_avatar, str) and (raw_avatar.startswith("http://") or raw_avatar.startswith("https://"))
+            else None
+        )
+
         return AdCreative(
             id=ad_id,
             ad_archive_id=archive_id,
             page_id=str(node.get("page_id") or "N/A"),
             page_name=str(node.get("page_name") or "Fanpage"),
-            page_profile_picture_url=node.get("page_profile_picture_url"),
+            page_profile_picture_url=avatar_url,
             start_date=start_date_str,
             end_date=node.get("end_date"),
             is_active=bool(node.get("is_active", True)),
@@ -518,6 +557,13 @@ class AdNormalizer:
             media_urls=media_urls,
             ad_snapshot_url=snapshot_url,
         )
+
+    normalize_raw_ad = normalize_node
+
+
+def normalize_raw_ad(node: Dict[str, Any]) -> AdCreative:
+    """Wrapper cho AdNormalizer.normalize_node."""
+    return AdNormalizer.normalize_node(node)
 
 
 # ==============================================================================
@@ -537,9 +583,10 @@ class MetaScraperEngine:
         limit: int = 20,
         sort: str = "total_impressions",
         active_only: bool = True,
+        media_type: str = "all",
         use_seed_only: bool = False,
     ) -> tuple[List[AdCreative], CoverageMetrics, str]:
-        target_url = build_meta_ads_url(keyword, country, sort, active_only)
+        target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type)
 
         if use_seed_only:
             logger.info("Chế độ --seed / --seed-only được kích hoạt. Nạp bộ dữ liệu mẫu tức thì.")
@@ -550,13 +597,7 @@ class MetaScraperEngine:
             logger.info("Tier 1: Đang thử kết nối trực tiếp endpoint Meta Ads Library...")
             ads = self._fetch_tier1(target_url, limit)
             if ads:
-                coverage = CoverageMetrics(
-                    requested=limit,
-                    collected=len(ads),
-                    failed=0,
-                    complete=len(ads) >= limit,
-                    missing_fields=[],
-                )
+                coverage = compute_coverage(ads, requested=limit)
                 return ads, coverage, "tier1_web"
         except Exception as e:
             logger.warning(f"Tier 1 thất bại ({e}). Chuyển sang Tier 2...")
@@ -568,13 +609,7 @@ class MetaScraperEngine:
                 logger.info("Tier 2: Đang thử Meta Graph API (/ads_archive)...")
                 ads = self._fetch_tier2_graph_api(keyword, country, limit, token)
                 if ads:
-                    coverage = CoverageMetrics(
-                        requested=limit,
-                        collected=len(ads),
-                        failed=0,
-                        complete=len(ads) >= limit,
-                        missing_fields=[],
-                    )
+                    coverage = compute_coverage(ads, requested=limit)
                     return ads, coverage, "tier2_graph_api"
             except Exception as e:
                 logger.warning(f"Tier 2 thất bại ({e}). Chuyển sang Tier 3 Fallback...")
@@ -598,13 +633,7 @@ class MetaScraperEngine:
 
         selected = matching[:limit]
         ads = [AdNormalizer.normalize_node(n) for n in selected]
-        coverage = CoverageMetrics(
-            requested=limit,
-            collected=len(ads),
-            failed=0,
-            complete=len(ads) >= limit,
-            missing_fields=[],
-        )
+        coverage = compute_coverage(ads, requested=limit)
         return ads, coverage, "tier4_seed_fallback"
 
     def _fetch_tier1(self, target_url: str, limit: int) -> List[AdCreative]:
@@ -684,7 +713,7 @@ class ReportExporter:
         logger.info(f"Đã xuất file JSON: {out_path}")
         return out_path
 
-    def export_markdown(self, report: ScoutReport, filename: str = "scout_report.md") -> Path:
+    def export_markdown(self, report: ScoutReport, filename: str = "scout_report.md", min_days: int = 14) -> Path:
         out_path = self.output_dir / filename
         lines = [
             f"# BÁO CÁO TRINH SÁT META ADS — TỪ KHÓA: \"{report.keyword}\"",
@@ -706,7 +735,7 @@ class ReportExporter:
             hook_str = analysis.hook_type.split("(")[0].strip() if analysis else "N/A"
             angle_str = analysis.marketing_angle.split("(")[0].strip() if analysis else "N/A"
             offer_str = analysis.primary_offer if analysis else "N/A"
-            winning_tag = "🔥 " if is_winning_ad(ad) else ""
+            winning_tag = "🔥 " if is_winning_ad(ad, min_days=min_days) else ""
 
             lines.append(
                 f"| {idx} | **{ad.page_name}** | {ad.days_active} ngày | {ad.variant_count} nhóm | "
@@ -733,11 +762,11 @@ class ReportExporter:
         logger.info(f"Đã xuất file Markdown: {out_path}")
         return out_path
 
-    def export_html(self, report: ScoutReport, filename: str = "scout_dashboard.html") -> Path:
+    def export_html(self, report: ScoutReport, filename: str = "scout_dashboard.html", min_days: int = 14) -> Path:
         """Xuất Dashboard visual độc lập với phong cách Apple Dark Glassmorphism."""
         out_path = self.output_dir / filename
 
-        winning_ads = [ad for ad in report.ads if is_winning_ad(ad)]
+        winning_ads = [ad for ad in report.ads if is_winning_ad(ad, min_days=min_days)]
         winning_count = len(winning_ads)
         report_json_safe = (
             json.dumps(dataclasses.asdict(report), ensure_ascii=False)
@@ -748,7 +777,7 @@ class ReportExporter:
         cards_html = []
         for ad in report.ads:
             analysis = report.analyses.get(ad.id)
-            is_vip = is_winning_ad(ad)
+            is_vip = is_winning_ad(ad, min_days=min_days)
 
             # XSS escaping cho các trường dữ liệu text
             safe_page = html.escape(ad.page_name)
@@ -756,7 +785,16 @@ class ReportExporter:
             safe_title = html.escape(ad.title or "Xem chi tiết quảng cáo")
             safe_caption = html.escape(ad.caption or "")
             safe_cta = html.escape(ad.cta_text or "Tìm hiểu thêm")
-            safe_snapshot = html.escape(ad.ad_snapshot_url)
+
+            # URL scheme check
+            if ad.ad_snapshot_url and (ad.ad_snapshot_url.startswith("http://") or ad.ad_snapshot_url.startswith("https://")):
+                safe_snapshot = html.escape(ad.ad_snapshot_url)
+            else:
+                safe_snapshot = "#"
+
+            safe_avatar = None
+            if ad.page_profile_picture_url and (ad.page_profile_picture_url.startswith("http://") or ad.page_profile_picture_url.startswith("https://")):
+                safe_avatar = html.escape(ad.page_profile_picture_url)
 
             safe_hook_type = html.escape(analysis.hook_type if analysis else "Chưa phân tích")
             safe_angle = html.escape(analysis.marketing_angle if analysis else "N/A")
@@ -793,9 +831,8 @@ class ReportExporter:
                 card_class += " winning-card"
                 vip_badge = """<span class="badge badge-vip">🔥 ĐANG VÍT KHỦNG</span>"""
 
-            avatar_html = ""
-            if ad.page_profile_picture_url:
-                avatar_html = f"""<img src="{html.escape(ad.page_profile_picture_url)}" class="page-avatar" alt="Avatar">"""
+            if safe_avatar:
+                avatar_html = f"""<img src="{safe_avatar}" class="page-avatar" alt="Avatar">"""
             else:
                 initial = safe_page[0].upper() if safe_page else "F"
                 avatar_html = f"""<div class="page-avatar-placeholder">{initial}</div>"""
@@ -839,11 +876,17 @@ class ReportExporter:
                 </div>
 
                 <div class="card-footer-buttons">
-                    <button class="btn btn-secondary copy-btn" onclick="copyAdCopy(this, `{html.escape(ad.body_text).replace('`', '\\`')}`)">📋 Sao Chép Copy-Ads</button>
+                    <button class="btn btn-secondary copy-btn" onclick="copyCardContent(this)">📋 Sao Chép Copy-Ads</button>
                     <a href="{safe_snapshot}" target="_blank" rel="noopener" class="btn btn-outline">Mở Meta Ads Library ↗</a>
                 </div>
             </div>
             """)
+
+        safe_target_url = (
+            html.escape(report.target_url)
+            if report.target_url and (report.target_url.startswith("http://") or report.target_url.startswith("https://"))
+            else "#"
+        )
 
         html_template = f"""<!DOCTYPE html>
 <html lang="vi">
@@ -1324,7 +1367,7 @@ class ReportExporter:
                 </div>
             </div>
             <div>
-                <a href="{html.escape(report.target_url)}" target="_blank" rel="noopener" class="btn btn-cta">Mở Trực Tiếp Meta Ads Library ↗</a>
+                <a href="{safe_target_url}" target="_blank" rel="noopener" class="btn btn-cta">Mở Trực Tiếp Meta Ads Library ↗</a>
             </div>
         </header>
 
@@ -1371,14 +1414,19 @@ class ReportExporter:
         // Lưu trữ dữ liệu thô an toàn
         const rawReport = {report_json_safe};
 
-        function copyAdCopy(btn, text) {{
+        function copyCardContent(btn) {{
+            const card = btn.closest('.ad-card');
+            const textElem = card ? card.querySelector('.body-content') : null;
+            if (!textElem) return;
+            const text = textElem.innerText || textElem.textContent;
             navigator.clipboard.writeText(text).then(() => {{
                 const toast = document.getElementById('toast');
-                toast.classList.add('show');
-                btn.innerText = '✅ Đã copy!';
+                if (toast) toast.classList.add('show');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Đã Sao Chép!';
                 setTimeout(() => {{
-                    toast.classList.remove('show');
-                    btn.innerText = '📋 Sao Chép Copy-Ads';
+                    if (toast) toast.classList.remove('show');
+                    btn.innerHTML = originalText;
                 }}, 2000);
             }}).catch(() => {{
                 alert('Không thể truy cập clipboard của trình duyệt.');
@@ -1441,6 +1489,9 @@ def run_meta_ad_scout(
     min_days: int = 14,
 ) -> ScoutReport:
     """Điều phối toàn bộ quy trình trinh sát Meta Ads Library."""
+    if not (1 <= limit <= 100):
+        raise ValueError(f"Tham số --limit phải nằm trong khoảng từ 1 đến 100 (nhận được: {limit}).")
+
     target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type)
     engine = MetaScraperEngine()
     ads, coverage, engine_used = engine.fetch(
@@ -1449,6 +1500,7 @@ def run_meta_ad_scout(
         limit=limit,
         sort=sort,
         active_only=active_only,
+        media_type=media_type,
         use_seed_only=seed_mode,
     )
 
@@ -1473,9 +1525,9 @@ def run_meta_ad_scout(
     if export_format in ("json", "all"):
         exporter.export_json(report)
     if export_format in ("md", "all"):
-        exporter.export_markdown(report)
+        exporter.export_markdown(report, min_days=min_days)
     if export_format in ("html", "all"):
-        exporter.export_html(report)
+        exporter.export_html(report, min_days=min_days)
 
     return report
 
@@ -1526,9 +1578,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--active-only",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=True,
-        help="Chỉ lấy quảng cáo đang hoạt động (mặc định: True).",
+        help="Chỉ lấy quảng cáo đang hoạt động (mặc định: True, dùng --no-active-only để tắt).",
     )
     parser.add_argument(
         "--format",
@@ -1581,19 +1633,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     fmt = "json" if args.json else args.format
-    report = run_meta_ad_scout(
-        keyword=args.keyword,
-        country=args.country,
-        limit=args.limit,
-        sort=args.sort,
-        active_only=args.active_only,
-        media_type=args.media_type,
-        output_dir=args.output_dir,
-        export_format=fmt,
-        seed_mode=args.seed,
-        no_analyze=args.no_analyze,
-        min_days=args.min_days,
-    )
+    try:
+        report = run_meta_ad_scout(
+            keyword=args.keyword,
+            country=args.country,
+            limit=args.limit,
+            sort=args.sort,
+            active_only=args.active_only,
+            media_type=args.media_type,
+            output_dir=args.output_dir,
+            export_format=fmt,
+            seed_mode=args.seed,
+            no_analyze=args.no_analyze,
+            min_days=args.min_days,
+        )
+    except ValueError as e:
+        logger.error(f"Lỗi tham số đầu vào: {e}")
+        print(f"[ERROR] Tham số không hợp lệ: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        logger.error(f"Lỗi thực thi Meta Ads Scout: {e}")
+        print(f"[ERROR] Không thể hoàn thành trinh sát: {e}", file=sys.stderr)
+        return 1
 
     if args.json:
         print(json.dumps(dataclasses.asdict(report), ensure_ascii=False, indent=2))

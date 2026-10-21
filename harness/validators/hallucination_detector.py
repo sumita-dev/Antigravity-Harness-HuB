@@ -110,6 +110,32 @@ class AuditResult:
     def is_approved(self) -> bool:
         return self.verdict == "APPROVE"
 
+    def to_score_result(self) -> Any:
+        """Chuyển đổi kết quả kiểm toán sang định dạng ScoreResult chuẩn Opik."""
+        from harness.validators.opik_evaluator import ScoreResult
+        return ScoreResult(
+            name="hallucination_score",
+            value=self.score,
+            reason=(
+                f"Phán quyết: {self.verdict}. "
+                + (
+                    f"Phát hiện {len(self.violations)} vi phạm ảo giác."
+                    if self.violations
+                    else "Vượt qua toàn bộ 4 trụ cột rào chắn chống ảo giác."
+                )
+            ),
+            metadata={
+                "verdict": self.verdict,
+                "violations": self.violations,
+                "verified_paths": self.verified_paths,
+                "missing_paths": self.missing_paths,
+                "speculative_phrases": self.speculative_phrases,
+                "unverified_claims": self.unverified_claims,
+                "verified_symbols": self.verified_symbols,
+                "unverified_symbols": self.unverified_symbols,
+            },
+        )
+
 
 def verify_file_paths(
     text: str,

@@ -9,6 +9,7 @@ Supports single-file conversion and batch folder conversion.
 import os
 import sys
 import argparse
+import concurrent.futures
 from pathlib import Path
 from typing import List, Tuple
 
@@ -16,6 +17,8 @@ SUPPORTED_EXTENSIONS = {
     ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx",
     ".html", ".htm", ".csv", ".tsv", ".json", ".xml"
 }
+
+DEFAULT_FILE_TIMEOUT = 45  # seconds
 
 def clean_markdown_content(content: str, clean_pagebreaks: bool = True) -> str:
     """Cleans unnecessary artifacts from markdown content."""
@@ -47,12 +50,18 @@ def convert_single_file(
     input_path: Path,
     output_path: Path,
     md_converter,
-    clean_pagebreaks: bool = True
+    clean_pagebreaks: bool = True,
+    timeout_sec: float = DEFAULT_FILE_TIMEOUT
 ) -> Tuple[bool, str]:
-    """Converts a single document to markdown."""
-    try:
+    """Converts a single document to markdown with hard timeout protection."""
+    def _do_convert():
         result = md_converter.convert(str(input_path))
-        text_content = result.text_content
+        return result.text_content
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_convert)
+            text_content = future.result(timeout=timeout_sec)
         
         cleaned = clean_markdown_content(text_content, clean_pagebreaks=clean_pagebreaks)
         
@@ -61,6 +70,8 @@ def convert_single_file(
             f.write(cleaned)
             
         return True, f"OK ({len(cleaned.encode('utf-8'))} bytes, {len(cleaned.splitlines())} lines)"
+    except concurrent.futures.TimeoutError:
+        return False, f"TIMEOUT: Exceeded {timeout_sec}s execution limit"
     except Exception as e:
         return False, str(e)
 
@@ -69,9 +80,10 @@ def process_batch(
     output_dir: Path,
     md_converter,
     recursive: bool = False,
-    clean_pagebreaks: bool = True
+    clean_pagebreaks: bool = True,
+    timeout_sec: float = DEFAULT_FILE_TIMEOUT
 ) -> List[Tuple[Path, bool, str]]:
-    """Batch converts all supported files in a directory."""
+    """Batch converts all supported files in a directory with timeout per file."""
     results = []
     pattern = "**/*" if recursive else "*"
     
@@ -93,7 +105,13 @@ def process_batch(
         else:
             out_file = file_path.with_suffix(".md")
             
-        success, msg = convert_single_file(file_path, out_file, md_converter, clean_pagebreaks)
+        success, msg = convert_single_file(
+            file_path,
+            out_file,
+            md_converter,
+            clean_pagebreaks=clean_pagebreaks,
+            timeout_sec=timeout_sec
+        )
         results.append((file_path, success, msg))
         
     return results
@@ -120,8 +138,15 @@ def main():
         action="store_true",
         help="Do not clean form-feed pagebreaks (\\x0c)"
     )
+    parser.add_argument(
+        "--timeout", "-t",
+        type=float,
+        default=DEFAULT_FILE_TIMEOUT,
+        help=f"Giới hạn thời gian tối đa cho mỗi file tính bằng giây (mặc định: {DEFAULT_FILE_TIMEOUT}s)"
+    )
     
     args = parser.parse_args()
+    file_timeout = args.timeout
     
     try:
         from markitdown import MarkItDown
@@ -144,7 +169,13 @@ def main():
             
         out_path = Path(args.output).resolve() if args.output else target_path.with_suffix(".md")
         print(f"[CONVERTING] {target_path} -> {out_path}")
-        success, msg = convert_single_file(target_path, out_path, md_converter, clean_pagebreaks)
+        success, msg = convert_single_file(
+            target_path,
+            out_path,
+            md_converter,
+            clean_pagebreaks=clean_pagebreaks,
+            timeout_sec=file_timeout
+        )
         if success:
             print(f"[SUCCESS] {msg}")
             sys.exit(0)
@@ -154,13 +185,14 @@ def main():
             
     elif target_path.is_dir():
         out_dir = Path(args.output).resolve() if args.output else None
-        print(f"[BATCH SCAN] Scanning: {target_path} (Recursive={args.recursive})")
+        print(f"[BATCH SCAN] Scanning: {target_path} (Recursive={args.recursive}, TimeoutPerFile={file_timeout}s)")
         results = process_batch(
             target_path,
             out_dir,
             md_converter,
             recursive=args.recursive,
-            clean_pagebreaks=clean_pagebreaks
+            clean_pagebreaks=clean_pagebreaks,
+            timeout_sec=file_timeout
         )
         
         if not results:

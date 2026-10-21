@@ -21,6 +21,16 @@ Skill này cung cấp các thuật toán bảo vệ cơ học dành riêng cho *
 ### B. Quy tắc Bế Tắc Tiến Độ (No-Progress Breaker - Ngưỡng 5 lần)
 - Sau 5 lần dispatch sửa đổi mà số lượng test pass không tăng lên hoặc xuất hiện thêm nhiều lỗi mới $\rightarrow$ Dừng ngay chu trình, đánh giá lại kiến trúc (Architect Review) thay vì tiếp tục code vá víu.
 
+### C. Quy tắc Cầu Dao Thời Gian Nền & Dead-man's Switch Watchdog (Execution Time Breaker)
+- **Định nghĩa:** Khi một lệnh thực thi chuyển thành tiến trình chạy ngầm (`task-...` qua `run_command`) hoặc khi dispatch tác vụ nặng (>1 phút), Quản đốc rơi vào trạng thái ngủ đông chờ Reactive Wakeup. Nếu tiến trình con bị deadlock hoặc treo hộp thoại modal ngầm (như Word/Excel COM, crawler, compile vô hạn), runtime Antigravity sẽ không bao giờ phát tín hiệu wakeup nếu không có timeout.
+- **Hành động bắt buộc (Dead-man's Switch Watchdog):**
+  1. **Kích hoạt chuông đánh thức dự phòng:** Tác tử BẮT BUỘC gọi ngay công cụ `schedule(DurationSeconds=180)` (hoặc tối đa 300s đối với batch nặng) kèm Prompt rõ ràng làm Dead-man's Switch: `"[DEAD-MAN SWITCH] Kiểm tra tiến độ background task <task_id>. Nếu chưa xong hoặc kẹt thì ngắt mạch."`.
+  2. **Xử lý khi được đánh thức:** Khi timer kích hoạt và đánh thức Quản đốc:
+     - Gọi `manage_task(Action="list")` kiểm tra trạng thái task.
+     - Nếu task vẫn `RUNNING` mà không có tiến độ mới hoặc chạm ngưỡng timeout: Lập tức gọi `manage_task(Action="kill", TaskId=...)`.
+     - Quét và diệt triệt để tiến trình con treo: `taskkill /F /IM WINWORD.EXE` hoặc `Stop-Process -Name "WINWORD", "EXCEL" -Force`.
+     - Kích hoạt trạng thái `TRIP CIRCUIT BREAKER (ESCALATED)`, báo cáo bằng chứng và nguyên nhân ngắt mạch ngay cho Sếp thay vì để tiến trình treo âm thầm.
+
 ---
 
 ## 2. Chuẩn Hóa Báo Cáo Kiểm Định Độc Lập (Adversarial Verifier)

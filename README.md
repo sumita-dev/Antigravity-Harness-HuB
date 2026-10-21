@@ -294,6 +294,7 @@ Toàn bộ 14 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/meta-ads-analyzer-mod-by-noti` | Meta Ads Analyzer Mod Noti | Chẩn đoán chuyên sâu hiệu suất quảng cáo Meta, CPA/ROAS/CPM |
 | `/paid-media-auditor` | Paid Media Auditor | Kiểm định quảng cáo trả phí đa kênh (Google Ads, Meta Ads, Microsoft Ads) qua khung 200+ checkpoints: cấu trúc, tracking CAPI/GA4, đấu thầu, creative fatigue và lãng phí ngân sách |
 | `/fb-admin` | Facebook Fanpage Manager | Quản lý Fanpage (đăng bài, đọc/trả lời comment) |
+| `/meta-ad-scout` | Meta Ads Scout & Creative Angle | Trinh sát đối thủ Meta Ads Library theo từ khóa, bóc tách creative vít mạnh, Hook/Offer/Angle & Dashboard HTML |
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
 | `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, Reddit, YouTube, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast, Jina Reader) |
 
@@ -469,6 +470,17 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
   - Lỗi kỹ thuật / test fail / secret leak: Maker sửa và trả thẳng cho QA Auditor test lại mà không qua Critic.
   - Lỗi sai lệch logic / Spec GAP: Maker sửa và bắt buộc qua Critic duyệt lại trước khi sang QA Auditor.
 - Khi vượt quá hạn ngạch (REJECT thứ hai cùng pha hoặc vượt 3 chu trình), hệ thống lập tức chuyển sang trạng thái `ESCALATED`, dừng vòng lặp và bàn giao cho Sếp xử lý.
+
+### 3.3. Cơ Chế Chống Treo Tiến Trình & Cầu Dao Dead-man's Switch (Execution Time Breaker)
+Để triệt tiêu hoàn toàn rủi ro tác tử bị treo vĩnh viễn khi chạy tác vụ nền, xử lý batch lớn hoặc tương tác COM Automation (Word, Excel) gây ra hiện tượng modal dialog ngầm / deadlock:
+1. **Chốt chặn cấp độ Script / Thực thi (`scripts/safe_task_runner.py` & `scripts/safe_com_runner.py`):**
+   - **Hard Timeout bắt buộc:** Mọi lệnh con được bọc timeout định lượng (mặc định 180s cho lệnh CLI tổng quát, 30-60s/file cho COM và batch).
+   - **Tree Kill & Dọn dẹp tiến trình mồ côi:** Khi chạm trần thời gian, hệ thống tự động diệt toàn bộ cây tiến trình (`taskkill /F /T /PID`) và quét dọn các tiến trình Office mồ côi (`WINWORD.EXE`, `EXCEL.EXE`), trả về mã thoát chuẩn `124`.
+   - **COM Process Isolation & Cấm mở PDF bằng Word:** Nghiêm cấm Word COM mở trực tiếp PDF (nguyên nhân gây treo modal PDF Reflow); chuyển đổi qua process độc lập.
+   - **Batch File Timeout (`plugins/computer/skills/doc-to-markdown/scripts/convert.py`):** Thêm `--timeout <giây>` cho từng tệp (mặc định 45s), ngăn chặn 1 tệp hỏng làm tắc nghẽn cả kho tài liệu.
+2. **Chốt chặn cấp độ Quản đốc / Điều phối (Dead-man's Switch Watchdog Protocol):**
+   - **Bắt buộc cài One-shot Timer:** Khi đẩy bất kỳ lệnh nào xuống chạy ngầm qua `run_command` (`task-...`), tác tử **bắt buộc** kích hoạt bộ đếm thời gian bằng công cụ `schedule(DurationSeconds=180)` làm Dead-man's Switch.
+   - **Đánh thức và giải phóng tự động:** Sau 3 phút, timer tự động gửi tín hiệu Reactive Wakeup đánh thức Quản đốc kiểm tra trạng thái task qua `manage_task(Action="list")`. Nếu task bị kẹt hoặc không có phản hồi mới, Quản đốc lập tức kill task, diệt tiến trình treo và kích hoạt trạng thái ngắt mạch `TRIP CIRCUIT BREAKER (ESCALATED)`, báo cáo bằng chứng ngay cho Sếp thay vì rơi vào tình trạng ngủ đông vô hạn.
 
 ---
 
