@@ -1,6 +1,6 @@
 {
   "name": "second-brain",
   "displayName": "Obsidian Second Brain Plugin",
-  "version": "1.0.0",
-  "description": "Obsidian Vault knowledge management, wiki ingestion, knowledge graph, JSON canvas, bases, and memory synchronization for Antigravity."
+  "version": "1.1.0",
+  "description": "Obsidian Vault knowledge management, Day-0 vault setup & initialization, wiki ingestion, knowledge graph, JSON canvas, bases, and memory synchronization for Antigravity."
 }

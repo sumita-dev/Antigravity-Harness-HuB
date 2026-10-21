@@ -54,7 +54,7 @@ Antigravity-Harness-Hub/
 ├── plugins/                                # Các Plugin đóng gói chuẩn Antigravity (skills + manifest + scripts)
 │   ├── code/skills/                        # 26 skill kỹ thuật (SKILL.md + references/ + scripts/)
 │   ├── marketing/skills/                   # 14 skill marketing / nội dung (SKILL.md + references/ + scripts/)
-│   ├── second-brain/skills/                # 7 skill Second Brain Obsidian (query, ingest, lint, memory, canvas, bases...)
+│   ├── second-brain/skills/                # 9 skill Second Brain Obsidian (setup, karpathy, query, ingest, lint, memory, canvas, bases...)
 │   ├── apple-inspired-design/skills/       # 1 skill thiết kế chuẩn Apple HIG (apple-inspired-design)
 │   ├── computer/skills/                    # 3 skill bảo dưỡng hệ thống & Second Brain (cham-soc-may-tinh, browser-hygiene, karpathy-second-brain)
 │   └── impeccable/                         # Plugin độc lập hoàn thiện & kiểm định UI Frontend (59 detector rules, 24 commands)
@@ -130,7 +130,7 @@ Antigravity-Harness-Hub/
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
 | `plugins/code/skills/anti-hallucination-guard/SKILL.md` | Rào chắn chống ảo giác 4 trụ cột: Symbol & AST Grounding, Path & Resource Veracity, Strict Evidence-First, Deterministic Execution Verification. |
-| `plugins/second-brain/` | Bộ 7 kỹ năng tích hợp Second Brain (F:\Obsidian): tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), sơ đồ Canvas và cơ sở dữ liệu Bases. |
+| `plugins/second-brain/` | Bộ 9 kỹ năng tích hợp Second Brain (F:\Obsidian): khởi tạo chuẩn hóa vault mới (`setup-second-brain`), kiến trúc LLM Wiki (`karpathy-second-brain`), tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), cú pháp Markdown (`obsidian-markdown`), sơ đồ Canvas (`json-canvas`) và cơ sở dữ liệu (`obsidian-bases`). |
 | `plugins/apple-inspired-design/` | Plugin kiểm định và hoàn thiện giao diện chuẩn Apple Human Interface Guidelines (HIG), tích hợp bộ nhớ thiết kế và AI Critic. |
 | `plugins/computer/` | Bộ 3 kỹ năng bảo dưỡng hệ thống máy tính Windows & Second Brain Karpathy: chăm sóc tối ưu PC (`cham-soc-may-tinh`), dọn dẹp trình duyệt tự động & tiến trình mồ côi (`browser-hygiene`), và kiến trúc LLM Wiki (`karpathy-second-brain`). |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `CRITIQUE`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
@@ -391,7 +391,7 @@ node plugins/impeccable/skills/impeccable/scripts/detect.mjs --no-advisory src/
 
 ### 2.5. Bảng Tra Cứu Lệnh Slash Kỹ Năng Kỹ Thuật & Second Brain (App & Knowledge Branch)
 
-Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (Mục 2.4), hệ thống tích hợp đầy đủ 37 kỹ năng chuyên sâu thuộc nhánh Kỹ thuật (Code), Quản trị tri thức (Second Brain Obsidian), Thiết kế chuẩn Apple HIG và Tối ưu hệ thống (Computer), nâng tổng số lên **52 kỹ năng** có thể kích hoạt trực tiếp trong ô chat hoặc tự động định tuyến:
+Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (Mục 2.4), hệ thống tích hợp đầy đủ 39 kỹ năng chuyên sâu thuộc nhánh Kỹ thuật (Code), Quản trị tri thức (Second Brain Obsidian), Thiết kế chuẩn Apple HIG và Tối ưu hệ thống (Computer), nâng tổng số lên **54 kỹ năng** có thể kích hoạt trực tiếp trong ô chat hoặc tự động định tuyến:
 
 #### 2.5.1. Kỹ Năng Kỹ Thuật & Lập Trình (Code Branch — 26 Kỹ Năng)
 
@@ -424,10 +424,12 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
 | `/finishing-a-development-branch` | Hoàn Tất Nhánh Git | Quy trình hoàn tất và nghiệm thu nhánh phát triển (chạy test, menu 3 lựa chọn, dọn worktree) |
 | `/diagnosing-harness` | Kiểm Toán Transcript AI | Chẩn đoán và kiểm toán phiên làm việc của tác tử (đọc transcript, phát hiện lặp, cháy token, lệch plan) |
 
-#### 2.5.2. Kỹ Năng Second Brain & Quản Trị Tri Thức (Obsidian Vault — 7 Kỹ Năng)
+#### 2.5.2. Kỹ Năng Second Brain & Quản Trị Tri Thức (Obsidian Vault — 9 Kỹ Năng)
 
 | Lệnh Slash | Tên Kỹ Năng | Trọng Tâm Nhiệm Vụ |
 | :--- | :--- | :--- |
+| `/setup-second-brain` | Setup Second Brain | Thiết lập mới hoặc chuẩn hoá Vault Obsidian Second Brain chuẩn theo mô hình Karpathy & Guide v1.0 (Inspect, Minimal Structure, AI_RULES, Templates, Evidence Block) |
+| `/karpathy-second-brain` | Karpathy Second Brain | Xây dựng và vận hành Bộ não thứ 2 Obsidian theo đúng kiến trúc LLM Wiki của Andrej Karpathy |
 | `/query-wiki` | Query Wiki (F:\Obsidian) | Tra cứu và tổng hợp tri thức trong Second Brain (F:\Obsidian\wiki\) có trích dẫn nguồn |
 | `/ingest-source` | Ingest Source (F:\Obsidian) | Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật chưng cất tri thức |
 | `/lint-wiki` | Lint Wiki (F:\Obsidian) | Rà soát sức khoẻ Vault Obsidian (broken links, orphan notes, open questions) |
@@ -680,5 +682,18 @@ Antigravity 2.0 quản lý context prompt thông qua hai ngân sách độc lậ
   - `marketing`: Chuyên viết content & tăng trưởng (tắt code dev nặng) ➔ Tiết kiệm ~7.000 tokens.
   - `all`: Bật toàn bộ 48 kỹ năng cho các nhiệm vụ tổng hợp.
 - **Tự động hóa hoàn toàn:** Sếp không cần gõ lệnh thủ công. Quản đốc tự phân tích bản chất bài toán và tự động kích hoạt profile phù hợp trong nền.
+
+---
+
+## 8. Cải Tiến Mới Nhất (Changelog 2026-10-21)
+
+### 8.1. Bổ sung Kỹ năng `setup-second-brain` (Day-0 Bootstrapper cho Second Brain)
+- **Chuẩn hóa theo Guide v1.0 & Karpathy LLM Wiki:** Thiết lập trọn vẹn quy trình 3 bước (`Inspect` chống đoán CWD ➔ `Minimal Structure` thích ứng, cấm ghi đè ➔ `Safe Config`).
+- **4 Tệp lõi & 4 Templates chuẩn:** Tự động sinh `AI_RULES.md`, `index.md`, `log.md`, `session.md` cùng các mẫu ghi chú `source-note.md`, `topic.md`, `decision.md`, `lesson.md`.
+- **Hệ thống dẫn chứng & nhãn trạng thái:** Khối định danh `Evidence — CLM-<id>` và 7 nhãn phân loại dữ kiện (`fact/supported`, `inference`, `hypothesis`, `decision`, `unverified`, `disputed`, `superseded`).
+- **Ma trận 11 tiêu chí nghiệm thu (Setup Acceptance Criteria):** Tích hợp kiểm thử tự động trên 1 tài liệu mẫu và lưu vết vật lý tại `reviews/setup-validation.md`.
+- **Nâng cấp plugin `second-brain`:** Cập nhật manifest `plugin.json` lên v1.1.0 và bổ sung bộ test kiểm thử tự động toàn diện (`test_second_brain_skills_exist_and_frontmatter_valid`, `test_skill_loader_loads_second_brain_skills`).
+- **Định tuyến kỹ năng:** Cập nhật `configs/harness_config.json` và bổ sung test case trong `tests/test_skill_router.py`.
+
 
 

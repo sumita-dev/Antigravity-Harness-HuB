@@ -32,6 +32,18 @@ IMPECCABLE_SKILLS = [
     "impeccable"
 ]
 
+SECOND_BRAIN_SKILLS = [
+    "setup-second-brain",
+    "karpathy-second-brain",
+    "ingest-source",
+    "query-wiki",
+    "lint-wiki",
+    "second-brain-memory",
+    "obsidian-markdown",
+    "obsidian-bases",
+    "json-canvas"
+]
+
 def test_marketing_skills_exist_and_frontmatter_valid():
     for skill_name in MARKETING_SKILLS:
         skill_file = os.path.join("plugins", "marketing", "skills", skill_name, "SKILL.md")
@@ -126,6 +138,38 @@ def test_impeccable_skills_exist_and_frontmatter_valid():
 def test_skill_loader_loads_impeccable_skills():
     loader = SkillLoader()
     for skill_name in IMPECCABLE_SKILLS:
+        instructions = loader.load_instructions(skill_name)
+        assert instructions is not None, f"Failed to load instructions for {skill_name}"
+        assert len(instructions) > 50, f"Instructions too short for {skill_name}"
+
+def test_second_brain_skills_exist_and_frontmatter_valid():
+    for skill_name in SECOND_BRAIN_SKILLS:
+        skill_file = os.path.join("plugins", "second-brain", "skills", skill_name, "SKILL.md")
+        assert os.path.exists(skill_file), f"Second brain skill file missing: {skill_file}"
+        
+        with open(skill_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        assert content.startswith("---\n") or content.startswith("---\r\n"), (
+            f"Skill {skill_name} does not start with YAML frontmatter at line 1"
+        )
+
+        parts = content.split("---", 2)
+        assert len(parts) >= 3, f"Skill {skill_name} does not have closing delimiter '---'"
+        
+        frontmatter_raw = parts[1]
+        fm = yaml.safe_load(frontmatter_raw)
+        
+        assert isinstance(fm, dict), f"Frontmatter in {skill_name} is not a valid YAML dict"
+        assert "name" in fm, f"Frontmatter in {skill_name} missing 'name'"
+        assert fm["name"] == skill_name, f"Skill name in frontmatter {fm['name']} != {skill_name}"
+        assert "description" in fm and len(fm["description"].strip()) > 0, (
+            f"Skill {skill_name} missing description in frontmatter"
+        )
+
+def test_skill_loader_loads_second_brain_skills():
+    loader = SkillLoader()
+    for skill_name in SECOND_BRAIN_SKILLS:
         instructions = loader.load_instructions(skill_name)
         assert instructions is not None, f"Failed to load instructions for {skill_name}"
         assert len(instructions) > 50, f"Instructions too short for {skill_name}"

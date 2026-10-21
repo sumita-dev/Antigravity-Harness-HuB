@@ -30,7 +30,7 @@ EXTERNAL_REF_OK = {
 EXTERNAL_PREFIX_OK = (
     "http://", "https://", "~", "/",
     "docs/", "eval/", "gitnexus/", ".agents/", ".claude/",
-    "wiki/", "memory/", "sources/", "HOSO_CSSK/",
+    "wiki/", "memory/", "sources/", "HOSO_CSSK/", "templates/", "reviews/", "inbox/", "assets/",
 )
 
 # File phụ trợ được tài liệu nhắc tới nhưng CHƯA từng có trong repo (đã tra git

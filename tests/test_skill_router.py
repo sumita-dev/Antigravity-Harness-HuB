@@ -82,6 +82,10 @@ def test_skill_routing_specific_skills():
     assert skill == "second-brain-memory"
     assert branch == "app"
 
+    skill, branch = router.route("hãy thiết lập second brain mới")
+    assert skill == "setup-second-brain"
+    assert branch == "app"
+
     # Test priority (longest match)
     # If a text has multiple keywords, it should pick the skill with longest matched keyword
     # Let's say text: "viết bài bóc phốt và làm offer"

@@ -97,6 +97,7 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 | `/advisor` | Architecture Advisor |
 | `/loop-circuit-breaker` | Loop Circuit Breaker |
 | `/apple-inspired-design` | Apple-Inspired Design |
+| `/setup-second-brain` | Setup Second Brain |
 | `/query-wiki` | Query Wiki (F:\Obsidian) |
 | `/ingest-source` | Ingest Source (F:\Obsidian) |
 | `/lint-wiki` | Lint Wiki (F:\Obsidian) |
