@@ -65,6 +65,11 @@ function Get-RelativeFileMap([string]$SourceRoot, [string]$DestinationPrefix) {
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) { return $map }
     $sourceRootFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd($separator) + $separator
     foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -File -Recurse -Force) {
+        if ($file.FullName -match '[\\/](__pycache__|\.pytest_cache|\.git|\.sessions|\.brain)[\\/]' -or
+            $file.Extension -in @('.pyc', '.pyo', '.pyd') -or
+            $file.Name -in @('.DS_Store', 'Thumbs.db')) {
+            continue
+        }
         $sourcePath = [IO.Path]::GetFullPath($file.FullName)
         $relative = $sourcePath.Substring($sourceRootFull.Length).Replace('\', '/')
         $targetRelative = (($DestinationPrefix.TrimEnd('/') + '/' + $relative).TrimStart('/'))
