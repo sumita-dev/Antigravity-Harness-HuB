@@ -60,6 +60,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh |
 | `/social-reach` | Social Reach Scout |
 | `/youtube-suggest` | YouTube Autocomplete & Keyword Suggest Scout |
+| `/youtube-keyword-intelligence` | YouTube Keyword Intelligence & SERP Audit Engine (VKOS v3.0) |
 | `/flowkit` | AI Video Production Studio (Google Flow / Veo 3) |
 
 ---

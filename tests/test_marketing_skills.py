@@ -18,7 +18,8 @@ MARKETING_SKILLS = [
     "fb-admin",
     "framework-marketing-da-kenh",
     "meta-ad-scout",
-    "youtube-suggest"
+    "youtube-suggest",
+    "youtube-keyword-intelligence"
 ]
 
 CODE_SKILLS = [

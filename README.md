@@ -298,6 +298,7 @@ Toàn bộ 15 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/framework-marketing-da-kenh` | Framework Marketing Đa Kênh | Sơ đồ hoá hành trình khách hàng 6 pha, kết nối ma trận kênh & 8 công cụ MCP Noti |
 | `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, Reddit, YouTube, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast, Jina Reader) |
 | `/youtube-suggest` | YouTube Autocomplete & Keyword Scout | Thu thập từ khóa gợi ý tự động trên thanh tìm kiếm YouTube (Google Suggest API), mở rộng Alphabet Soup (A-Z, 0-9) và Modifiers câu hỏi/so sánh, xuất file CSV/JSON |
+| `/youtube-keyword-intelligence` | YouTube Keyword Intelligence & SERP Audit (VKOS v3.0) | Nghiên cứu, phân cụm 5 ý định tìm kiếm, thẩm định sâu SERP video dài YouTube, bộ lọc Yellow Dollar Guardrail và chấm điểm cơ hội VKOS v3.0 chọn Top 1 kèm Actionable Briefing |
 
 ---
 
