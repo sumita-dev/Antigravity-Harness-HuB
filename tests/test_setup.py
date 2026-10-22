@@ -13,7 +13,7 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 pytestmark = pytest.mark.skipif(not POWERSHELL, reason="PowerShell is unavailable")
 
 
-def install(target, extra_args=None):
+def install(target, extra_args=None, extra_env=None):
     # Fail closed before invoking legacy installers that ignore destination flags.
     script = (REPO / "setup/setup.ps1").read_text(encoding="utf-8")
     assert "[string]$TargetDirectory" in script, "Portable target parameter is missing"
@@ -25,8 +25,12 @@ def install(target, extra_args=None):
     ]
     if extra_args:
         cmd.extend(extra_args)
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     return subprocess.run(
         cmd, capture_output=True, text=True, timeout=120,
+        env=env,
     )
 
 
@@ -54,6 +58,80 @@ def test_portable_install_twice_preserves_config_and_runs_cli(tmp_path):
                          cwd=target, env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert cli.returncode == 0, cli.stderr
     assert "--marketing-workflow" in cli.stdout
+
+
+def test_install_preserves_unrelated_user_plugin(tmp_path):
+    target = tmp_path / "portable-with-user-plugin"
+    user_plugin = target / "plugins" / "user-plugin" / "plugin.json"
+    user_plugin.parent.mkdir(parents=True)
+    original = b'{"name":"user-plugin","keep":true}\n'
+    user_plugin.write_bytes(original)
+
+    result = install(target)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert user_plugin.read_bytes() == original
+    assert (target / "plugins" / "code" / "plugin.json").is_file()
+
+
+def test_install_rejects_unowned_plugin_name_conflict_without_mutation(tmp_path):
+    target = tmp_path / "portable-plugin-conflict"
+    conflicting = target / "plugins" / "code" / "plugin.json"
+    conflicting.parent.mkdir(parents=True)
+    original = b'{"name":"private-code-plugin","private":true}\n'
+    conflicting.write_bytes(original)
+    config = target / "config.json"
+    config.write_text('{"keep":true}', encoding="utf-8")
+
+    result = install(target)
+
+    assert result.returncode != 0
+    assert "conflict" in (result.stdout + result.stderr).lower()
+    assert conflicting.read_bytes() == original
+    assert config.read_text(encoding="utf-8") == '{"keep":true}'
+
+
+def test_second_install_updates_only_owned_files_and_preserves_user_files(tmp_path):
+    target = tmp_path / "portable-update"
+    assert install(target).returncode == 0
+    managed = target / "plugins" / "code" / "plugin.json"
+    managed.write_text('{"locally-edited":true}', encoding="utf-8")
+    user_file = target / "plugins" / "code" / "user-data.txt"
+    user_file.write_text("keep me", encoding="utf-8")
+    unrelated = target / "plugins" / "user-plugin" / "plugin.json"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_text('{"name":"user-plugin"}', encoding="utf-8")
+    obsolete = target / "plugins" / "code" / "old-managed.txt"
+    obsolete.write_text("harness old", encoding="utf-8")
+    manifest = json.loads((target / ".harness-hub-managed.json").read_text(encoding="utf-8"))
+    manifest["files"]["plugins/code/old-managed.txt"] = __import__("hashlib").sha256(b"harness old").hexdigest()
+    (target / ".harness-hub-managed.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = install(target)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(managed.read_text(encoding="utf-8")) == json.loads((REPO / "plugins/code/plugin.json").read_text(encoding="utf-8"))
+    assert user_file.read_text(encoding="utf-8") == "keep me"
+    assert unrelated.read_text(encoding="utf-8") == '{"name":"user-plugin"}'
+    assert not obsolete.exists()
+
+
+def test_install_failure_during_commit_rolls_back_existing_files(tmp_path):
+    target = tmp_path / "portable-rollback"
+    assert install(target).returncode == 0
+    managed = target / "plugins" / "code" / "plugin.json"
+    managed.write_text('{"updated":true}', encoding="utf-8")
+    prior = managed.read_bytes()
+    config = target / "config.json"
+    config_before = config.read_bytes()
+    manifest_before = (target / ".harness-hub-managed.json").read_bytes()
+
+    result = install(target, extra_env={"HARNESS_SETUP_TEST_FAIL_AFTER_COPY": "1"})
+
+    assert result.returncode != 0
+    assert managed.read_bytes() == prior
+    assert config.read_bytes() == config_before
+    assert (target / ".harness-hub-managed.json").read_bytes() == manifest_before
 
 
 @pytest.mark.parametrize("target", [REPO, REPO.parent])

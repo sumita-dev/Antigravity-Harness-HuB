@@ -23,5 +23,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run test suite
+      - name: Lint harness skills and routing
+        run: python scripts/lint_harness_skills.py
+      - name: Run test suite on Windows
+        if: runner.os == 'Windows'
+        run: python scripts/run_pytest_windows.py -q
+      - name: Run test suite on other platforms
+        if: runner.os != 'Windows'
         run: python -m pytest -q

@@ -56,3 +56,7 @@ Runtime .brain/ hoàn toàn gitignored; integrity scanning source bỏ generated
 App checkpoint schema 3 giữ receipts do local runner tạo cho argv/cwd/exit/output hashes và current manifest; marketing giữ schema 2. Tests của receipt store chỉ quan sát hành vi local, không chứng minh native dispatch, actor identity, model availability hoặc browser. Model policy export resolve config tier và vẫn DECLARED. Native Antigravity E2E vẫn NOT_VERIFIED.
 
 Dùng CLI schema 3 theo `docs/app-workflow-guide.md`; không tái dùng payload report schema 2 để claim runner verification. Chi tiết optional requirement/task/AC/verification mapping, dependency APPROVED, bounded skill composition và Chief-only decomposition ở `docs/upgrade-policy.md`.
+
+## Maintenance smoke status (2026-10-22)
+
+Portable installer checks ran against isolated temporary targets, including first install, repeat install, preserved user config/files, fail-closed plugin conflict, and a simulated mid-commit failure with rollback. Skill integrity lint and targeted router tests also ran locally. These results do not exercise Antigravity dispatch or UI. The native smoke remains `NOT_VERIFIED`; this session has no Antigravity 2.0 UI/runtime surface available. See `reports/native-smoke-2026-10-22.md` for the local receipts and the blocked native steps.

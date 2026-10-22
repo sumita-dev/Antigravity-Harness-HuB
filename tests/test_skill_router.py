@@ -29,7 +29,6 @@ def test_skill_routing_specific_skills():
     skill, branch = router.route("giải quyết lỗi ngầm bằng khảo cổ")
     assert skill == "forensics"
     assert branch == "app"
-
     skill, branch = router.route("hướng dẫn làm app và mvp")
     assert skill == "app"
     assert branch == "app"
@@ -92,6 +91,25 @@ def test_skill_routing_specific_skills():
     # "viết bài" -> fallback marketing, "bóc phốt" -> 8 chars, "làm offer" -> 9 chars
     skill, branch = router.route("bóc phốt offer builder")
     assert skill == "alex-hormozi-offer-builder" # "offer builder" is 13 chars, "bóc phốt" is 8 chars
+
+
+@pytest.mark.parametrize(("user_text", "expected"), [
+    ("dọn trình duyệt bị treo và tiến trình mồ côi", "browser-hygiene"),
+    ("chăm sóc máy tính Windows, dọn cache", "cham-soc-may-tinh"),
+    ("chuyển file docx thành markdown", "doc-to-markdown"),
+    ("tạo video bằng Google Flow Veo", "flowkit"),
+    ("audit paid media và hiệu quả chiến dịch", "paid-media-auditor"),
+    ("viết integration test với Testcontainers PostgreSQL", "testcontainers"),
+    ("gợi ý từ khóa YouTube autocomplete", "youtube-suggest"),
+])
+def test_routes_previously_unmapped_skills(user_text, expected):
+    skill, _branch = SkillRouter().route(user_text)
+    assert skill == expected
+
+
+def test_specific_marketing_route_beats_generic_caption_route():
+    skill, branch = SkillRouter().route("audit paid media và tối ưu quảng cáo facebook")
+    assert (skill, branch) == ("paid-media-auditor", "marketing")
 
 def test_skill_loader():
     loader = SkillLoader()

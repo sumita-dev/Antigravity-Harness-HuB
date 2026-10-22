@@ -307,6 +307,34 @@
         "creative angle scout"
       ]
     },
+    "browser-hygiene": {
+      "branch": "app",
+      "keywords": ["browser-hygiene", "dọn trình duyệt", "trình duyệt bị treo", "tiến trình trình duyệt mồ côi", "orphan browser process", "browser process cleanup"]
+    },
+    "cham-soc-may-tinh": {
+      "branch": "app",
+      "keywords": ["cham-soc-may-tinh", "chăm sóc máy tính", "dọn cache windows", "tối ưu máy tính windows", "bảo dưỡng máy tính"]
+    },
+    "doc-to-markdown": {
+      "branch": "app",
+      "keywords": ["doc-to-markdown", "chuyển docx thành markdown", "chuyển file docx thành markdown", "chuyển tài liệu sang markdown", "convert document to markdown", "trích xuất markdown từ doc"]
+    },
+    "flowkit": {
+      "branch": "marketing",
+      "keywords": ["flowkit", "google flow veo", "tạo video bằng flow", "làm video veo", "quy trình video flow"]
+    },
+    "paid-media-auditor": {
+      "branch": "marketing",
+      "keywords": ["paid-media-auditor", "paid media audit", "audit paid media", "audit paid media và tối ưu quảng cáo facebook", "kiểm toán paid media", "đánh giá hiệu quả paid media", "phân tích hiệu quả chiến dịch đa kênh"]
+    },
+    "testcontainers": {
+      "branch": "app",
+      "keywords": ["testcontainers", "testcontainers postgres", "integration test với testcontainers", "kiểm thử database container", "test cơ sở dữ liệu bằng container"]
+    },
+    "youtube-suggest": {
+      "branch": "marketing",
+      "keywords": ["youtube-suggest", "youtube autocomplete", "gợi ý từ khóa youtube", "youtube search suggestions", "đề xuất truy vấn youtube"]
+    },
     "app": {
       "branch": "app",
       "keywords": [
@@ -784,6 +812,7 @@
     "model_selection": "configured_tier",
     "note": "Preferences only; native runtime capabilities require observed evidence."
   },
+  "skill_direct_only": [],
   "skill_composition": {
     "max_skills": 8,
     "max_chars": 64000,

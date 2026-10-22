@@ -18,6 +18,7 @@ pytest-cache-files*
 
 # GitNexus local index cache
 .gitnexus/
+.claude/
 
 .vscode/
 reports/

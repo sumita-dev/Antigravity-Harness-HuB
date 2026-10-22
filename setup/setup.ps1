@@ -56,6 +56,23 @@ function Merge-Defaults([hashtable]$Existing, [hashtable]$Defaults) {
     }
 }
 
+function Get-ContentHash([string]$Path) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Get-RelativeFileMap([string]$SourceRoot, [string]$DestinationPrefix) {
+    $map = @{}
+    if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) { return $map }
+    $sourceRootFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd($separator) + $separator
+    foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -File -Recurse -Force) {
+        $sourcePath = [IO.Path]::GetFullPath($file.FullName)
+        $relative = $sourcePath.Substring($sourceRootFull.Length).Replace('\', '/')
+        $targetRelative = (($DestinationPrefix.TrimEnd('/') + '/' + $relative).TrimStart('/'))
+        $map[$targetRelative] = $sourcePath
+    }
+    return $map
+}
+
 if ($targetDir.TrimEnd($separator) -eq $repoRoot.TrimEnd($separator) -or
     $repoRoot.StartsWith($targetDir.TrimEnd($separator) + $separator, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Target must not be the repository or an ancestor of the repository"
@@ -74,10 +91,52 @@ foreach ($name in $directoryNames) {
         throw "Target must not be inside a packaged source directory: $packagedSource"
     }
 }
-# Validate the complete plan before any cleanup or configuration write.
-foreach ($name in ($directoryNames + $fileNames + @("config.json", "hooks.json"))) {
-    Assert-TargetChild (Join-Path $targetDir $name)
+# Inventory the source files and validate every target before changing the profile.
+$sourceFiles = @{}
+foreach ($name in $directoryNames) {
+    $sourceFiles += Get-RelativeFileMap (Join-Path $repoRoot $name) $name
 }
+foreach ($name in $fileNames) {
+    $source = Join-Path $repoRoot $name
+    if (Test-Path -LiteralPath $source -PathType Leaf) { $sourceFiles[$name] = $source }
+}
+$hooksSource = Join-Path $repoRoot ".agent\hooks.json"
+if (Test-Path -LiteralPath $hooksSource -PathType Leaf) { $sourceFiles["hooks.json"] = $hooksSource }
+$manifestPath = Join-Path $targetDir ".harness-hub-managed.json"
+$previousManifest = @{ schemaVersion = 1; files = @{} }
+if (Test-Path -LiteralPath $manifestPath) {
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw "Ownership manifest path conflict: $manifestPath" }
+    $previousManifest = ConvertTo-Map ([IO.File]::ReadAllText($manifestPath, [Text.Encoding]::UTF8) | ConvertFrom-Json)
+    if ($previousManifest -isnot [hashtable] -or $previousManifest.schemaVersion -ne 1 -or $previousManifest.files -isnot [hashtable]) {
+        throw "Invalid harness ownership manifest: $manifestPath"
+    }
+}
+$previousFiles = $previousManifest.files
+$nextFiles = @{}
+$staleFiles = @()
+foreach ($relative in $sourceFiles.Keys) {
+    $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+    Assert-TargetChild $destination
+    if (Test-Path -LiteralPath $destination -PathType Container) { throw "File/directory conflict: $relative" }
+    $sourceHash = Get-ContentHash $sourceFiles[$relative]
+    $unownedIdentical = $false
+    if (Test-Path -LiteralPath $destination -PathType Leaf) {
+        if (-not $previousFiles.ContainsKey($relative)) {
+            if ((Get-ContentHash $destination) -ne $sourceHash) { throw "Unowned file conflict: $relative" }
+            $unownedIdentical = $true
+        }
+    }
+    if (-not $unownedIdentical) { $nextFiles[$relative] = $sourceHash }
+}
+foreach ($relative in $previousFiles.Keys) {
+    if ($sourceFiles.ContainsKey($relative)) { continue }
+    $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+    Assert-TargetChild $destination
+    if ((Test-Path -LiteralPath $destination -PathType Leaf) -and (Get-ContentHash $destination) -eq [string]$previousFiles[$relative]) {
+        $staleFiles += $relative
+    }
+}
+foreach ($name in @("config.json", ".harness-hub-managed.json")) { Assert-TargetChild (Join-Path $targetDir $name) }
 $sourceFile = Join-Path $PSScriptRoot "config.json"
 $defaults = ConvertTo-Map ([IO.File]::ReadAllText($sourceFile, [Text.Encoding]::UTF8) | ConvertFrom-Json)
 $targetFile = Join-Path $targetDir "config.json"
@@ -87,29 +146,76 @@ if (Test-Path -LiteralPath $targetFile) {
     if ($merged -isnot [hashtable]) { throw "Existing config must be a JSON object" }
 }
 Merge-Defaults $merged $defaults
-New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-if (Test-Path -LiteralPath $targetFile) {
-    Copy-Item -LiteralPath $targetFile -Destination (Join-Path $targetDir ("config.json.bak_" + [Guid]::NewGuid().ToString("N")))
+$configBytes = [Text.UTF8Encoding]::new($false).GetBytes(($merged | ConvertTo-Json -Depth 100))
+$newManifest = @{ schemaVersion = 1; files = $nextFiles } | ConvertTo-Json -Depth 20
+$stageRoot = Join-Path $targetDir (".harness-hub-stage-" + [Guid]::NewGuid().ToString("N"))
+$backupRoot = Join-Path $stageRoot "backup"
+$stageFilesRoot = Join-Path $stageRoot "files"
+$changed = @()
+foreach ($relative in $sourceFiles.Keys) {
+    $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+    if (-not (Test-Path -LiteralPath $destination -PathType Leaf) -or (Get-ContentHash $destination) -ne (Get-ContentHash $sourceFiles[$relative])) {
+        $changed += $relative
+    }
 }
-[IO.File]::WriteAllText($targetFile, ($merged | ConvertTo-Json -Depth 100), [Text.UTF8Encoding]::new($false))
-foreach ($name in $directoryNames) {
-    $source = Join-Path $repoRoot $name
-    $destination = Join-Path $targetDir $name
-    if (-not (Test-Path -LiteralPath $source)) { continue }
-    Assert-TargetChild $destination
-    if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Recurse -Force }
-    Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
+New-Item -ItemType Directory -Force -Path $stageFilesRoot, $backupRoot | Out-Null
+try {
+    foreach ($relative in $sourceFiles.Keys) {
+        $staged = Join-Path $stageFilesRoot ($relative.Replace('/', [string]$separator))
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $staged) | Out-Null
+        Copy-Item -LiteralPath $sourceFiles[$relative] -Destination $staged
+    }
+    $manifestStaged = Join-Path $stageRoot "manifest.json"
+    [IO.File]::WriteAllText($manifestStaged, $newManifest, [Text.UTF8Encoding]::new($false))
+    $configStaged = Join-Path $stageRoot "config.json"
+    [IO.File]::WriteAllBytes($configStaged, $configBytes)
+    if (Test-Path -LiteralPath $targetFile -PathType Leaf) {
+        Copy-Item -LiteralPath $targetFile -Destination (Join-Path $targetDir ("config.json.bak_" + [Guid]::NewGuid().ToString("N")))
+    }
+    $rollback = @{}
+    foreach ($relative in ($changed + $staleFiles + @("config.json", ".harness-hub-managed.json"))) {
+        $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+        if (Test-Path -LiteralPath $destination -PathType Leaf) {
+            $backup = Join-Path $backupRoot ($relative.Replace('/', [string]$separator))
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $backup) | Out-Null
+            Copy-Item -LiteralPath $destination -Destination $backup
+            $rollback[$relative] = $backup
+        } elseif (Test-Path -LiteralPath $destination) { throw "File/directory conflict during commit: $relative" }
+    }
+    New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+    try {
+        # Deterministic failure injection is used only by the isolated installer rollback test.
+        $failureThreshold = 0
+        if ($env:HARNESS_SETUP_TEST_FAIL_AFTER_COPY) {
+            if ($env:HARNESS_SETUP_TEST_FAIL_AFTER_COPY -notmatch '^\d+$') { throw "Invalid test failure threshold" }
+            $failureThreshold = [int]$env:HARNESS_SETUP_TEST_FAIL_AFTER_COPY
+        }
+        $committedCopies = 0
+        foreach ($relative in $changed) {
+            $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath (Join-Path $stageFilesRoot ($relative.Replace('/', [string]$separator))) -Destination $destination -Force
+            $committedCopies++
+            if ($failureThreshold -gt 0 -and $committedCopies -ge $failureThreshold) {
+                throw "Injected test failure after $committedCopies committed file copy/copies"
+            }
+        }
+        foreach ($relative in $staleFiles) { Remove-Item -LiteralPath (Join-Path $targetDir ($relative.Replace('/', [string]$separator))) -Force }
+        Copy-Item -LiteralPath $configStaged -Destination $targetFile -Force
+        Copy-Item -LiteralPath $manifestStaged -Destination $manifestPath -Force
+    } catch {
+        foreach ($relative in ($changed + $staleFiles + @("config.json", ".harness-hub-managed.json"))) {
+            $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
+            if ($rollback.ContainsKey($relative)) {
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+                Copy-Item -LiteralPath $rollback[$relative] -Destination $destination -Force
+            } elseif (Test-Path -LiteralPath $destination -PathType Leaf) { Remove-Item -LiteralPath $destination -Force }
+        }
+        throw
+    }
+} finally {
+    if (Test-Path -LiteralPath $stageRoot) { Remove-Item -LiteralPath $stageRoot -Recurse -Force }
 }
-foreach ($name in $fileNames) {
-    $source = Join-Path $repoRoot $name
-    if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $targetDir $name) -Force }
-}
-$staleRules = @((Join-Path $targetDir "rules\AGENTS.md"), (Join-Path $targetDir "rules\GEMINI.md"))
-foreach ($stale in $staleRules) {
-    if (Test-Path -LiteralPath $stale) { Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue }
-}
-$hooksSource = Join-Path $repoRoot ".agent\hooks.json"
-if (Test-Path -LiteralPath $hooksSource) { Copy-Item -LiteralPath $hooksSource -Destination (Join-Path $targetDir "hooks.json") -Force }
 # Portable destinations never import sessions into the user's global profile.
 if (-not $SkipSessionRestore -and -not $PSBoundParameters.ContainsKey("TargetDirectory") -and
     (Test-Path -LiteralPath (Join-Path $repoRoot ".sessions"))) {
