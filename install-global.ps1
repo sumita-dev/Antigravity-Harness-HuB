@@ -5,7 +5,7 @@
     Script này sao chép toàn bộ bộ luật (rules), các plugin (skills), vai trò (agents),
     rubrics và scripts từ Antigravity-Harness-Hub vào thư mục cấu hình toàn cục
     của người dùng (~/.gemini/config/), giúp mọi dự án trên Antigravity tự động áp dụng
-    khung điều phối Maker-Checker và 36 kỹ năng.
+    khung điều phối Maker-Checker và 59 kỹ năng.
 .EXAMPLE
     pwsh -File .\install-global.ps1
 #>

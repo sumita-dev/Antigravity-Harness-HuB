@@ -827,7 +827,7 @@
   "skill_direct_only": [],
   "skill_composition": {
     "max_skills": 8,
-    "max_chars": 64000,
+    "max_chars": 72000,
     "stage": {
       "IMPLEMENTATION": [
         "test-driven-development"

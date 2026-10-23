@@ -59,6 +59,7 @@ switch ($Profile) {
         Set-PluginState "impeccable" $true
         Set-PluginState "chrome-devtools-plugin" $true
         Set-PluginState "data-agent-kit-plugin" $true
+        Set-PluginState "computer" $true
     }
     "code" {
         Write-Host "--> Kích hoạt Profile: CODE (Tối ưu cho Lập trình App / Web)" -ForegroundColor Green
@@ -70,6 +71,8 @@ switch ($Profile) {
         Set-PluginState "chrome-devtools-plugin" $true
         Set-PluginState "marketing" $false
         Set-PluginState "data-agent-kit-plugin" $false
+        Set-PluginState "computer" $true
+        Set-PluginState "second-brain" $false
     }
     "marketing" {
         Write-Host "--> Kích hoạt Profile: MARKETING (Tối ưu cho Viết Content / Chiến dịch)" -ForegroundColor Yellow
@@ -81,6 +84,7 @@ switch ($Profile) {
         Set-PluginState "marketing" $true
         Set-PluginState "second-brain" $true
         Set-PluginState "data-agent-kit-plugin" $false
+        Set-PluginState "computer" $false
     }
     "data" {
         Write-Host "--> Kích hoạt Profile: DATA (Tối ưu cho BigQuery, PySpark & GCP Pipeline)" -ForegroundColor Magenta
@@ -91,6 +95,7 @@ switch ($Profile) {
         Set-PluginState "marketing" $false
         Set-PluginState "apple-inspired-design" $false
         Set-PluginState "impeccable" $false
+        Set-PluginState "computer" $false
     }
 }
 

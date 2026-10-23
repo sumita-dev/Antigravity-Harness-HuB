@@ -28,7 +28,7 @@ def test_evaluate_execution_failure_then_reject():
     verdict = gate.evaluate_execution(context, command)
     
     assert verdict == Verdict.REJECT
-    assert context.critique_rounds == 1
+    assert context.qa_rounds == 1
     assert context.state == HarnessState.IMPLEMENTATION
 
 def test_evaluate_execution_circuit_breaker():

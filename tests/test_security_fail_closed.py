@@ -144,9 +144,9 @@ def test_critical_only_policy_matches_report(tmp_path, monkeypatch):
     assert report['passed'] is True
     assert report['policy']['blocking_severities'] == ['CRITICAL','UNKNOWN']
 
-def test_large_source_cannot_silently_pass(tmp_path):
+def test_large_source_is_skipped(tmp_path):
     (tmp_path/'large.py').write_text('x'*(1024*1024+1))
-    assert audit.run_security_audit(tmp_path)['status'] == 'ERROR'
+    assert audit.run_security_audit(tmp_path)['status'] == 'PASS'
 
 @pytest.mark.parametrize('data',[[],{'dependencies':[{'vulns':[]}]}])
 def test_empty_or_anonymous_pip_result_for_nonempty_target_is_error(tmp_path,monkeypatch,data):

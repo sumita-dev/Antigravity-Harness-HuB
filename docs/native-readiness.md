@@ -53,7 +53,7 @@ Runtime .brain/ hoàn toàn gitignored; integrity scanning source bỏ generated
 
 ## Local execution receipts (schema 3 app)
 
-App checkpoint schema 3 giữ receipts do local runner tạo cho argv/cwd/exit/output hashes và current manifest; marketing giữ schema 2. Tests của receipt store chỉ quan sát hành vi local, không chứng minh native dispatch, actor identity, model availability hoặc browser. Model policy export resolve config tier và vẫn DECLARED. Native Antigravity E2E vẫn NOT_VERIFIED.
+App checkpoint schema 3 giữ receipts do local runner tạo cho argv/cwd/exit/output hashes và current manifest; marketing giữ schema 1. Tests của receipt store chỉ quan sát hành vi local, không chứng minh native dispatch, actor identity, model availability hoặc browser. Model policy export resolve config tier và vẫn DECLARED. Native Antigravity E2E vẫn NOT_VERIFIED.
 
 Dùng CLI schema 3 theo `docs/app-workflow-guide.md`; không tái dùng payload report schema 2 để claim runner verification. Chi tiết optional requirement/task/AC/verification mapping, dependency APPROVED, bounded skill composition và Chief-only decomposition ở `docs/upgrade-policy.md`.
 

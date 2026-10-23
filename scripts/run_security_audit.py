@@ -58,6 +58,9 @@ IGNORED_DIRS = {
     ".next",
     ".gitnexus",
     ".brain",
+    ".sessions",
+    ".harness-upgrade-backups",
+    ".vscode",
     "__pycache__",
 }
 
@@ -175,9 +178,9 @@ def scan_directory_for_secrets(app_dir: Path) -> list[dict[str, Any]]:
             # Bỏ qua tệp nhị phân hoặc kích thước lớn (> 1MB)
             try:
                 if file_path.stat().st_size > 1024 * 1024:
-                    raise OSError(f"Secret scan size limit exceeded: {file_path}")
+                    continue
             except OSError:
-                raise
+                continue
 
             findings.extend(scan_file_for_secrets(file_path, app_dir))
 

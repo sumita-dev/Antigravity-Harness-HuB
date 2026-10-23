@@ -122,7 +122,6 @@ class AdversarialQualityGate:
             context.safe_transition(HarnessState.APPROVED)
             return Verdict.APPROVE
         else:
-            context.critique_rounds += 1
             if not context.increment_qa(self.max_qa_rounds):
                 return Verdict.ESCALATE
             if not context.check_total_cycles(self.max_total_cycles):

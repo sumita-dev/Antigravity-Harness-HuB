@@ -138,7 +138,7 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 ---
 
 ## 6. Lớp Vận Hành Bằng Code (`harness/`) — Ranh Giới & Cách Dùng
-- `harness/app_workflow.py`: checkpoint app schema 3, receipts thực thi local và CRITIQUE trước QA; `marketing_workflow.py` giữ schema 2. CLI không gọi native agents/browser. Xem `docs/upgrade-policy.md`.
+- `harness/app_workflow.py`: checkpoint app schema 3, receipts thực thi local và CRITIQUE trước QA; `marketing_workflow.py` giữ schema 1. CLI không gọi native agents/browser. Xem `docs/upgrade-policy.md`.
 - `harness/orchestrator.py` & `runners/`: Mô phỏng state machine (`INIT → INTAKE → DESIGN → IMPLEMENTATION → AUDIT → APPROVED/REJECTED/ESCALATED`), không thay SubAgent.
 - CLI & Router: `python run_harness.py --task "<mô tả>" [--branch app|marketing|auto]`.
 - Quy tắc bất biến: (1) Không hardcode secret (`.env` / `.env.example`); (2) Không commit `.brain/`; (3) Giữ `pytest -q` xanh 100%; (4) Cài `pip install -r requirements.txt`.
