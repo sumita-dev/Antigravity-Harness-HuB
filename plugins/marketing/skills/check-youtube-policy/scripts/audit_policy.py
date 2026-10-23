@@ -3,6 +3,8 @@
 """
 YouTube Policy Auditor CLI & Engine
 Screens text using local keyword heuristics; does not issue a platform verdict.
+Includes comprehensive YouTube Community Guidelines, Advertiser Guidelines,
+and the latest YouTube AI Policies & Likeness Protection standards.
 """
 
 import sys
@@ -105,7 +107,7 @@ POLICIES = {
     },
     "SCAM_FINANCIAL": {
         "id": "2801973",
-        "title": "Chính sách về nội dung rác & lừa đảo",
+        "title": "Chính sách về nội dung rác & lừa đảo tài chính",
         "category": "Lừa đảo tài chính & Cờ bạc (Scams & Gambling)",
         "regex": r"\b(làm\s*giàu\s*không\s*khó|kiếm\s*\d+\s*(triệu|củ)\s*mỗi\s*ngày|đánh\s*bạc\s*online|tài\s*xỉu\s*online|cá\s*độ\s*bóng\s*đá|kéo\s*tài\s*xỉu|bao\s*thắng\s*100%|nhận\s*tiền\s*miễn\s*phí|tặng\s*iphone\s*miễn\s*phí)\b",
         "severity": "HIGH",
@@ -129,6 +131,43 @@ POLICIES = {
         "severity": "CRITICAL",
         "penalty_7s": "CRITICAL",
         "advice": "Thay bằng 'chất cấm', 'chất gây nghiện', 'hợp chất nguy hại' trong bối cảnh điều tra tội phạm."
+    },
+    # CỤM 09 & QUY CHUẨN MỚI
+    "AI_SYNTHETIC_REALISTIC": {
+        "id": "14328491",
+        "title": "Chính sách công bố nội dung tạo bằng AI & Bảo vệ Danh tính (Likeness Protection 16440338)",
+        "category": "Nội dung AI Chân thực & Rủi ro Danh tính (Realistic AI & Likeness)",
+        "regex": r"\b(deepfake|face\s*swap|hoán\s*đổi\s*khuôn\s*mặt|nhân\s*bản\s*giọng\s*(nói)?|clone\s*giọng|giả\s*giọng\s*(\w+)?|giọng\s*(đọc\s*)?ai|ai\s*voice|mô\s*phỏng\s*(thảm\s*họa|tai\s*nạn|chiến\s*tranh|cháy\s*nhà|động\s*đất|sập\s*cầu)|sự\s*kiện\s*giả\s*lập)\b",
+        "severity": "HIGH",
+        "penalty_7s": "CRITICAL",
+        "advice": "BẮT BUỘC tick chọn 'Có' tại mục 'Nội dung đã qua chỉnh sửa' (Altered content) trong YouTube Studio. Cảnh báo nguy cơ Likeness Claim (SLA 48h) nếu mô phỏng người thật trái phép."
+    },
+    "AI_PROGRAMMATIC_MASS": {
+        "id": "1311392",
+        "title": "Chính sách kiếm tiền YPP: Cấm AI sản xuất hàng loạt & Avatar AI tư vấn nhạy cảm",
+        "category": "AI sản xuất hàng loạt & Avatar AI nhạy cảm (AI Mass-Produced & Personas)",
+        "regex": r"\b(chào\s*mừng\s*(các\s*bạn\s*)?đã\s*quay\s*trở\s*lại\s*với\s*kênh|trong\s*video\s*ngày\s*hôm\s*nay\s*chúng\s*ta\s*sẽ\s*cùng|hãy\s*nhấn\s*(nút\s*)?(like|đăng\s*ký|subscribe)\s*để\s*không\s*bỏ\s*lỡ|kịch\s*bản\s*(tự\s*động|chatgpt|mẫu)|tóm\s*tắt\s*sách\s*tự\s*động|bác\s*sĩ\s*ai|chuyên\s*gia\s*tài\s*chính\s*ai|luật\s*sư\s*ai|avatar\s*ai\s*khuyên|chuyên\s*gia\s*ảo)\b",
+        "severity": "HIGH",
+        "penalty_7s": "HIGH",
+        "advice": "Nguy cơ bị từ chối/hủy kiếm tiền YPP do lỗi Repetitious Content hoặc cấm Avatar AI tư vấn nhạy cảm. Cần bổ sung phân tích độc bản của con người (Transformative Value)."
+    },
+    "EXTERNAL_LINKS_RISK": {
+        "id": "9054257",
+        "title": "Chính sách về đường liên kết ngoài (External Links)",
+        "category": "Liên kết ngoài rủi ro & Kéo nhóm kín (External Links / Group Funneling)",
+        "regex": r"(https?://\S+|t\.me/\S+|telegram\s*:\s*@?\S+|zalo\.me/\S+|bit\.ly/\S+|tinyurl\.com/\S+|link\s*(ở\s*phần\s*)?mô\s*tả|nhóm\s*kín\s*(telegram|zalo)|kéo\s*về\s*bờ|vào\s*nhóm\s*vip|link\s*đăng\s*ký\s*nhận\s*tiền)",
+        "severity": "CRITICAL",
+        "penalty_7s": "CRITICAL",
+        "advice": "Liên kết trỏ đến Telegram kéo nhóm tài chính/cờ bạc hoặc link rút gọn mờ ám sẽ bị ăn GẬY CỘNG ĐỒNG TRỰC TIẾP theo chính sách 9054257. Chỉ dẫn link nguồn uy tín, chính thống."
+    },
+    "CLICKBAIT_MISLEADING": {
+        "id": "2801973",
+        "title": "Chính sách về thông tin sai lệch, giật tít & lừa đảo",
+        "category": "Giật tít lừa đảo & Hứa hẹn phi thực tế (Clickbait & Misleading Metadata)",
+        "regex": r"\b(bí\s*mật\s*động\s*trời\s*(chưa\s*từng\s*tiết\s*lộ)?|xem\s*ngay\s*kẻo\s*(bị\s*)?xóa|cam\s*kết\s*100%\s*(ăn\s*chắc|thắng|lãi)|kiếm\s*tiền\s*trong\s*lúc\s*ngủ|không\s*cần\s*vốn|bảo\s*đảm\s*giàu\s*ngay|sự\s*thật\s*kinh\s*hoàng\s*bị\s*giấu\s*kín|tiết\s*lộ\s*chấn\s*động)\b",
+        "severity": "HIGH",
+        "penalty_7s": "HIGH",
+        "advice": "Tránh giật tít phóng đại sai sự thật. Tiêu đề và hook phải phản ánh đúng nội dung thực tế để tránh vi phạm chính sách Spam & Misleading Metadata."
     }
 }
 
@@ -203,6 +242,33 @@ def analyze_script(script_text):
             "advice": "Bắt buộc chèn Disclaimer tuyên bố mục đích giáo dục/phòng ngừa tội phạm ở 5 giây đầu tiên."
         })
 
+    # Studio Checkbox Determination
+    has_ai_realistic = any(v["rule_key"] == "AI_SYNTHETIC_REALISTIC" for v in violations)
+    has_violence_drugs_sex = any(v["rule_key"] in ["VIOLENCE_GORE", "ILLEGAL_DRUGS", "SEXUAL_CONTENT", "PROFANITY_STRONG"] for v in violations)
+
+    studio_checklist = {
+        "altered_or_synthetic_content": {
+            "required": has_ai_realistic,
+            "status": "BẮT BUỘC TICK 'CÓ'" if has_ai_realistic else "TÙY CHỌN (TICK 'KHÔNG' NẾU CHỈ DÙNG AI HỖ TRỢ/PHI THỰC TẾ)",
+            "guidance": "Video có chứa yếu tố AI mô phỏng người thật, giọng nói thật hoặc sự kiện giả lập chân thực (Policy 14328491)." if has_ai_realistic else "Không phát hiện yếu tố AI chân thực vi phạm ranh giới công bố."
+        },
+        "age_restriction_18_plus": {
+            "required": has_violence_drugs_sex,
+            "status": "KHUYẾN NGHỊ BẬT 18+" if has_violence_drugs_sex else "KHÔNG CẦN GIỚI HẠN 18+",
+            "guidance": "Kịch bản có yếu tố nhạy cảm (bạo lực, chất cấm, ngôn từ thô tục). Bật 18+ để bảo vệ kênh khỏi án phạt gậy." if has_violence_drugs_sex else "Nội dung phù hợp với người xem đại chúng."
+        },
+        "made_for_kids": {
+            "required": False,
+            "status": "CHỌN 'KHÔNG, ĐÂY KHÔNG PHẢI NỘI DUNG DÀNH CHO TRẺ EM'",
+            "guidance": "Nội dung người lớn/phân tích xã hội; tuyệt đối không gắn nhãn Made for Kids (COPPA 9528076)."
+        },
+        "likeness_protection_risk": {
+            "has_risk": has_ai_realistic,
+            "status": "CẢNH BÁO NGUY CƠ LIKENESS CLAIM (48H SLA)" if has_ai_realistic else "AN TOÀN",
+            "guidance": "Nếu sử dụng giọng nói hoặc khuôn mặt mô phỏng của người thật mà chưa có văn bản đồng ý, chủ thể có quyền khiếu nại yêu cầu gỡ bỏ trong 48 giờ (Policy 16440338 / 17133929)." if has_ai_realistic else "Không có rủi ro xâm phạm đặc điểm nhận dạng sinh trắc học."
+        }
+    }
+
     # Calculate Score
     score = 100
     critical_count = sum(1 for v in violations if v["severity"] == "CRITICAL")
@@ -248,12 +314,14 @@ def analyze_script(script_text):
                 "total": len(violations)
             }
         },
+        "studio_checklist": studio_checklist,
         "violations": violations
     }
 
 def format_markdown_report(result, original_script):
     m = result["metrics"]
     v_list = result["violations"]
+    chk = result["studio_checklist"]
     
     lines = []
     lines.append("# BÁO CÁO KIỂM ĐỊNH CHÍNH SÁCH YOUTUBE (YOUTUBE POLICY AUDIT REPORT)")
@@ -275,7 +343,22 @@ def format_markdown_report(result, original_script):
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## 2. CHI TIẾT CÁC LỖI VI PHẠM & CẢNH BÁO RỦI RO")
+    lines.append("## 2. CHECKBOX THIẾT LẬP YOUTUBE STUDIO KHI TẢI LÊN")
+    lines.append("")
+    lines.append("| Mục thiết lập trong YouTube Studio | Quyết định đề xuất | Hướng dẫn & Căn cứ chính sách |")
+    lines.append("|:---|:---:|:---|")
+    ai_item = chk["altered_or_synthetic_content"]
+    lines.append(f"| **Nội dung đã qua chỉnh sửa (AI)** | **{ai_item['status']}** | {ai_item['guidance']} |")
+    age_item = chk["age_restriction_18_plus"]
+    lines.append(f"| **Giới hạn độ tuổi (18+)** | **{age_item['status']}** | {age_item['guidance']} |")
+    kid_item = chk["made_for_kids"]
+    lines.append(f"| **Dành cho trẻ em (COPPA)** | **{kid_item['status']}** | {kid_item['guidance']} |")
+    like_item = chk["likeness_protection_risk"]
+    lines.append(f"| **Rủi ro Quyền riêng tư & Likeness** | **{like_item['status']}** | {like_item['guidance']} |")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 3. CHI TIẾT CÁC LỖI VI PHẠM & CẢNH BÁO RỦI RO")
     lines.append("")
     
     if not v_list:
@@ -290,7 +373,7 @@ def format_markdown_report(result, original_script):
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## 3. GIỚI HẠN & THẨM ĐỊNH TIẾP THEO")
+    lines.append("## 4. GIỚI HẠN & THẨM ĐỊNH TIẾP THEO")
     lines.append("")
     lines.extend(f"- {item}" for item in result["limitations"])
     lines.append("Checker cần xem bản dựng thực tế, ngữ cảnh, nguồn dữ liệu và hồ sơ cấp phép tài sản. Đổi từ hoặc thêm disclaimer không bảo đảm tuân thủ.")
@@ -298,22 +381,30 @@ def format_markdown_report(result, original_script):
     return "\n".join(lines)
 
 def main():
-    parser = argparse.ArgumentParser(description="YouTube Script Policy Auditor")
-    parser.add_argument("--file", help="Path to script text file")
+    parser = argparse.ArgumentParser(description="YouTube Script Policy Auditor Engine")
+    parser.add_argument("--file", help="Path to script text file (.txt, .md)")
     parser.add_argument("--text", help="Script text string")
-    parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    parser.add_argument("--json", action="store_true", help="Output raw JSON data structure")
     args = parser.parse_args()
 
     content = ""
-    if args.file and os.path.exists(args.file):
-        with open(args.file, "r", encoding="utf-8") as f:
-            content = f.read()
+    if args.file:
+        if not os.path.exists(args.file):
+            print(f"Lỗi: Không tìm thấy tệp kịch bản tại đường dẫn '{args.file}'.", file=sys.stderr)
+            sys.exit(1)
+        try:
+            with open(args.file, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            print(f"Lỗi khi đọc tệp '{args.file}': {str(e)}", file=sys.stderr)
+            sys.exit(1)
     elif args.text:
         content = args.text
     elif not sys.stdin.isatty():
         content = sys.stdin.read()
     else:
-        print("Vui lòng cung cấp kịch bản qua --file, --text hoặc qua stdin.")
+        parser.print_help()
+        print("\nVui lòng cung cấp kịch bản qua --file, --text hoặc qua pipe/stdin.", file=sys.stderr)
         sys.exit(1)
 
     result = analyze_script(content)

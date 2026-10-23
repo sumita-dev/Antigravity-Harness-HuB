@@ -1,6 +1,13 @@
-# MA TRẬN 50 CHÍNH SÁCH YOUTUBE & NGUYÊN TẮC CỘNG ĐỒNG (FULL AUDIT MATRIX)
+# MA TRẬN CHÍNH SÁCH YOUTUBE & NGUYÊN TẮC CỘNG ĐỒNG (FULL AUDIT MATRIX)
 
-> **Cơ sở dữ liệu gốc**: 50 tệp quy chuẩn đóng gói tại `plugins/marketing/skills/check-youtube-policy/references/`  
+> **Cơ sở dữ liệu gốc**: Kết nối trực tiếp với Second Brain Wiki tại `[[youtube-policies-hub]]` và hệ thống 8 chuyên đề chuyên sâu:  
+> - Trụ cột AI: `[[youtube-ai-policies]]`  
+> - Kiếm tiền & Quảng cáo: `[[youtube-kiem-tien-va-ypp]]`, `[[youtube-noi-dung-phu-hop-nha-quang-cao]]`  
+> - Bản quyền: `[[youtube-ban-quyen-va-content-id]]`  
+> - Nguyên tắc cộng đồng: `[[youtube-nguyen-tac-cong-dong-va-noi-dung-nhay-cam]]`  
+> - Thông tin sai lệch & Spam: `[[youtube-thong-tin-sai-lech-spam-va-tuong-tac-gia]]`  
+> - Trẻ em & Gia đình: `[[youtube-chinh-sach-tre-em-va-gia-dinh]]`  
+> - Xử phạt & Kháng nghị: `[[youtube-xu-phat-canh-cao-va-khang-nghi]]`  
 > **Phạm vi áp dụng**: Kiểm định toàn diện kịch bản Video dài, YouTube Shorts, Livestream, Tiêu đề (Title), Mô tả (Description), Thẻ từ khóa (Tags) và Ý tưởng Hình thu nhỏ (Thumbnail Concept).
 
 ---
@@ -116,3 +123,18 @@
 | `9229980` | **Chính sách về hình thu nhỏ (Thumbnail)** | Thumbnail và Title bị AI kiểm duyệt nghiêm ngặt tương đương nội dung video. Cấm: máu me, khiêu dâm hở hang, súng chĩa vào mắt người xem, chữ giật gân bậy bạ. | Kịch bản phải thiết kế kèm gợi ý Tiêu đề và Mô tả Thumbnail an toàn, không chứa từ khóa độc hại. |
 | `10834785` | **Chính sách về thông tin sai lệch** | Đánh giá tính xác thực của thông tin liên quan đến các vấn đề xã hội, an ninh, dịch bệnh, lịch sử. | Luôn bám sát số liệu có nguồn kiểm chứng rõ ràng từ các tổ chức nghiên cứu hoặc thông tấn uy tín. |
 | `48182` | **Chính sách chương trình của AdSense** | Quy định về tính hợp lệ của lưu lượng và tương tác với các đơn vị quảng cáo hiển thị. | Kịch bản không được chứa lời kêu gọi người xem nhấn vào quảng cáo hay thao túng AdSense dưới mọi hình thức. |
+
+---
+
+## 9. CỤM 09: CHÍNH SÁCH TRÍ TUỆ NHÂN TẠO (AI) & BẢO VỆ DANH TÍNH SỐ (`09_Tri_Tue_Nhan_Tao_Va_Danh_Tinh_So`)
+
+> **Tài liệu chuyên sâu**: Xem ma trận chi tiết tại `references/ai_policies_matrix.md` và Second Brain `[[youtube-ai-policies]]`.
+
+| ID | Tên chính sách | Nội dung cấm & Dấu hiệu vi phạm trong Kịch bản | Vùng an toàn & Điều kiện cho phép | Mức độ rủi ro |
+|:---|:---|:---|:---|:---:|
+| `14328491` | **Công bố nội dung tạo bằng AI (Altered/Synthetic Content)** | - Sử dụng AI tạo cảnh người thật, sự kiện thật, địa điểm thật có độ chân thực cao (realistic) nhưng cố tình **KHÔNG công bố** trong YouTube Studio.<br>- Giả lập thiên tai, tai nạn, xung đột chiến tranh gây hoang mang dư luận. | Bắt buộc tích chọn nhãn **"Có"** trong YouTube Studio tại mục *Nội dung đã qua chỉnh sửa*. Đối với chủ đề nhạy cảm (tin tức, bầu cử, y tế, tài chính), nhãn sẽ hiển thị trực tiếp trên player. | 🟠-🔴 HIGH-CRITICAL |
+| `16440338` | **Bảo vệ Danh tính & Quyền riêng tư đối với AI (Likeness Protection)** | - Hoán đổi khuôn mặt (Face swap) hoặc nhân bản giọng nói (Voice cloning) của người thật (chính khách, người nổi tiếng, thường dân) khi chưa được phép.<br>- Sử dụng deepfake người nổi tiếng để quảng bá thương mại hoặc xác nhận sản phẩm giả mạo (Fake Endorsements). | - Tự nhân bản giọng nói của chính tác giả (Self-voice clone).<br>- Được cấp quyền văn bản từ chủ thể.<br>- Nội dung Parody/Satire rõ ràng, không gây nhầm lẫn.<br>- Xử lý khiếu nại trong thời hạn **48 giờ (48-Hour SLA)**. | 🔴 CRITICAL |
+| `1311392_AI` | **Cấm AI sản xuất hàng loạt & Avatar AI tư vấn nhạy cảm** | - **AI Programmatic / Mass-Produced**: Kịch bản sinh tự động hàng loạt từ bot, template rập khuôn, đọc máy TTS vô hồn, slide stock không có giá trị phân tích riêng.<br>- **AI Personas on Sensitive Topics**: Kênh dùng avatar AI đóng vai bác sĩ, chuyên gia tài chính, luật sư để đưa ra lời khuyên y tế/đầu tư/pháp lý. | - Con người trực tiếp bình luận, phân tích chuyên sâu, giữ vai trò chủ đạo (Human Agency).<br>- AI chỉ đóng vai trò trợ lực (Augmentation) trong nghiên cứu hoặc hiệu ứng hình ảnh.<br>- Đạt tiêu chuẩn **Transformative Value**. | 🔴 Tắt kiếm tiền / Hủy YPP |
+| `15446725` | **Xác thực nguồn gốc C2PA & Nhãn "Quay bằng camera"** | Cố tình làm giả hoặc can thiệp siêu dữ liệu chuỗi nguồn gốc chứng thực thiết bị C2PA. | Giữ nguyên siêu dữ liệu C2PA v2.1+ từ thiết bị ghi hình thực tế để nhận nhãn tin cậy *Quay bằng camera*. Chủ động quản lý quyền từ chối bên thứ 3 cào dữ liệu huấn luyện AI (Third-Party AI Scraping Controls). | 🟢 SAFE |
+| `17133929` | **Thông báo xác nhận đặc điểm nhận dạng (Likeness Claims)** | Sử dụng diện mạo/chất giọng sinh trắc học đã được người khác đăng ký trong hệ thống Likeness Detection -> Video bị chặn toàn cầu (Global Block). | Tuân thủ quy trình Phản đối (Dispute - 30 ngày) và Kháng nghị (Appeal - 7 ngày) nếu có bằng chứng cấp quyền hợp pháp hoặc ngoại lệ Parody. | 🟠 HIGH |
+
