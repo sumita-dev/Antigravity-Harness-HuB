@@ -9,6 +9,8 @@ Ví dụ:
     python run_harness.py --skills-pending      # xem hàng đợi kỹ năng chờ duyệt
     python run_harness.py --skills-approve <id> # duyệt kỹ năng từ staging
     python run_harness.py --distill <task_id>   # chưng cất kỹ năng từ trajectory
+    python run_harness.py --doctor              # tự chẩn đoán sức khỏe 5 trụ cột hệ thống
+    python run_harness.py --doctor-fix          # tự chẩn đoán và tự động sửa chữa lỗi an toàn
 """
 
 import argparse
@@ -123,8 +125,28 @@ def main(argv=None) -> int:
                         help="Phê duyệt một kỹ năng trong staging theo ID")
     parser.add_argument("--skills-reject", metavar="STAGE_ID", default=None,
                         help="Từ chối một kỹ năng trong staging theo ID")
+    parser.add_argument("--doctor", action="store_true",
+                        help="Chạy Bác Sĩ Nội Trú (Harness Doctor) tự chẩn đoán 5 trụ cột hệ thống")
+    parser.add_argument("--doctor-fix", action="store_true",
+                        help="Chạy Bác Sĩ Nội Trú và tự động kích hoạt cỗ máy tự sửa lỗi (--fix)")
 
     args = parser.parse_args(argv)
+
+    # ----------------------- HARNESS DOCTOR -----------------------
+    if args.doctor or args.doctor_fix:
+        from scripts.harness_doctor import HarnessDoctor
+        doctor = HarnessDoctor(
+            repo_root=Path(__file__).resolve().parent,
+            auto_fix=args.doctor_fix,
+        )
+        report = doctor.run()
+        if args.json:
+            print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        else:
+            print(doctor.format_report(report))
+        unresolved_errors = [i for i in report.issues if i.severity == "ERROR" and not i.fixed]
+        return 0 if len(unresolved_errors) == 0 else 1
+
     if args.workflow and args.marketing_workflow:
         parser.error("Choose only one checkpoint workflow")
     if args.workflow or args.marketing_workflow:
