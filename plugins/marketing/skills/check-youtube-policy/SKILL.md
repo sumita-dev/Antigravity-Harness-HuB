@@ -1,6 +1,6 @@
 ---
 name: check-youtube-policy
-description: "Rà soát chính sách YouTube (YPP, bản quyền, bạo lực, EDSA, AI Policies, Likeness) và đề xuất chỉnh sửa an toàn."
+description: "Rà soát chính sách YouTube (YPP, bản quyền, bạo lực, EDSA, AI Policies, Likeness) bằng Agentic Policy RAG và đề xuất chỉnh sửa an toàn có trích dẫn cứng."
 ---
 # YouTube Policy Auditor Skill (`/check-youtube-policy`)
 
@@ -50,19 +50,17 @@ Toàn bộ logic kiểm định được neo chặt vào hệ thống tri thức
 
 ---
 
-## 2. QUY TRÌNH KIỂM ĐỊNH 5 BƯỚC KHÉP KÍN (5-STEP CLOSED-LOOP PROTOCOL)
+## 2. QUY TRÌNH AGENTIC POLICY RAG 5 BƯỚC KHÉP KÍN (5-STEP CLOSED-LOOP PROTOCOL)
 
-Khi nhận kịch bản hoặc yêu cầu kiểm tra chính sách, bạn PHẢI thực hiện chu trình sau:
+Khi nhận kịch bản hoặc yêu cầu kiểm tra chính sách, bạn PHẢI thực hiện chu trình **Agentic Policy RAG** đa chặng:
 
 ```mermaid
 flowchart TD
-    A["Tiếp nhận Kịch bản (Text / File / Phân cảnh)"] --> B["BƯỚC 1: Phân rã Cấu trúc Thời gian & Yếu tố AI"]
-    B --> C["BƯỚC 2: Chạy Script audit_policy.py & Đối soát Ma trận 9 Cụm"]
-    B --> C2["Tra cứu Second Brain wiki/youtube-policies-hub.md & ai-policies"]
-    C --> D["BƯỚC 3: Đánh giá Phân tầng Rủi ro, Likeness SLA & Quyết định Studio"]
-    C2 --> D
+    A["Tiếp nhận Kịch bản (Text / File / Phân cảnh)"] --> B["BƯỚC 1: Phân rã Cấu trúc Thời gian & Yếu tố AI (Query Decomposition)"]
+    B --> C["BƯỚC 2: Multi-Hop Policy Traversal<br/>(Hop 1: Heuristic Regex ➔ Hop 2: Second Brain Hub ➔ Hop 3: Ma trận 9 Cụm)"]
+    C --> D["BƯỚC 3: Evidence Grading & Quyết định Studio (Attribution Check)"]
     D --> E["BƯỚC 4: Xuất Báo cáo Kiểm định Chi tiết (Policy Audit Report)"]
-    E --> F["BƯỚC 5: Soạn thảo Bản viết lại kịch bản an toàn (Safe Script Rewrite)"]
+    E --> F["BƯỚC 5: Safe Script Rewrite (Đề xuất 2-3 Phương Án Viết Lại An Toàn)"]
 ```
 
 ### BƯỚC 1: PHÂN RÃ CẤU TRÚC THỜI GIAN & YẾU TỐ AI (TIMELINE & AI FACTOR DECOMPOSITION)
@@ -74,8 +72,10 @@ flowchart TD
   + Kịch bản có dấu hiệu rập khuôn mẫu AI máy móc (AI programmatic slop) không? $\rightarrow$ Nguy cơ dính lỗi Repetitious Content khi duyệt YPP.
 - **Phần kết & Kêu gọi hành động (Outro & CTA) & Metadata**: Rà soát link Telegram kéo nhóm tài chính/cá cược (vi phạm 9054257), link rút gọn mờ ám, giật tít lừa đảo (clickbait).
 
-### BƯỚC 2: CHẠY CÔNG CỤ QUÉT TỰ ĐỘNG & ĐỐI SOÁT MA TRẬN
-- Kích hoạt script kiểm tra tự động qua CLI:
+### BƯỚC 2: MULTI-HOP POLICY TRAVERSAL (DUYỆT CHÍNH SÁCH ĐA CHẶNG)
+Áp dụng cơ chế truy xuất đa tầng Agentic RAG để đảm bảo không bỏ sót vi phạm:
+- **Hop 1 (Local Regex & Heuristic Scanner):**
+  Chạy script kiểm tra tự động qua CLI:
   ```bash
   # Quét từ file kịch bản (.txt, .md):
   python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --file path/to/script.md
@@ -83,12 +83,15 @@ flowchart TD
   # Quét trực tiếp từ chuỗi text:
   python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --text "<nội_dung_kịch_bản>"
   ```
-- Đối soát chéo với các tài liệu tham chiếu:
-  * `references/policy_rules_matrix.md`: Kiểm tra 9 cụm chính sách.
-  * `references/ai_policies_matrix.md`: Đối soát tiêu chuẩn gắn nhãn AI và bảo vệ danh tính.
-  * `references/advertiser_guidelines.md`: Đối soát điều kiện Đô la Xanh vs Đô la Vàng.
-  * `references/edsa_framing_guide.md`: Lựa chọn mẫu Disclaimer EDSA phù hợp.
-  * `references/safe_vocabulary_dictionary.md`: Tra cứu từ ngữ thay thế an toàn.
+- **Hop 2 (Second Brain Policy Traversal):**
+  Tra cứu mạng lưới chính sách tại Second Brain Vault `F:\Obsidian\wiki\youtube-policies-hub.md` và các trang liên kết (`[[youtube-ai-policies]]`, `[[youtube-kiem-tien-va-ypp]]`, `[[youtube-noi-dung-phu-hop-nha-quang-cao]]`) để nắm tiền lệ xử phạt và mô hình 4Rs.
+- **Hop 3 (Ma trận 9 Cụm & ID Chính Sách Thật):**
+  Đối soát chéo với các tài liệu tham chiếu cốt lõi (100% trích dẫn mã điều khoản thật):
+  * `references/policy_rules_matrix.md`: Kiểm tra 9 cụm chính sách cốt lõi.
+  * `references/ai_policies_matrix.md`: Đối soát tiêu chuẩn gắn nhãn AI (14328491) và bảo vệ danh tính Likeness (16440338).
+  * `references/advertiser_guidelines.md`: Đối soát điều kiện Đô la Xanh vs Đô la Vàng (6162278).
+  * `references/edsa_framing_guide.md`: Lựa chọn mẫu Disclaimer EDSA phù hợp (6345162).
+  * `references/safe_vocabulary_dictionary.md`: Tra cứu từ ngữ thay thế an toàn (Euphemisms).
 
 ### BƯỚC 3: ĐÁNH GIÁ PHÂN TẦNG RỦI RO, LIKENESS SLA & CHECKBOX STUDIO
 - **Điểm số Heuristic**: Điểm quy ước từ regex (0-100), phản ánh mức độ tập trung từ khóa nhạy cảm.
@@ -102,6 +105,11 @@ flowchart TD
 Xuất báo cáo theo định dạng chuẩn hóa 6 phần (xem Mục 3 dưới đây).
 
 ### BƯỚC 5: SOẠN THẢO BẢN VIẾT LẠI KỊCH BẢN AN TOÀN (SAFE SCRIPT REWRITE)
+Với từng phân đoạn bị cắm cờ (đặc biệt trong 7s đầu hoặc phân cảnh nhạy cảm), đề xuất **tối thiểu 2-3 góc viết lại an toàn (Safe Rewrite Angles)**:
+- **Phương án 1 (Phóng sự / Điều tra - EDSA Framing):** Đưa góc nhìn phân tích hiện tượng, cảnh báo người dân, mở đầu bằng Disclaimer giáo dục rõ ràng (ID: 6345162).
+- **Phương án 2 (Ẩn dụ / Hoán đổi từ vựng an toàn - Euphemisms):** Sử dụng các từ ngữ thay thế trong `references/safe_vocabulary_dictionary.md` (ví dụ: thay "giết người" thành "hành vi tước đoạt sinh mạng", "lừa đảo chiếm đoạt" thành "thủ đoạn thao túng tài chính").
+- **Phương án 3 (Ưu tiên Đô la Xanh - Advertiser Friendly):** Cắt gọt yếu tố xung đột trực diện, tập trung vào giải pháp, bài học phòng vệ cá nhân theo chuẩn ID: 6162278.
+
 - **Nguyên tắc viết lại**:
   * Giữ trọn vẹn thông điệp và sức hút của kịch bản gốc.
   * Thay thế 100% từ ngữ nguy hiểm bằng từ vựng an toàn (Euphemisms) theo Từ điển.

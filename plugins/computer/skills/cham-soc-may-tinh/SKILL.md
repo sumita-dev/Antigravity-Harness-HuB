@@ -54,8 +54,10 @@ Kỹ năng tuân thủ kiến trúc phân tầng khám phá dần (Progressive D
 - Bước 1: Lựa chọn phương thức đối soát theo kết quả phân loại từ Gate 1:
   - **Nếu thuộc Nhánh A (Lặp lại cơ bản):** Đối soát nội tại các thông số kỹ thuật (RAM trống, tệp tạm, SSD) để chọn Gói tác vụ phù hợp (`FullCare`, `DevClean`, `DiskClean`, `AppSwitch`, `DBVacuum`).
   - **Nếu thuộc Nhánh B (Vấn đề không rõ ràng):** BẮT BUỘC kích hoạt cơ chế Đối Soát 2 Chiều:
-    * **Chiều 1 (Nội tại):** Dùng `run_command` chạy các script kiểm tra sâu trong `scripts/checks/` hoặc đo đạc Registry, tiến trình sống trên máy.
-    * **Chiều 2 (Bên ngoài):** BẮT BUỘC dùng `search_web` tra cứu tài liệu Microsoft Learn và kinh nghiệm cộng đồng về sự cố tương tự để xác định cơ chế gốc rễ.
+    * **Chiều 1 (Nội tại & Log Agentic RAG):** Áp dụng Two-Tier Event RAG:
+      - Quét nhanh Windows Event Log (Application / System) và WER Crash Dumps trong 24-48h gần nhất qua `Get-WinEvent` theo FilterHashtable để bóc tách Event ID lỗi (Event 1000 App Crash, 1001 WER, 41 Kernel-Power, 7036 Service Hang), Exception Code (`0xc0000005`), và Faulting Module (`.dll`).
+      - Dùng `run_command` chạy các script kiểm tra sâu trong `scripts/checks/` hoặc đo đạc Registry, tiến trình sống trên máy.
+    * **Chiều 2 (Bên ngoài & Root Cause Grounding):** BẮT BUỘC dùng `search_web` tra cứu chính xác mã Event ID + Faulting Module trên Microsoft Learn và tài liệu hỗ trợ kỹ thuật chính thức để xác định cơ chế gốc rễ (xung đột driver, hỏng registry, lỗi bộ nhớ) trước khi lập kế hoạch can thiệp.
 - Bước 2: Viết script gọi `New-CSSKSession` trong `CSSK_LiveLogger.ps1` để in kết quả đối soát vào cặp hồ sơ:
   - File 1: `HOSO_CSSK/LATEST_CSSK.md` (Biên bản checklist kế hoạch ở trạng thái `[ ]`).
   - File 2: `HOSO_CSSK/NHAT_KY_TIEN_TRINH_MOI_NHAT.md` (Nhật ký tiến trình thời gian thực).

@@ -1,6 +1,6 @@
 ---
 name: paid-media-auditor
-description: "Kiểm định quảng cáo trả phí Google/Meta/Microsoft qua 200+ checkpoints toàn diện."
+description: "Kiểm định quảng cáo trả phí Google/Meta/Microsoft qua 200+ checkpoints toàn diện kết hợp Audit Agentic RAG."
 ---
 # Paid Media Auditor — Chuyên Gia Kiểm Định Quảng Cáo Trả Phí Đa Kênh
 
@@ -58,28 +58,30 @@ Mục tiêu cốt lõi: Rà soát toàn diện theo khung **200+ checkpoints**, 
 
 ---
 
-## 2. Quy Trình Vận Hành Khi Kích Hoạt Kỹ Năng
+## 2. Quy Trình Audit Agentic RAG 5 Bước
 
-Khi người dùng cung cấp dữ liệu tài khoản (file CSV/Excel xuất từ Ads Manager, số liệu paste trực tiếp hoặc yêu cầu audit một nền tảng cụ thể):
+Khi người dùng cung cấp dữ liệu tài khoản (file CSV/Excel xuất từ Ads Manager, số liệu paste trực tiếp hoặc yêu cầu audit một nền tảng cụ thể), tác tử kích hoạt mô hình **Audit Agentic RAG**:
 
 ```mermaid
 flowchart TD
-    A["Tiếp nhận Dữ liệu / Brief"] --> B["BƯỚC 1: Thu thập & Trích xuất Dữ liệu"]
-    B --> C["BƯỚC 2: Rà soát 200+ Checkpoints (6 Trụ cột)"]
-    C --> D["BƯỚC 3: Chấm điểm Nghiêm trọng & Ước tính Lãng phí"]
-    D --> E["BƯỚC 4: Xuất Báo cáo Paid Media Audit Hoàn chỉnh"]
-    E --> F["BƯỚC 5: Lập Kế hoạch Thực thi 30-60-90 Ngày"]
+    A["Tiếp nhận Dữ liệu / File Báo cáo (CSV/Excel)"] --> B["BƯỚC 1: Data Decomposition (Phân rã luồng dữ liệu & Lọc Anomaly)"]
+    B --> C["BƯỚC 2: Multi-Hop Anomaly & Policy Retrieval<br/>(Hop 1: Quét rác ➔ Hop 2: Tra cứu chính sách Ads ➔ Hop 3: Benchmark Second Brain)"]
+    C --> D["BƯỚC 3: Exact Attribution & Impact Modeling<br/>(Gán nhãn Severity, tính $ lãng phí theo Campaign ID)"]
+    D --> E["BƯỚC 4: Báo Cáo Paid Media Audit Chuẩn Hóa"]
+    E --> F["BƯỚC 5: Lộ Trình Tối Ưu Hóa 30-60-90 Ngày"]
 ```
 
-1. **Bước 1 — Thu thập Dữ liệu:**
-   - Yêu cầu hoặc phân tích dữ liệu theo phạm vi 30, 60 hoặc 90 ngày gần nhất.
-   - Trích xuất: Campaign report, Search term report, Conversion action settings, Audience performance, Asset ratings.
-2. **Bước 2 — Đối soát Khung 200+ Checkpoints:**
-   - Quét lần lượt từng trụ cột, ghi chú bằng chứng số liệu cụ thể (Campaign ID, Tên nhóm, Số tiền lãng phí, Tỷ lệ rác).
-3. **Bước 3 — Lượng hóa Tác động (Impact Modeling):**
-   - Không đưa ra lời khuyên chung chung. Mọi đề xuất phải chỉ rõ: *"Loại trừ 12 search terms rác này sẽ tiết kiệm $1,450/tháng (tương đương 18% ngân sách chiến dịch X)"*.
-4. **Bước 4 — Xuất Báo cáo:**
-   - Áp dụng mẫu báo cáo chuẩn mực ở Mục 3.
+1. **Bước 1 — Data Decomposition (Phân rã dữ liệu lớn không làm tràn context):**
+   - Không nạp toàn bộ file CSV hàng chục nghìn dòng vào prompt.
+   - Sử dụng script hoặc Subagent (`Model: "flash"`) phân đoạn và trích xuất theo 6 luồng chuyên biệt: Search Waste, Tracking Actions, Bidding & Budget Pacing, Creative Fatigue, Device & Geo Leaks, Audience Performance.
+2. **Bước 2 — Multi-Hop Anomaly & Policy Retrieval:**
+   - **Hop 1 (Quét lãng phí & Anomaly):** Lọc top 20% search terms / ad sets đốt 80% ngân sách nhưng không tạo ra chuyển đổi (Zero-conversion spenders).
+   - **Hop 2 (Tra cứu Chính sách Nền tảng):** Đối soát các mẫu quảng cáo và từ khóa với chính sách Google Ads / Meta Ads (chống rủi ro tài khoản bị đình chỉ: Unacceptable Business Practices, Sensational Content, Circumventing Systems).
+   - **Hop 3 (Second Brain & Benchmark Retrieval):** Truy xuất `F:\Obsidian\memory\facts\` hoặc `wiki/` để đối chiếu với bài học kinh nghiệm từ các chiến dịch tương tự đã từng triển khai.
+3. **Bước 3 — Exact Attribution & Impact Modeling (Dẫn chứng số liệu cứng):**
+   - Không đưa ra lời khuyên chung chung. Mọi phát hiện đều gắn với Campaign ID thật, Ad Set ID thật, từ khóa thật và số tiền lãng phí cụ thể: *"Loại trừ 12 search terms rác thuộc Campaign ID 982173 sẽ thu hồi $1,450/tháng (tương đương 18% ngân sách chiến dịch)"*.
+4. **Bước 4 — Xuất Báo Cáo:**
+   - Áp dụng mẫu báo cáo chuẩn mực ở Mục 3, phân tầng rõ ràng theo ma trận Severity (CRITICAL, HIGH, MEDIUM, LOW).
 
 ---
 

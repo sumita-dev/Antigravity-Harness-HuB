@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: "Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân gốc rễ."
+description: "Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguyên nhân gốc rễ kết hợp Multi-Hop Agentic RAG."
 ---
 # Systematic Debugging
 
@@ -104,17 +104,17 @@ You MUST complete each phase before proceeding to the next.
 
    **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
 
-5. **Trace Data Flow**
+5. **Trace Data Flow & Multi-Hop Agentic RAG Investigation**
 
-   **WHEN error is deep in call stack:**
+   **WHEN error is deep in call stack or multi-layered:**
 
-   See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
-
-   **Quick version:**
-   - Where does bad value originate?
-   - What called this with bad value?
-   - Keep tracing up until you find the source
-   - Fix at source, not at symptom
+   Áp dụng quy trình **Multi-Hop Agentic RAG** để truy vết nguyên nhân gốc:
+   - **Hop 1 (Traceback Call Stack Tracing):** Đi ngược từng khung gọi (Frame N -> Frame N-1 -> Frame 0) để tìm chính xác điểm phát sinh giá trị lỗi (bad value). Xem `root-cause-tracing.md` để nắm kỹ thuật backward tracing chi tiết.
+   - **Hop 2 (AST & Dependency Graph Grounding):** Dùng GitNexus (`context()`, `impact()`) để xác định các hàm caller và callee liên quan, cô lập blast radius.
+   - **Hop 3 (Second Brain Memory & Facts Retrieval):** Tra cứu `F:\Obsidian\memory\facts\` và `wiki/` theo cấu trúc Triad Lesson Schema để kiểm tra: *Đã từng có lỗi tương tự xảy ra trước đây chưa? Bài học giải quyết khi đó là gì?*
+   - **Hop 4 (Recent Git Drift & Diff Check):** So sánh `git diff HEAD~5` trên các file trong stack trace để phát hiện sự thay đổi logic gần đây.
+   
+   Fix tại cội nguồn phát sinh (Source of Truth), tuyệt đối không fix chắp vá ở triệu chứng (Symptom fix).
 
 ### Phase 2: Pattern Analysis
 

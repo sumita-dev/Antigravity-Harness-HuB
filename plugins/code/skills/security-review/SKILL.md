@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: "Dùng để review bảo mật code hoặc audit sâu: OWASP, injection, auth, secret, AI/LLM và native IPC; yêu cầu evidence cho từng finding."
+description: "Dùng để review bảo mật code hoặc audit sâu: OWASP, injection, auth, secret, AI/LLM và native IPC bằng Taint-Graph Agentic RAG; yêu cầu evidence cho từng finding."
 metadata:
   origin: ECC
 ---
@@ -45,9 +45,13 @@ Dùng khi tiến hành đợt rà soát bảo mật toàn diện hoặc kiểm t
 1. **Pha 1 — Recon & Boundary Mapping:**
    - Vẽ bản đồ các ranh giới tin cậy (trust boundaries): Entrypoints công khai, privileged APIs, các nguồn dữ liệu bên ngoài, bộ nhớ lưu trữ, và luồng dữ liệu nhạy cảm.
    - Nhận diện các công nghệ chuyên biệt: Web, Cloud, AI/LLM/Agents, Native/Binary, hoặc Desktop IPC.
-2. **Pha 2 — Adversarial Hunting:**
-   - Rà soát chéo các lớp tấn công (Attack Classes) theo tài liệu tham chiếu:
-     * Web/Auth/Data: Checklist chuẩn (Mục 3) và OWASP.
+2. **Pha 2 — Adversarial Hunting & Taint-Graph Agentic RAG:**
+   - Kích hoạt quy trình **Taint-Graph Agentic RAG** để truy vết luồng dữ liệu độc hại đa chặng:
+     * **Hop 1 (Sink Detection):** Định vị các điểm thực thi nhạy cảm (Sensitive Sinks: SQL execution, child_process/shell exec, eval, innerHTML/DOM, file system writes, LLM tool dispatches).
+     * **Hop 2 (Backward Call-Graph Traversal):** Sử dụng GitNexus (`context()`, `impact()`) hoặc code search để lần ngược đồ thị gọi hàm từ Sink $ightarrow$ qua các tầng xử lý trung gian $ightarrow$ đến điểm tiếp nhận dữ liệu ngoài (Untrusted Sources: HTTP params, headers, WebSockets, IPC messages, upload files).
+     * **Hop 3 (Sanitizer Verification & CWE Grounding):** Kiểm tra xem có bộ lọc chuẩn (sanitizer, typing schema, parameterization) nào được áp dụng dọc đường đi không. Nếu thiếu $ightarrow$ tra cứu và gắn mã CWE ID cụ thể (CWE-89 SQLi, CWE-78 OS Command Injection, CWE-79 XSS, CWE-22 Path Traversal, CWE-94 Code Injection) kèm link CWE chính thức.
+   - Rà soát chéo các lớp tấn công chuyên biệt (Attack Classes):
+     * Web/Auth/Data: Checklist chuẩn (Mục 3) và OWASP Top 10.
      * AI, LLM & MCP: Đọc [references/ai-and-llm-security.md](references/ai-and-llm-security.md).
      * Binary, Native C/C++ & Desktop IPC: Đọc [references/binary-and-ipc.md](references/binary-and-ipc.md).
 3. **Pha 3 — Refutation & Schema Validation:**
