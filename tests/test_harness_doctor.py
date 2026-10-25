@@ -270,7 +270,11 @@ def test_pillar_5_orphan_office_process_and_fix(tmp_path):
     fake_proc = MagicMock()
     fake_proc.info = {"pid": 99999, "name": "WINWORD.EXE", "cmdline": ["WINWORD.EXE"]}
 
-    with patch("psutil.process_iter", return_value=[fake_proc]):
+    mock_psutil = MagicMock()
+    mock_psutil.process_iter.return_value = [fake_proc]
+    mock_psutil.Process.return_value.parent.return_value.pid = 88888
+
+    with patch.dict("sys.modules", {"psutil": mock_psutil}):
         with patch("scripts.safe_com_runner.cleanup_com_processes") as mock_cleanup:
             # 1. Chẩn đoán
             doctor = HarnessDoctor(repo_root=tmp_path, auto_fix=False)
