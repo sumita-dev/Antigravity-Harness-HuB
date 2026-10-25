@@ -1,0 +1,20 @@
+#!/bin/sh
+# Antigravity Pre-Push Verification Hook
+echo "================================================================="
+echo "[HOOK] ANTIGRAVITY AUTOMATED PRE-PUSH VERIFICATION HOOK"
+echo "================================================================="
+
+python scripts/pre_push_check.py
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "[PUSH ABORTED] Kiem thu truoc khi push khong dat yeu cau!"
+    echo "Ngan chan push len GitHub de bao ve trang thai CI xanh."
+    echo "================================================================="
+    exit 1
+fi
+
+echo "[PUSH APPROVED] Kiem tra thanh cong! Dang tien hanh push len GitHub..."
+echo "================================================================="
+exit 0

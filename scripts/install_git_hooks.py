@@ -6,6 +6,7 @@ Nếu hệ thống chưa vượt qua toàn bộ các kiểm thử (bao gồm AST
 lệnh push sẽ tự động bị từ chối ngay tại máy cục bộ.
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,6 +18,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = REPO_ROOT / ".git" / "hooks"
+GITHOOKS_DIR = REPO_ROOT / ".githooks"
 
 PRE_PUSH_SCRIPT = """#!/bin/sh
 # Antigravity Pre-Push Verification Hook
@@ -41,21 +43,34 @@ exit 0
 """
 
 def install_hook():
-    if not HOOKS_DIR.exists():
-        print(f"[ERROR] Khong tim thay thu muc {HOOKS_DIR}.")
-        sys.exit(1)
-
-    hook_file = HOOKS_DIR / "pre-push"
-    hook_file.write_text(PRE_PUSH_SCRIPT, encoding="utf-8")
-    
-    # Cấp quyền thực thi nếu chạy trên POSIX
+    # 1. Cài đặt trực tiếp vào .githooks (được theo dõi trong git trên GitHub)
+    if not GITHOOKS_DIR.exists():
+        GITHOOKS_DIR.mkdir(parents=True, exist_ok=True)
+    tracked_hook = GITHOOKS_DIR / "pre-push"
+    tracked_hook.write_text(PRE_PUSH_SCRIPT, encoding="utf-8")
     try:
-        hook_file.chmod(0o755)
+        tracked_hook.chmod(0o755)
     except Exception:
         pass
 
-    print(f"[OK] Da cai dat thanh cong Git Pre-Push Hook tai: {hook_file.relative_to(REPO_ROOT)}")
-    print("Tu nay, moi khi go 'git push', he thong se tu dong chay pre_push_check.py!")
+    # 2. Cấu hình git config core.hooksPath trỏ vào .githooks
+    try:
+        subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=REPO_ROOT, check=True)
+        print("[OK] Da cau hinh Git tu dong doc hooks tu: .githooks/")
+    except Exception as e:
+        print(f"[WARN] Khong the cau hinh core.hooksPath: {e}")
+
+    # 3. Đồng bộ dự phòng vào .git/hooks/pre-push
+    if HOOKS_DIR.exists():
+        fallback_hook = HOOKS_DIR / "pre-push"
+        fallback_hook.write_text(PRE_PUSH_SCRIPT, encoding="utf-8")
+        try:
+            fallback_hook.chmod(0o755)
+        except Exception:
+            pass
+        print(f"[OK] Da cai dat ban sao du phong tai: {fallback_hook.relative_to(REPO_ROOT)}")
+
+    print("\n[SUCCESS] Tu nay, moi khi go 'git push', he thong se tu dong chay pre_push_check.py!")
 
 if __name__ == "__main__":
     install_hook()
