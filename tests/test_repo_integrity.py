@@ -8,9 +8,11 @@ Bộ test này tồn tại vì các lỗi sau từng lọt qua 31 test cũ:
 - secret (Page token, API key) hardcode
 """
 
+import ast
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -286,4 +288,76 @@ def test_skill_script_references_exist():
                 missing.append(f"{skill.relative_to(REPO).as_posix()}: {script_rel}")
     assert not missing, f"Script python được tham chiếu trong SKILL.md không tồn tại trên đĩa: {missing}"
 
+def test_no_undeclared_third_party_dependencies():
+    """Kiểm tra AST toàn bộ file .py trong repo, phát hiện ngay các import thư viện ngoài chưa khai báo trong requirements.txt.
+    
+    Ngăn chặn vĩnh viễn bẫy Dependency Leak (Local chạy được do môi trường global nhưng CI GitHub Actions bị fail).
+    """
+    req_file = REPO / "requirements.txt"
+    assert req_file.exists(), "Thiếu requirements.txt"
+    
+    declared_reqs = set()
+    for line in req_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        pkg = re.split(r"[><=~;]", line)[0].strip().lower()
+        if pkg:
+            declared_reqs.add(pkg)
 
+    # Bản đồ tên import -> tên gói trên PyPI
+    import_to_pip = {
+        "yaml": "pyyaml",
+        "dotenv": "python-dotenv",
+        "psutil": "psutil",
+        "requests": "requests",
+        "markitdown": "markitdown",
+        "pytest": "pytest",
+        "bs4": "beautifulsoup4",
+    }
+
+    # Các thư viện phụ trợ được bọc an toàn trong try/except hoặc chỉ chạy trên OS đặc thù
+    optional_dynamic = {"opik", "rapidfuzz", "playwright", "win32com", "pythoncom"}
+
+    # Các module / package nội bộ của dự án
+    local_roots = {
+        "harness", "scripts", "plugins", "tests", "run_harness",
+        "fetch_suggestions", "keyword_intelligence", "session_manager",
+        "test_app_workflow", "test_repo_integrity",
+    }
+
+    stdlib = set(sys.stdlib_module_names) if hasattr(sys, "stdlib_module_names") else set()
+    excluded_dirs = {".git", ".venv", ".brain", "scratch", "third_party", ".gitnexus", ".sessions", ".harness-upgrade-backups", ".pytest_temp_run"}
+
+    undeclared = []
+
+    for p in REPO.rglob("*.py"):
+        parts = p.relative_to(REPO).parts
+        if any(part in excluded_dirs or part.startswith(".pytest") for part in parts):
+            continue
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
+        except Exception:
+            continue
+
+        for node in ast.walk(tree):
+            root = None
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split(".")[0]
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and node.level == 0:
+                    root = node.module.split(".")[0]
+
+            if not root or root in stdlib or root in local_roots or root in optional_dynamic:
+                continue
+
+            pip_pkg = import_to_pip.get(root, root).lower()
+            # markitdown đã bao gồm beautifulsoup4 trong dependency graph của nó
+            if pip_pkg not in declared_reqs and pip_pkg != "beautifulsoup4":
+                undeclared.append(f"{root} (file: {p.relative_to(REPO)})")
+
+    assert not undeclared, (
+        f"Phát hiện thư viện bên ngoài chưa khai báo trong requirements.txt: {undeclared}. "
+        f"Vui lòng thêm vào requirements.txt trước khi commit để không gây lỗi trên GitHub Actions!"
+    )
