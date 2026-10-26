@@ -181,7 +181,7 @@ def verify_paragraph_count(
     min_paragraphs: Optional[int] = None,
     max_paragraphs: Optional[int] = None,
 ) -> Tuple[bool, int, str]:
-    """Kiểm tra số lượng đoạn văn.
+    r"""Kiểm tra số lượng đoạn văn.
 
     Các đoạn văn được phân tách bởi ít nhất hai dòng trống liên tiếp (\n\s*\n).
     """

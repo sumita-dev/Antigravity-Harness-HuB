@@ -129,8 +129,92 @@ def main(argv=None) -> int:
                         help="Chạy Bác Sĩ Nội Trú (Harness Doctor) tự chẩn đoán 5 trụ cột hệ thống")
     parser.add_argument("--doctor-fix", action="store_true",
                         help="Chạy Bác Sĩ Nội Trú và tự động kích hoạt cỗ máy tự sửa lỗi (--fix)")
+    parser.add_argument("--clean-state-check", action="store_true",
+                        help="Kiểm toán Clean State 5 chiều (D1-D5)")
+    parser.add_argument("--feature-list", metavar="PATH", default=None,
+                        help="Đường dẫn tới tệp feature_list.json")
+    parser.add_argument("--vcr-audit", action="store_true",
+                        help="Kiểm toán chỉ số VCR và tính toàn vẹn của Feature List")
+    parser.add_argument("--verify-feature", metavar="FEAT_ID", default=None,
+                        help="Thực thi kiểm chứng một feature cụ thể trong Feature List")
+    parser.add_argument("--fast", action="store_true",
+                        help="Chạy chế độ nhanh cho clean-state-check")
 
     args = parser.parse_args(argv)
+
+    # ----------------------- CLEAN STATE CHECK -----------------------
+    if args.clean_state_check:
+        from harness.validators.clean_state_verifier import CleanStateVerifier, DimensionStatus
+        proj_root = Path(args.project_root).resolve() if args.project_root else Path(__file__).resolve().parent
+        cfg = {}
+        if args.fast:
+            cfg["fast_mode"] = True
+        if args.feature_list:
+            cfg["feature_list_path"] = args.feature_list
+        verifier = CleanStateVerifier(project_root=proj_root, config=cfg)
+        report = verifier.audit()
+        if args.json:
+            print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        else:
+            print(report.summary())
+        return 0 if report.overall_status == DimensionStatus.PASS else 1
+
+    # ----------------------- FEATURE LIST & VCR AUDIT -----------------------
+    if args.vcr_audit:
+        from harness.feature_list import FeatureList, WIPViolationError, FakePassingError, FeatureListValidationError
+        fl_path = Path(args.feature_list).resolve() if args.feature_list else Path("specs/feature_list.json").resolve()
+        if not fl_path.exists():
+            msg = f"Feature list file not found: {fl_path}"
+            print(json.dumps({"error": msg}, ensure_ascii=False) if args.json else f"Error: {msg}")
+            return 1
+        try:
+            fl = FeatureList.load_from_file(fl_path)
+            proj_root = Path(args.project_root).resolve() if args.project_root else fl_path.parent
+            fl.validate(check_manifest_against_path=proj_root)
+            res = {
+                "status": "VALID",
+                "project_id": fl.project_id,
+                "vcr_metrics": fl.vcr_metrics.to_dict(),
+            }
+            if args.json:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+            else:
+                print(f"Feature List '{fl.project_id}' is VALID (VCR: {fl.vcr_metrics.vcr_score:.2f}, passing: {fl.vcr_metrics.passing}/{fl.vcr_metrics.total_features})")
+            return 0
+        except (WIPViolationError, FakePassingError, FeatureListValidationError, Exception) as exc:
+            if args.json:
+                print(json.dumps({"status": "INVALID", "error": str(exc)}, ensure_ascii=False))
+            else:
+                print(f"Feature List validation failed: {exc}")
+            return 1
+
+    # ----------------------- VERIFY FEATURE -----------------------
+    if args.verify_feature:
+        from harness.feature_list import FeatureList, VerificationFailedError
+        fl_path = Path(args.feature_list).resolve() if args.feature_list else Path("specs/feature_list.json").resolve()
+        if not fl_path.exists():
+            msg = f"Feature list file not found: {fl_path}"
+            print(json.dumps({"error": msg}, ensure_ascii=False) if args.json else f"Error: {msg}")
+            return 1
+        fl = FeatureList.load_from_file(fl_path)
+        actor = args.actor or "QA_Auditor"
+        proj_root = Path(args.project_root).resolve() if args.project_root else fl_path.parent
+        try:
+            feat = fl.verify_feature(args.verify_feature, actor=actor, project_root=proj_root)
+            fl.save()
+            if args.json:
+                print(json.dumps(feat.to_dict(), ensure_ascii=False, indent=2))
+            else:
+                print(f"Feature {feat.id} verified successfully! State: {feat.state}")
+                if feat.completion_evidence:
+                    print(f"Receipt: command='{feat.completion_evidence.executed_command}', exit_code=0, output_hash={feat.completion_evidence.output_sha256[:12]}...")
+            return 0
+        except (VerificationFailedError, KeyError, Exception) as exc:
+            if args.json:
+                print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+            else:
+                print(f"Verification failed: {exc}")
+            return 1
 
     # ----------------------- HARNESS DOCTOR -----------------------
     if args.doctor or args.doctor_fix:

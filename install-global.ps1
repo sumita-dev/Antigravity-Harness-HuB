@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cài đặt Antigravity Harness Hub thành cấu hình Toàn cục (Global) cho Antigravity.
 .DESCRIPTION
@@ -59,11 +59,16 @@ if (Test-Path $SourcePlugins) {
     Write-Host "[OK] Đồng bộ Plugins & Skills thành công!" -ForegroundColor Green
 }
 
-# 4. Đồng bộ Agents, Rubrics & Scripts
+# 4. Đồng bộ Agents, Rubrics, Scripts, Harness & Tools
+$GlobalHarnessDir = Join-Path $GlobalConfigDir "harness"
+$GlobalToolsDir   = Join-Path $GlobalConfigDir "tools"
+
 $SyncPairs = @(
     @{ Src = (Join-Path $RepoRoot "agents");  Dest = $GlobalAgentsDir;  Label = "Agents" },
     @{ Src = (Join-Path $RepoRoot "rubrics"); Dest = $GlobalRubricsDir; Label = "Rubrics" },
-    @{ Src = (Join-Path $RepoRoot "scripts"); Dest = $GlobalScriptsDir; Label = "Scripts" }
+    @{ Src = (Join-Path $RepoRoot "scripts"); Dest = $GlobalScriptsDir; Label = "Scripts" },
+    @{ Src = (Join-Path $RepoRoot "harness"); Dest = $GlobalHarnessDir; Label = "Harness" },
+    @{ Src = (Join-Path $RepoRoot "tools");   Dest = $GlobalToolsDir;   Label = "Tools" }
 )
 
 foreach ($pair in $SyncPairs) {
@@ -72,6 +77,14 @@ foreach ($pair in $SyncPairs) {
         robocopy $pair.Src $pair.Dest /E /XO /NP /NFL /NDL | Out-Null
         Write-Host "[OK] Đồng bộ $($pair.Label) thành công!" -ForegroundColor Green
     }
+}
+
+# Đồng bộ run_harness.py vào Global Config
+$SourceRunHarness = Join-Path $RepoRoot "run_harness.py"
+$DestRunHarness = Join-Path $GlobalConfigDir "run_harness.py"
+if (Test-Path $SourceRunHarness) {
+    Copy-Item -Path $SourceRunHarness -Destination $DestRunHarness -Force
+    Write-Host "[OK] Đã cập nhật run_harness.py trong Global Config" -ForegroundColor Green
 }
 
 # 5. Đồng bộ cấu hình harness_config.json

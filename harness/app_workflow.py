@@ -476,6 +476,11 @@ class AppWorkflowStore:
             state = self._load(path)
             self._stage(state, "SIGN_OFF")
             self._binding(state, spec_sha256, "spec_sha256")
+            from harness.validators.clean_state_verifier import CleanStateVerifier, DimensionStatus
+            cs_verifier = CleanStateVerifier(project_root=Path(state["project_root"]))
+            cs_report = cs_verifier.audit()
+            if cs_report.overall_status != DimensionStatus.PASS:
+                raise WorkflowError(f"Clean state verification failed before sign-off:\n{cs_report.summary()}")
             state["sign_off"] = {"spec_sha256": spec_sha256, "human_message": human_message,
                                  "identity_verification": "runtime supplied; not authenticated"}
             state["stage"] = "IMPLEMENTATION"
@@ -740,6 +745,13 @@ class AppWorkflowStore:
             if actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             evidence_map, pending, statuses = {}, set(), {}
+            if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
+                from harness.validators.clean_state_verifier import CleanStateVerifier, DimensionStatus
+                cs_verifier = CleanStateVerifier(project_root=Path(state["project_root"]))
+                cs_report = cs_verifier.audit()
+                if cs_report.overall_status != DimensionStatus.PASS:
+                    verdict = "REJECT"
+                    payload = dict(payload, report=((payload.get("report") or "") + f"\n[CleanStateVerifier Rejected: dirty workspace]\n{cs_report.summary()}"))
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 payload = dict(payload, actor=actor)
                 evidence_map, pending, statuses = self._validate_approval(state, payload, verdict)
