@@ -13,7 +13,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 ---
 
 ## 1. Cơ Chế Bộ Ba Tác Tử Linh Hoạt (Dynamic Triad Protocol: Maker ➔ Critic ➔ QA Auditor)
-1. **Phân định rạch ròi 3 vai trò:** Maker (Builder/Creator viết code/bài, cấm tự duyệt); Critic (Code/Content Critic soi logic, GAP, không sửa code); QA Auditor (rerun test suite, zero secrets/vulns, /health, browser evidence, local preview).
+1. **Phân định rạch ròi 3 vai trò:** Maker (Builder/Creator viết code/bài, cấm tự duyệt); Critic (Code/Content Critic soi logic, GAP, không sửa code); QA Auditor (rerun test suite, zero secrets/vulns, /health, browser evidence, local preview. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests và kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) sau mỗi đợt kiểm toán).
 2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):** `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp phản hồi thông minh (Smart Feedback Loop):** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt trước khi sang QA.
 4. **Phân tầng nhiệm vụ linh hoạt (Task Tiering):** Tier 1 (Core/App lớn): Maker ➔ Critic ➔ QA Auditor. Tier 2 (Minor/Hotfix): Fast-Track Maker ➔ QA Auditor.
@@ -21,6 +21,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 6. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):** Quản đốc CẤM tự sửa code hoặc chạy test trong thread chính. Phân rã qua `invoke_subagent`:
    - Nhánh App: Architect (Spec 5 mục) -> Design Reviewer độc lập -> Sếp duyệt Spec -> [Nếu UI: sinh 2-4 ảnh -> Sếp chọn] -> Builder -> Code Critic -> QA Auditor.
    - Nhánh Marketing: Web Researcher -> Creator -> Compliance Critic độc lập.
+   - **Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant):** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình, triệt tiêu xung đột file lock và tranh chấp tài nguyên trên môi trường Windows.
 7. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):** Đối soát tính ĐÚNG và ĐỦ. Thiếu thông tin: BẮT BUỘC hỏi qua `ask_question`, cấm tự suy đoán.
 8. **Biên Bản Giao Nhận (Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):** Metadata, Context, Acceptance Criteria `[ ] Checklist`, Evidence (diffs, logs, test outputs) và Verdict (`PASS`/`FAIL`, tối đa 2 lần retry trước khi `ESCALATED`).
 9. **Tự Động Điều Phối Profile Plugin (Autonomous Profile Switching Gate):** Quản đốc tự chuyển profile qua `switch-profile.ps1` hoặc `config.json`: Kỹ thuật -> `code`; Marketing -> `marketing`; Lai ghép -> `all`.
@@ -33,6 +34,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
     - Pre-Flight Symbol Grounding: Maker gọi GitNexus `impact()` & `context()` trước khi sửa hàm/class; kèm log thật (`exit code == 0`) và file vật lý.
     - Strict Evidence Filter: Critic REJECT ngay nếu dùng Red Flag Phrases (`should work`, `probably`, `chắc là`...) hoặc thiếu log.
     - Physical Path & Exit Code 0: QA kiểm tra 100% file tồn tại (`Path.exists()`) và rerun test bắt buộc `exit code == 0`.
+    - Hard AST Constraints — Dune Invariant: Mọi quy chuẩn kiến trúc cốt lõi phải được mã hóa thành luật cứng của Compiler/Linter xác định (Ruff, Biome, ESLint, TypeScript). Maker bắt buộc chạy script linter/check tất định đạt `exit code == 0` trước khi chuyển giao mã nguồn cho Critic. Cấm dựa vào prompt mềm để kiểm soát ranh giới module hoặc cú pháp kiến trúc.
 15. **Kinh Tế Học Ngữ Cảnh & Thứ Bậc Scaffolding (Context Budget Economics):**
     - Quy tắc ưu tiên chi phí context: `Skill (On-demand)` ➔ `Script (Deterministic)` ➔ `SubAgent (Large in, small out)` ➔ `Plugin/Hook (In-the-loop)` ➔ `Always-on text` cuối cùng.
     - Luôn có trần ngân sách `always_on_max` (như GEMINI.md <= 24,000 bytes); thêm mới nội dung vào Always-on bắt buộc phải cắt gọt nội dung cũ. Tri thức động và hướng dẫn chi tiết phải chuyển vào Skill/Script/SubAgent thay vì nhồi nhét vào Always-on context.

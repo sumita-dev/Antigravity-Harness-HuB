@@ -12,6 +12,7 @@
    - **Nhánh App/Code:** SubAgent Architect (Spec 5 mục) -> Design Reviewer độc lập -> Trình Sếp duyệt Spec -> [Nếu UI: Quản đốc sinh 2-4 ảnh concept -> Sếp chọn] -> SubAgent Builder (Maker) -> SubAgent Code Critic (Critic) -> SubAgent QA Auditor (Checker).
    - **Nhánh Marketing:** SubAgent Web Researcher -> SubAgent Creator (Maker, tự nạp references trong context con) -> SubAgent Compliance Critic độc lập. Quản đốc không nạp tài liệu tham khảo nặng vào thread chính.
 3. **Cổng Xác Nhận Ý Định (Intent Alignment Gate):** Khi yêu cầu mở/chưa rõ file can thiệp, CẤM tự ý sửa code. Phải dừng lại tư vấn 2-3 phương án qua `ask_question`, chỉ thực thi khi Sếp duyệt rõ.
+4. **Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant):** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình, triệt tiêu xung đột file lock và tranh chấp tài nguyên trên môi trường Windows.
 
 ---
 
@@ -19,7 +20,7 @@
 1. **Phân định 3 vai trò:**
    - **Maker (Builder / Creator):** Trực tiếp viết code/bài, cấm tự phê duyệt.
    - **Critic (Code Critic / Compliance Critic):** Phản biện logic, GAP, anti-patterns. Không sửa code hay chạy test động.
-   - **QA Auditor (Checker):** Rerun full test suite độc lập, quét bảo mật (Zero secrets/vulns), /health, local preview & browser evidence thực tế.
+   - **QA Auditor (Checker):** Rerun full test suite độc lập, quét bảo mật (Zero secrets/vulns), /health, local preview & browser evidence thực tế. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests và kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) sau mỗi đợt kiểm toán.
 2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):**
    - Hạn ngạch: `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp thông minh:** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt lại trước khi sang QA.
@@ -31,6 +32,7 @@
 1. **Pre-Flight Symbol Grounding:** Maker kiểm tra symbol/file vật lý trước khi sửa; cấm đoán mò symbol; đính kèm log thật (`exit code == 0`) và file vật lý.
 2. **Strict Evidence Filter:** Critic tự động REJECT ngay nếu phát hiện Red Flag Phrases (`should work`, `probably`, `chắc là`, `có lẽ`...) hoặc thiếu log thực thi.
 3. **Physical Path & Exit Code 0:** QA độc lập kiểm tra 100% file tồn tại trên đĩa (`Path.exists()`) và rerun test bắt buộc `exit code == 0`.
+4. **Rào Chắn Cứng Compiler / Linter (Hard AST Constraints — Dune Invariant):** Mọi quy chuẩn kiến trúc cốt lõi phải được mã hóa thành luật cứng của Compiler/Linter xác định (Ruff, Biome, ESLint, TypeScript). Maker bắt buộc chạy script linter/check tất định đạt `exit code == 0` trước khi chuyển giao mã nguồn cho Critic. Cấm dựa vào prompt mềm để kiểm soát ranh giới module hoặc cú pháp kiến trúc.
 
 ---
 
