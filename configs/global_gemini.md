@@ -20,7 +20,7 @@
 1. **Phân định 3 vai trò:**
    - **Maker (Builder / Creator):** Trực tiếp viết code/bài, cấm tự phê duyệt.
    - **Critic (Code Critic / Compliance Critic):** Phản biện logic, GAP, anti-patterns. Không sửa code hay chạy test động.
-   - **QA Auditor (Checker):** Rerun full test suite độc lập, quét bảo mật (Zero secrets/vulns), /health, local preview & browser evidence thực tế. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests và kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) sau mỗi đợt kiểm toán.
+   - **QA Auditor (Checker):** Rerun full test suite độc lập, quét bảo mật (Zero secrets/vulns), /health, local preview & browser evidence thực tế. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests, kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) và đóng vai Adversarial Attacker kiểm chứng PoC exploit khi thẩm định bản vá bảo mật.
 2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):**
    - Hạn ngạch: `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp thông minh:** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt lại trước khi sang QA.

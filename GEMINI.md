@@ -13,7 +13,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 ---
 
 ## 1. Cơ Chế Bộ Ba Tác Tử Linh Hoạt (Dynamic Triad Protocol: Maker ➔ Critic ➔ QA Auditor)
-1. **Phân định rạch ròi 3 vai trò:** Maker (Builder/Creator viết code/bài, cấm tự duyệt); Critic (Code/Content Critic soi logic, GAP, không sửa code); QA Auditor (rerun test suite, zero secrets/vulns, /health, browser evidence, local preview. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests và kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) sau mỗi đợt kiểm toán).
+1. **Phân định rạch ròi 3 vai trò:** Maker (Builder/Creator viết code/bài, cấm tự duyệt); Critic (Code/Content Critic soi logic, GAP, không sửa code); QA Auditor (rerun test suite, zero secrets/vulns, /health, browser evidence, local preview. Sử dụng Ephemeral Sandbox (`testcontainers` / cổng động ngẫu nhiên) cho database/backend tests và kích hoạt dọn dẹp tiến trình mồ côi (`browser-hygiene`) sau mỗi đợt kiểm toán. Khi thẩm định bản vá bảo mật, QA Auditor đóng vai trò Adversarial Attacker: bắt buộc chạy lại PoC exploit cũ và thử nghiệm 1-2 biến thể payload bypass để ngăn chặn vá lỗi bề mặt.).
 2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):** `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp phản hồi thông minh (Smart Feedback Loop):** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt trước khi sang QA.
 4. **Phân tầng nhiệm vụ linh hoạt (Task Tiering):** Tier 1 (Core/App lớn): Maker ➔ Critic ➔ QA Auditor. Tier 2 (Minor/Hotfix): Fast-Track Maker ➔ QA Auditor.

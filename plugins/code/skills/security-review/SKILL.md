@@ -73,6 +73,11 @@ Dùng khi tiến hành đợt rà soát bảo mật toàn diện hoặc kiểm t
   node plugins/code/skills/security-review/scripts/validate-findings.cjs <path/to/findings.json>
   ```
 
+### 2.1 Kỷ Luật Tái Hiện Thực Nghiệm & Lọc Báo Động Giả (Mantis Invariants — No PoC, No Bug)
+- **Strict PoC Evidence Requirement**: Mọi lỗ hổng nghiêm trọng (High / Critical: Injection, Auth Bypass, Data Leak, SSRF) bắt buộc phải kèm script khai thác mẫu (PoC exploit script) hoặc test case tái hiện được lỗi thực tế trong sandbox/cục bộ. Cấm báo cáo lỗ hổng chỉ dựa trên suy đoán luồng dữ liệu.
+- **Production Viability & Severity Calibration**: Loại bỏ báo động giả từ debug-only assertion, test fixtures, dead code; chuẩn hóa điểm rủi ro thực tế trên production để chống LLM severity inflation.
+- **Adversarial Patch Verification (Cơ chế Đấu Trí Khi Vá Lỗi)**: Khi Builder nộp bản vá bảo mật, QA Auditor đóng vai trò Adversarial Attacker: (1) Chạy lại PoC cũ để xác nhận lỗi đã bị chặn; (2) Bắt buộc thử nghiệm 1-2 biến thể payload (mutation/bypass) để đảm bảo không vá hời hợt bề mặt.
+
 ---
 
 ## 3. When to Activate
