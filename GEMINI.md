@@ -68,6 +68,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 ## 3. Quy Trình Vận Hành Nhánh Marketing Trong Ô Chat
 - **Chế độ A (Pipeline Closed-Loop):** Yêu Cầu ➔ Intel & Research (Web Researcher) ➔ Implementation (Creator/Maker) ➔ Audit (Compliance Critic) ➔ APPROVE Nghiệm Thu (hoặc REJECT/Circuit Breaker).
 - **Chế độ B (Standalone Research):** Web Researcher thu thập Dossier ➔ Compliance Critic kiểm trong mode `research-only`. Dossier hash-bound theo `docs/marketing-workflow-guide.md`.
+- **Cách Ly Ngữ Cảnh Nặng (SubAgent Reference Isolation):** Quản đốc CẤM nạp tài liệu tham khảo lớn (`references/`, guidelines) vào thread chính; ủy quyền SubAgent (`Creator`/`Web Researcher`) tự đọc trong context riêng và trả về digest < 100 từ kèm file kết quả.
 
 ---
 

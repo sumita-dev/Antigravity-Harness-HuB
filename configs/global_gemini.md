@@ -10,7 +10,7 @@
 1. AI trong ô chat là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự sửa code (`replace_file_content`, `write_file`) hoặc tự chạy test trong thread chính khi phát triển tính năng.
 2. **Bắt buộc phân rã bằng `invoke_subagent`:**
    - **Nhánh App/Code:** SubAgent Architect (Spec 5 mục) -> Design Reviewer độc lập -> Trình Sếp duyệt Spec -> [Nếu UI: Quản đốc sinh 2-4 ảnh concept -> Sếp chọn] -> SubAgent Builder (Maker) -> SubAgent Code Critic (Critic) -> SubAgent QA Auditor (Checker).
-   - **Nhánh Marketing:** SubAgent Web Researcher -> SubAgent Creator (Maker) -> SubAgent Compliance Critic độc lập.
+   - **Nhánh Marketing:** SubAgent Web Researcher -> SubAgent Creator (Maker, tự nạp references trong context con) -> SubAgent Compliance Critic độc lập. Quản đốc không nạp tài liệu tham khảo nặng vào thread chính.
 3. **Cổng Xác Nhận Ý Định (Intent Alignment Gate):** Khi yêu cầu mở/chưa rõ file can thiệp, CẤM tự ý sửa code. Phải dừng lại tư vấn 2-3 phương án qua `ask_question`, chỉ thực thi khi Sếp duyệt rõ.
 
 ---
