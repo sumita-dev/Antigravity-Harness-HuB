@@ -118,6 +118,7 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 | `/karpathy-second-brain` | Karpathy Second Brain |
 | `/doc-to-markdown` | Document to Markdown |
 | `/testcontainers` | Ephemeral Database Sandbox |
+| `/gemini-sdk` | Chuẩn Hóa Google GenAI SDK |
 
 
 ### 4.1 Gemini Native App Workflow (`plugins/code/skills/app/SKILL.md` & `docs/app-workflow-guide.md`)

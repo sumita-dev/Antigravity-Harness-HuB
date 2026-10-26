@@ -331,6 +331,17 @@
       "branch": "app",
       "keywords": ["testcontainers", "testcontainers postgres", "integration test với testcontainers", "kiểm thử database container", "test cơ sở dữ liệu bằng container"]
     },
+    "gemini-sdk": {
+      "branch": "app",
+      "keywords": [
+        "gemini-sdk",
+        "google-genai",
+        "@google/genai",
+        "gemini api",
+        "google genai sdk",
+        "chuẩn hóa gemini sdk"
+      ]
+    },
     "youtube-suggest": {
       "branch": "marketing",
       "keywords": ["youtube-suggest", "youtube autocomplete", "gợi ý từ khóa youtube", "youtube search suggestions", "đề xuất truy vấn youtube"]
