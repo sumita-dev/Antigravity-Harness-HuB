@@ -25,6 +25,7 @@
    - Hạn ngạch: `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp thông minh:** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt lại trước khi sang QA.
 4. **Phân tầng nhiệm vụ:** Tier 1 (Core/App lớn): Maker ➔ Critic ➔ QA Auditor. Tier 2 (Minor/Hotfix): Fast-Track Maker ➔ QA Auditor.
+5. **Thang Bậc Tự Trị Phân Tầng (Autonomy Ladder L1 ➔ L4):** L1 (Report-Only: cấm sửa file/commit); L2 (Branch-Only: cô lập worktree phụ); L3 (Auto-Fix with Human Gate: dừng tại cổng duyệt trước merge — Mặc định); L4 (Full Autonomous Loop: tự trị toàn phần khi Sếp kích hoạt rõ qua `/goal` và 100% test pass).
 
 ---
 

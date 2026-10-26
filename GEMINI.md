@@ -38,6 +38,11 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 15. **Kinh Tế Học Ngữ Cảnh & Thứ Bậc Scaffolding (Context Budget Economics):**
     - Quy tắc ưu tiên chi phí context: `Skill (On-demand)` ➔ `Script (Deterministic)` ➔ `SubAgent (Large in, small out)` ➔ `Plugin/Hook (In-the-loop)` ➔ `Always-on text` cuối cùng.
     - Luôn có trần ngân sách `always_on_max` (như GEMINI.md <= 24,000 bytes); thêm mới nội dung vào Always-on bắt buộc phải cắt gọt nội dung cũ. Tri thức động và hướng dẫn chi tiết phải chuyển vào Skill/Script/SubAgent thay vì nhồi nhét vào Always-on context.
+16. **Thang Bậc Tự Trị Phân Tầng (Autonomy Ladder L1 ➔ L4 — Loop Engineering Invariant):**
+    - **L1 (Report-Only):** Tác tử chỉ quan sát, đọc log, phân tích, lập kế hoạch hoặc audit; CẤM TUYỆT ĐỐI sửa file, chạy lệnh ghi hoặc tạo commit.
+    - **L2 (Branch-Only):** Tác tử được phép viết code và chạy test nhưng BẮT BUỘC cô lập hoàn toàn trên nhánh phụ/worktree độc lập (`Workspace: 'branch'`); cấm đụng vào nhánh chính (`main`).
+    - **L3 (Auto-Fix with Human Gate — Mặc định khi phát triển):** Tác tử hoàn tất chu trình Dynamic Triad (Maker ➔ Critic ➔ QA) trên nhánh làm việc, nhưng BẮT BUỘC dừng lại tại Cổng Duyệt qua `ask_question`, trình bằng chứng để Sếp nghiệm thu trước khi merge/push.
+    - **L4 (Full Autonomous Loop — Chỉ khi Sếp kích hoạt rõ qua `/goal`):** Tác tử tự trị hoàn toàn từ code, audit đối kháng, đến merge và deploy khi và chỉ khi 100% test suite và CI pass.
 
 ---
 
