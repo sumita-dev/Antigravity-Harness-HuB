@@ -234,6 +234,11 @@ def list_idle_subagents(repo_root: Optional[Path] = None) -> List[SubagentInfo]:
     return SubagentGuard(repo_root).list_idle()
 
 
+def cleanup_triad_cycle(cycle_id: Optional[str] = None, dry_run: bool = False, repo_root: Optional[Path] = None) -> Dict[str, Any]:
+    """Hàm module-level dọn dẹp tài nguyên chu trình Dynamic Triad."""
+    return SubagentGuard(repo_root).cleanup_triad_cycle(cycle_id=cycle_id, dry_run=dry_run)
+
+
 __all__ = [
     "FAST_TIER_TIMEOUT",
     "FULL_TIER_TIMEOUT",
@@ -242,6 +247,7 @@ __all__ = [
     "SubAgentState",
     "SubagentGuard",
     "list_idle_subagents",
+    "cleanup_triad_cycle",
 ]
 
 
@@ -249,6 +255,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Antigravity SubAgent Hygiene & Process Guard")
     parser.add_argument("--scan", action="store_true", default=True, help="Quét danh sách subagents đang chạy/mồ côi")
     parser.add_argument("--cleanup", action="store_true", help="Dọn dẹp an toàn subagents mồ côi và lock files")
+    parser.add_argument("--cleanup-triad", action="store_true", help="Dọn dẹp tài nguyên chu trình Triad")
+    parser.add_argument("--cycle-id", type=str, default="default", help="Mã chu trình Triad cần dọn dẹp")
     parser.add_argument("--dry-run", action="store_true", help="Chạy thử không tắt tiến trình thật")
     parser.add_argument("--tier", choices=["fast", "smoke", "full"], default="full", help="In timeout Dead-man Switch theo tier")
     parser.add_argument("--json", action="store_true", help="Xuất kết quả định dạng JSON")
@@ -256,6 +264,14 @@ def main() -> int:
     args = parser.parse_args()
 
     guard = SubagentGuard()
+
+    if args.cleanup_triad:
+        res = guard.cleanup_triad_cycle(cycle_id=args.cycle_id, dry_run=args.dry_run)
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print(f"Đã dọn dẹp chu trình Triad '{res['cycle_id']}': {len(res['terminated_pids'])} tiến trình, {len(res['cleaned_locks'])} file khóa. Trạng thái: {res['status']}.")
+        return 0
 
     if args.cleanup:
         res = guard.cleanup_subagents(dry_run=args.dry_run)

@@ -504,6 +504,18 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
    - **Tuyệt đối cấm trên SubAgent:** **TUYỆT ĐỐI CẤM** gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent đã có cơ chế Reactive Wakeup tự động tích hợp sẵn của Antigravity (hệ thống tự động đánh thức Quản đốc ngay khi subagent hoàn tất hoặc gửi message).
    - **Đánh thức và giải phóng tự động:** Sau thời gian chờ (45s hoặc 240s) của lệnh CLI nền, timer gửi tín hiệu Reactive Wakeup đánh thức Quản đốc kiểm tra trạng thái task qua `manage_task(Action="list")`. Nếu task bị kẹt hoặc không có phản hồi mới, Quản đốc lập tức kill task, diệt tiến trình treo và kích hoạt trạng thái ngắt mạch `TRIP CIRCUIT BREAKER (ESCALATED)`, báo cáo bằng chứng ngay cho Sếp thay vì rơi vào tình trạng ngủ đông vô hạn.
 
+### 3.4. Chốt Chặn Dọn Dẹp SubAgent Bắt Buộc (SubAgent Lifecycle Closure Invariant)
+- **Giải phóng 100% tài nguyên sau phiên:** Ngay sau khi QA Auditor ra phán quyết (`PASS` hoặc `ESCALATED`), Quản đốc **BẮT BUỘC** gọi `manage_subagents(Action="kill_all")` giải phóng 100% subagents con và xóa worktrees tạm thời, đồng thời kích hoạt `subagent_guard.cleanup_triad_cycle()`.
+- **Cấm tiến trình mồ côi:** CẤM TUYỆT ĐỐI để subagents con tồn tại idle hoặc mồ côi sau khi bàn giao phiên làm việc.
+
+### 3.5. Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer)
+- **Giới hạn an toàn:** Khi phiên hội thoại chạm ngưỡng 35-40 turns hoặc dung lượng transcript > 200KB, Quản đốc tự động kết xuất toàn bộ tiến độ, quyết định kiến trúc và trạng thái hiện tại sang `F:\Obsidian\wiki\_session-handoff.md`.
+- **Chủ động ngắt mạch ngữ cảnh:** Thông báo đề xuất Sếp gõ `/compact` để dọn dẹp bộ nhớ hoặc khởi tạo thread mới để bảo đảm độ chính xác suy luận, ngăn ngừa hiện tượng suy thoái chất lượng ngữ cảnh (context drift).
+
+### 3.6. Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant)
+- **Cô lập hệ thống tệp và tiến trình:** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình.
+- **Triệt tiêu xung đột Windows:** Triệt tiêu hoàn toàn xung đột file lock và tranh chấp tài nguyên trên môi trường Windows.
+
 ---
 
 ## 4. Hướng Dẫn Sử Dụng & Kiểm Thử

@@ -28,7 +28,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 10. **Cấm Polling Chủ Động, Đón Reactive Wakeup & Cầu Dao Dead-man's Switch (Zero-Polling Invariant):** CẤM gọi `manage_task` (status) trong loop. Bắt buộc dừng turn đón Reactive Wakeup khi task hoàn tất. Dead-man's Switch (`schedule`) CHỈ được kích hoạt khi đẩy lệnh CLI terminal chạy ngầm có nguy cơ dài hạn qua `run_command` (`45s` cho Fast-Tier, `240s` cho Full-Tier / Pytest toàn diện / Batch nặng) để tự đánh thức kiểm tra nếu task không tự kết thúc, chống ngủ đông vô hạn. TUYỆT ĐỐI CẤM gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent đã có cơ chế Reactive Wakeup tự động của Antigravity (hệ thống tự động đánh thức khi subagent hoàn tất hoặc gửi tin nhắn).
 11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
 12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent gửi về digest < 100 từ kèm hash, exit code, verdict. Log dài/diff ghi ra disk/artifact directory.
-13. **Cắt Phiên Ngắt Mạch Ngữ Cảnh (Session Rollover Gate):** Chạm 40 turns hoặc transcript > 250 KB: cảnh báo, ghi `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị mở phiên mới.
+13. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Khi chạm ngưỡng 35-40 turns hoặc transcript > 200KB, Quản đốc tự động kết xuất tiến độ/trạng thái sang `F:\Obsidian\wiki\_session-handoff.md` và thông báo đề xuất Sếp gõ `/compact` hoặc khởi tạo thread mới.
 14. **Rào Chắn Chống Ảo Giác Tự Động (Autonomous Anti-Hallucination Invariant — GitNexus & Triad):**
     - Kích hoạt tự động không cần gõ lệnh.
     - Pre-Flight Symbol Grounding: Maker gọi GitNexus `impact()` & `context()` trước khi sửa hàm/class; kèm log thật (`exit code == 0`) và file vật lý.
@@ -43,6 +43,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
     - **L2 (Branch-Only):** Tác tử được phép viết code và chạy test nhưng BẮT BUỘC cô lập hoàn toàn trên nhánh phụ/worktree độc lập (`Workspace: 'branch'`); cấm đụng vào nhánh chính (`main`).
     - **L3 (Auto-Fix with Human Gate — Mặc định khi phát triển):** Tác tử hoàn tất chu trình Dynamic Triad (Maker ➔ Critic ➔ QA) trên nhánh làm việc, nhưng BẮT BUỘC dừng lại tại Cổng Duyệt qua `ask_question`, trình bằng chứng để Sếp nghiệm thu trước khi merge/push.
     - **L4 (Full Autonomous Loop — Chỉ khi Sếp kích hoạt rõ qua `/goal`):** Tác tử tự trị hoàn toàn từ code, audit đối kháng, đến merge và deploy khi và chỉ khi 100% test suite và CI pass.
+17. **Chốt Chặn Dọn Dẹp SubAgent Bắt Buộc (SubAgent Lifecycle Closure Invariant):** Ngay sau khi QA Auditor ra phán quyết (PASS hoặc ESCALATED), Quản đốc BẮT BUỘC gọi `manage_subagents(Action="kill_all")` giải phóng 100% subagents con và xóa worktrees tạm thời, đồng thời kích hoạt `subagent_guard.cleanup_triad_cycle()`. CẤM TUYỆT ĐỐI để subagents con tồn tại idle/mồ côi sau khi bàn giao phiên làm việc.
 
 ---
 
