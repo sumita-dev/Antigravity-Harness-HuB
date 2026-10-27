@@ -36,6 +36,14 @@ Before applying any migration:
 - [ ] Tested against a copy of production data
 - [ ] Rollback plan documented
 
+### Scaffolding Script Kiểm Định Tất Định (Dune Invariant)
+
+Trước khi chuyển giao hoặc áp dụng migration, Maker bắt buộc chạy script kiểm tra:
+```bash
+python plugins/code/skills/database-migrations/scripts/lint_migration_safety.py [files...]
+```
+Script kiểm định: [lint_migration_safety.py](./scripts/lint_migration_safety.py).
+
 ## PostgreSQL Patterns
 
 ### Adding a Column Safely

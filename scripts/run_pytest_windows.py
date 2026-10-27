@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""Run pytest with Windows temp-directory modes normalized for restricted runners."""
+"""Run pytest with Windows temp-directory modes normalized for restricted runners and test tiering."""
 from __future__ import annotations
 
 import os
 import sys
 import uuid
 from pathlib import Path
+from typing import List, Tuple
+
+FAST_TIER_TESTS = [
+    "tests/test_harness_doctor.py",
+    "tests/test_skill_router_ranking.py",
+    "tests/test_clean_state_cli.py",
+    "tests/test_anti_hallucination.py",
+    "tests/test_deterministic_rules.py",
+]
 
 
 def normalize_directory_mode(mode: int) -> int:
@@ -36,13 +45,48 @@ def enable_subprocess_normalizer() -> None:
     )
 
 
+def resolve_tier_args(raw_args: List[str]) -> Tuple[str, List[str]]:
+    """Phân tách cấu hình tier (--tier fast/full hoặc --smoke) và cờ lệnh pytest."""
+    tier = "full"
+    filtered: List[str] = []
+    i = 0
+    while i < len(raw_args):
+        arg = raw_args[i]
+        if arg == "--smoke":
+            tier = "fast"
+            i += 1
+        elif arg == "--tier":
+            if i + 1 < len(raw_args):
+                tier = raw_args[i + 1].lower()
+                i += 2
+            else:
+                i += 1
+        elif arg.startswith("--tier="):
+            tier = arg.split("=", 1)[1].lower()
+            i += 1
+        else:
+            filtered.append(arg)
+            i += 1
+
+    if tier in ("fast", "smoke"):
+        has_custom_test = any(
+            arg.endswith(".py") or ("tests/" in arg or "tests\\" in arg)
+            for arg in filtered
+            if not arg.startswith("-")
+        )
+        if not has_custom_test:
+            filtered.extend(FAST_TIER_TESTS)
+
+    return tier, filtered
+
+
 def main() -> int:
     if os.name != "nt":
         print("This runner is intended for Windows; use python -m pytest on other platforms.", file=sys.stderr)
         return 2
     install_mode_normalizer()
     enable_subprocess_normalizer()
-    args = sys.argv[1:]
+    tier, args = resolve_tier_args(sys.argv[1:])
     if not any(arg == "--basetemp" or arg.startswith("--basetemp=") for arg in args):
         temp_root = Path(os.environ.get("TEMP") or os.environ.get("TMP") or Path.cwd())
         args.extend(["--basetemp", str(temp_root / f"antigravity-pytest-{uuid.uuid4().hex}")])

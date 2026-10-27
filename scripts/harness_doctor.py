@@ -693,6 +693,34 @@ class HarnessDoctor:
             if self.verbose:
                 print(f"[VERBOSE] Lỗi khi quét tiến trình: {exc}")
 
+        # 5.3 Kiểm tra sức khỏe phiên hội thoại (Session Health & Transcript Rollover)
+        try:
+            from scripts.session_guard import check_session
+            session_health = check_session(repo_root=self.repo_root)
+            status = session_health.get("status")
+            if status in ("YELLOW", "RED"):
+                kb = session_health.get("size_bytes", 0) / 1024.0
+                turns = session_health.get("turns", 0)
+                issues.append(
+                    DoctorIssue(
+                        code="WARN_SESSION_ROLLOVER",
+                        severity="WARN",
+                        pillar=pillar,
+                        message=(
+                            f"Transcript phiên làm việc chạm ngưỡng {status} "
+                            f"({kb:.1f} KB, {turns} turns): {session_health.get('message')}"
+                        ),
+                        remediation=(
+                            "Khuyến nghị chạy 'python scripts/session_guard.py --auto-handoff' "
+                            "và mở phiên làm việc mới để giải phóng context window."
+                        ),
+                        auto_fixable=False,
+                    )
+                )
+        except Exception as exc:
+            if self.verbose:
+                print(f"[VERBOSE] Không thể kiểm tra session health: {exc}")
+
         return issues
 
     # =========================================================================

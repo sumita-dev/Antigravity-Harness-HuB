@@ -105,6 +105,14 @@ Tổng hợp điểm số toàn bộ và phân loại khả năng chịu đựng
 Sau khi hoàn thành 4 bước, điền đầy đủ thông tin vào mẫu báo cáo:
 → [Template Báo Cáo Thẩm Định](./templates/audit-report-template.md)
 
+### Scaffolding Script Kiểm Định Tất Định (Dune Invariant)
+
+Thực hiện quét tĩnh mã nguồn / bundle phát hiện tokens, debug flags và can thiệp bộ nhớ:
+```bash
+python plugins/code/skills/reverse-lab/scripts/audit_desktop_binary_tamper.py [files...]
+```
+Script kiểm định: [audit_desktop_binary_tamper.py](./scripts/audit_desktop_binary_tamper.py).
+
 Xuất báo cáo hoàn chỉnh ra file `.md` theo yêu cầu của người dùng.
 
 ---

@@ -22,6 +22,13 @@ Skill này cung cấp các thuật toán bảo vệ cơ học dành riêng cho *
 - Sau 5 lần dispatch sửa đổi mà số lượng test pass không tăng lên hoặc xuất hiện thêm nhiều lỗi mới $\rightarrow$ Dừng ngay chu trình, đánh giá lại kiến trúc (Architect Review) thay vì tiếp tục code vá víu.
 
 ### C. Quy tắc Cầu Dao Thời Gian Nền & Dead-man's Switch Watchdog (Execution Time Breaker)
+
+#### Scaffolding Script Kiểm Định AST Vòng Lặp & Đệ Quy (Dune Invariant)
+Phân tích tĩnh AST phát hiện `while True` thiếu break/timeout và đệ quy thiếu base case:
+```bash
+python plugins/code/skills/loop-circuit-breaker/scripts/check_loop_thresholds.py [files...]
+```
+Script kiểm định: [check_loop_thresholds.py](./scripts/check_loop_thresholds.py).
 - **Định nghĩa:** Khi một lệnh thực thi chuyển thành tiến trình chạy ngầm (`task-...` qua `run_command`) hoặc khi dispatch tác vụ nặng (>1 phút), Quản đốc rơi vào trạng thái ngủ đông chờ Reactive Wakeup. Nếu tiến trình con bị deadlock hoặc treo hộp thoại modal ngầm (như Word/Excel COM, crawler, compile vô hạn), runtime Antigravity sẽ không bao giờ phát tín hiệu wakeup nếu không có timeout.
 - **Hành động bắt buộc (Dead-man's Switch Watchdog):**
   1. **Kích hoạt chuông đánh thức dự phòng:** Tác tử BẮT BUỘC gọi ngay công cụ `schedule(DurationSeconds=180)` (hoặc tối đa 300s đối với batch nặng) kèm Prompt rõ ràng làm Dead-man's Switch: `"[DEAD-MAN SWITCH] Kiểm tra tiến độ background task <task_id>. Nếu chưa xong hoặc kẹt thì ngắt mạch."`.

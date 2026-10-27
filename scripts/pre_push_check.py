@@ -3,11 +3,12 @@
 
 Chốt chặn tự động kiểm tra tính toàn vẹn đa nền tảng, rò rỉ dependency,
 và hồi quy kiểm thử TRƯỚC KHI git push lên GitHub.
-Ngăn chặn 100% tình trạng 'Local xanh nhưng GitHub Actions đỏ'.
+Vận hành phân tầng Fast-Tier Test Suite đảm bảo đối soát trong 15-20s thay vì phải chờ lâu.
 """
 
-import sys
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 # Đảm bảo mã hóa UTF-8 trên Windows console
@@ -17,6 +18,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 def run_step(step_name: str, cmd: list) -> bool:
     print(f"\n[PRE-PUSH] -> {step_name}...")
@@ -36,15 +38,32 @@ def run_step(step_name: str, cmd: list) -> bool:
         print(f"  [ERROR] {step_name}: ({e})")
         return False
 
+
 def main():
     print("=" * 65)
-    print("ANTIGRAVITY HERMETIC PRE-PUSH VERIFICATION GATE")
+    print("ANTIGRAVITY HERMETIC PRE-PUSH VERIFICATION GATE (FAST TIER)")
     print("=" * 65)
+
+    fast_test_cmd = (
+        [sys.executable, "scripts/run_pytest_windows.py", "--tier", "fast", "-q"]
+        if os.name == "nt"
+        else [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/test_harness_doctor.py",
+            "tests/test_skill_router_ranking.py",
+            "tests/test_clean_state_cli.py",
+            "tests/test_anti_hallucination.py",
+            "tests/test_deterministic_rules.py",
+            "-q",
+        ]
+    )
 
     steps = [
         ("1. Rà soát cấu trúc & cú pháp kỹ năng (Skill Linter)", [sys.executable, "scripts/lint_harness_skills.py"]),
-        ("2. Rà soát rò rỉ Dependency & Tính toàn vẹn Repo", [sys.executable, "-m", "pytest", "tests/test_repo_integrity.py", "-q"]),
-        ("3. Kiểm tra 5 Trụ cột Bác Sĩ Nội Trú (Harness Doctor)", [sys.executable, "-m", "pytest", "tests/test_harness_doctor.py", "-q"]),
+        ("2. Kiểm định Fast-Tier Test Suite (5 Test Cốt Lõi)", fast_test_cmd),
+        ("3. Rà soát rò rỉ Dependency & Tính toàn vẹn Repo", [sys.executable, "-m", "pytest", "tests/test_repo_integrity.py", "-q"]),
     ]
 
     for name, cmd in steps:
@@ -61,6 +80,7 @@ def main():
     print("Hệ thống sẵn sàng và an toàn tuyệt đối để push lên GitHub.")
     print("=" * 65)
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
