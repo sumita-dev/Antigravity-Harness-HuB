@@ -29,9 +29,12 @@ Phân tích tĩnh AST phát hiện `while True` thiếu break/timeout và đệ 
 python plugins/code/skills/loop-circuit-breaker/scripts/check_loop_thresholds.py [files...]
 ```
 Script kiểm định: [check_loop_thresholds.py](./scripts/check_loop_thresholds.py).
-- **Định nghĩa:** Khi một lệnh thực thi chuyển thành tiến trình chạy ngầm (`task-...` qua `run_command`) hoặc khi dispatch tác vụ nặng (>1 phút), Quản đốc rơi vào trạng thái ngủ đông chờ Reactive Wakeup. Nếu tiến trình con bị deadlock hoặc treo hộp thoại modal ngầm (như Word/Excel COM, crawler, compile vô hạn), runtime Antigravity sẽ không bao giờ phát tín hiệu wakeup nếu không có timeout.
-- **Hành động bắt buộc (Dead-man's Switch Watchdog):**
-  1. **Kích hoạt chuông đánh thức dự phòng:** Tác tử BẮT BUỘC gọi ngay công cụ `schedule(DurationSeconds=240)` (hoặc `45s` cho task nhanh) kèm Prompt rõ ràng làm Dead-man's Switch: `"[DEAD-MAN SWITCH] Kiểm tra tiến độ background task <task_id>. Nếu chưa xong hoặc kẹt thì ngắt mạch."`.
+- **Phạm vi áp dụng & Định nghĩa:** Khi một lệnh CLI terminal chuyển thành tiến trình chạy ngầm (`task-...` qua `run_command`), Quản đốc rơi vào trạng thái chờ Reactive Wakeup. Nếu tiến trình con bị deadlock hoặc treo hộp thoại ngầm (như Word/Excel COM, crawler, compile vô hạn), runtime có thể không tự kết thúc.
+- **Quy định kích hoạt Dead-man's Switch (`schedule`):**
+  - **CHỈ áp dụng cho lệnh CLI `run_command`:** Dead-man's Switch (`schedule`) **CHỈ** được kích hoạt khi đẩy lệnh CLI terminal chạy ngầm có nguy cơ dài hạn qua `run_command` (`45s` cho Fast-Tier, `240s` cho Full-Tier / Pytest toàn diện / Batch nặng).
+  - **TUYỆT ĐỐI CẤM gọi `schedule` khi invoke SubAgent (`invoke_subagent`):** SubAgent đã có sẵn cơ chế Reactive Wakeup tự động của Antigravity (runtime tự động đánh thức Quản đốc ngay khi subagent hoàn tất turn hoặc gửi tin nhắn qua `send_message`). Việc đặt thêm timer `schedule` cho subagent là vi phạm quy chuẩn và gây lãng phí turn / wakeup giả.
+- **Hành động bắt buộc (Dead-man's Switch Watchdog cho CLI Background Task):**
+  1. **Kích hoạt chuông đánh thức dự phòng:** Tác tử gọi công cụ `schedule(DurationSeconds=240)` (hoặc `45s` cho task nhanh) kèm Prompt rõ ràng: `"[DEAD-MAN SWITCH] Kiểm tra tiến độ background task <task_id>. Nếu chưa xong hoặc kẹt thì ngắt mạch."`.
   2. **Xử lý khi được đánh thức:** Khi timer kích hoạt và đánh thức Quản đốc:
      - Gọi `manage_task(Action="list")` kiểm tra trạng thái task.
      - Nếu task vẫn `RUNNING` mà không có tiến độ mới hoặc chạm ngưỡng timeout: Lập tức gọi `manage_task(Action="kill", TaskId=...)`.

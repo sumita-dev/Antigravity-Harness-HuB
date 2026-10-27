@@ -500,8 +500,9 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
    - **COM Process Isolation & Cấm mở PDF bằng Word:** Nghiêm cấm Word COM mở trực tiếp PDF (nguyên nhân gây treo modal PDF Reflow); chuyển đổi qua process độc lập.
    - **Batch File Timeout (`plugins/computer/skills/doc-to-markdown/scripts/convert.py`):** Thêm `--timeout <giây>` cho từng tệp (mặc định 45s), ngăn chặn 1 tệp hỏng làm tắc nghẽn cả kho tài liệu.
 2. **Chốt chặn cấp độ Quản đốc / Điều phối (Dead-man's Switch Watchdog Protocol):**
-   - **Bắt buộc cài One-shot Timer:** Khi đẩy bất kỳ lệnh nào xuống chạy ngầm qua `run_command` (`task-...`), tác tử **bắt buộc** kích hoạt bộ đếm thời gian bằng công cụ `schedule(DurationSeconds=240)` cho Full-tier và `45s` cho Fast-tier làm Dead-man's Switch.
-   - **Đánh thức và giải phóng tự động:** Sau thời gian chờ (45s hoặc 240s), timer tự động gửi tín hiệu Reactive Wakeup đánh thức Quản đốc kiểm tra trạng thái task qua `manage_task(Action="list")`. Nếu task bị kẹt hoặc không có phản hồi mới, Quản đốc lập tức kill task, diệt tiến trình treo và kích hoạt trạng thái ngắt mạch `TRIP CIRCUIT BREAKER (ESCALATED)`, báo cáo bằng chứng ngay cho Sếp thay vì rơi vào tình trạng ngủ đông vô hạn.
+   - **Phạm vi áp dụng nghiêm ngặt:** Dead-man's Switch (`schedule`) **CHỈ** được kích hoạt khi đẩy lệnh CLI terminal chạy ngầm có nguy cơ dài hạn qua `run_command` (`task-...`), với thời gian `45s` cho Fast-tier (<1 phút) và `240s` cho Full-tier (>1 phút / pytest toàn diện / batch nặng) chống ngủ đông vô hạn.
+   - **Tuyệt đối cấm trên SubAgent:** **TUYỆT ĐỐI CẤM** gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent đã có cơ chế Reactive Wakeup tự động tích hợp sẵn của Antigravity (hệ thống tự động đánh thức Quản đốc ngay khi subagent hoàn tất hoặc gửi message).
+   - **Đánh thức và giải phóng tự động:** Sau thời gian chờ (45s hoặc 240s) của lệnh CLI nền, timer gửi tín hiệu Reactive Wakeup đánh thức Quản đốc kiểm tra trạng thái task qua `manage_task(Action="list")`. Nếu task bị kẹt hoặc không có phản hồi mới, Quản đốc lập tức kill task, diệt tiến trình treo và kích hoạt trạng thái ngắt mạch `TRIP CIRCUIT BREAKER (ESCALATED)`, báo cáo bằng chứng ngay cho Sếp thay vì rơi vào tình trạng ngủ đông vô hạn.
 
 ---
 
