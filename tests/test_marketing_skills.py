@@ -19,7 +19,10 @@ MARKETING_SKILLS = [
     "framework-marketing-da-kenh",
     "meta-ad-scout",
     "youtube-suggest",
-    "youtube-keyword-intelligence"
+    "youtube-keyword-intelligence",
+    "social-reach",
+    "paid-media-auditor",
+    "flowkit"
 ]
 
 CODE_SKILLS = [

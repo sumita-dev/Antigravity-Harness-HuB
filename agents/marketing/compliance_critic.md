@@ -6,7 +6,7 @@ role: checker
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: flash
 workspace: inherit
 description: >
   Thẩm định độc lập bản thảo nội dung theo 4 trụ cột: chính sách nền tảng, lọc AI Slop,

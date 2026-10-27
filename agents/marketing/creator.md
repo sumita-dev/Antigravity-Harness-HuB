@@ -6,7 +6,7 @@ role: maker
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: pro
 workspace: inherit
 description: >
   Soạn thảo kịch bản video, copy quảng cáo, bài SEO/GEO và offer stack dựa trên

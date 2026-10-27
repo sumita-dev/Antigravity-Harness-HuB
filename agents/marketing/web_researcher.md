@@ -6,7 +6,7 @@ role: researcher
 enable_write_tools: true
 enable_mcp_tools: true
 enable_subagent_tools: false
-model: inherit
+model: pro
 workspace: inherit
 description: >
   Thu thập dữ liệu thực địa từ Google, Facebook, Instagram, YouTube và X/Twitter qua kiến trúc

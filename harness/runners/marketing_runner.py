@@ -46,7 +46,7 @@ class MarketingRunner:
                 context.record_step("AUDIT", {"actor": "compliance_critic"})
             else:
                 context.transition(HarnessState.CRITIQUE)  # Dynamic Triad: Content Critic
-                context.record_step("CRITIQUE", {"actor": "content_critic"})
+                context.record_step("CRITIQUE", {"actor": "compliance_critic"})
                 mock_critic_output = kwargs.get("mock_critic_output", "VERDICT: APPROVE")
                 if "mock_critic_output" in kwargs or mock_checker_output == "VERDICT: APPROVE":
                     critique_verdict = self.quality_gate.evaluate_critique(context, mock_critic_output)

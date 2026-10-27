@@ -13,6 +13,8 @@ from harness.skills.router import SkillRouter
 APP_STAGES = {"architect": "DESIGN", "design_reviewer": "DESIGN_REVIEW",
               "builder": "IMPLEMENTATION", "code_critic": "CRITIQUE", "qa_auditor": "AUDIT",
               "e2e_engineer": "AUDIT", "e2e_critic": "AUDIT", "apple_design_critic": "DESIGN_REVIEW"}
+MARKETING_STAGES = {"web_researcher": "RESEARCH", "creator": "CREATION", "compliance_critic": "AUDIT"}
+ALL_STAGES = {**APP_STAGES, **MARKETING_STAGES}
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -53,14 +55,25 @@ def parse_agent_file(filepath, *, stage=None, stack="", risk="low"):
         "enable_mcp_tools": metadata.get("enable_mcp_tools", False),
         "enable_subagent_tools": metadata.get("enable_subagent_tools", False),
     }
-    if metadata.get("branch") == "app":
+    if metadata.get("branch") in ("app", "marketing"):
         policy = resolve_runtime_policy(agent_id, metadata=metadata)
         data["model"] = policy["model_tier"]
         data["model_preference"] = policy["model_preference"]
         data["runtime_policy"] = policy
-        selected_stage = stage or APP_STAGES[agent_id]
-        selection = SkillRouter().compose(selected_stage, agent_id, stack, risk)
-        data["skill_selection"] = dict(selection, stage=selected_stage, role=agent_id, stack=stack, risk=risk)
+        selected_stage = stage or ALL_STAGES.get(agent_id, "AUDIT")
+        try:
+            selection = SkillRouter().compose(selected_stage, agent_id, stack, risk)
+            data["skill_selection"] = dict(selection, stage=selected_stage, role=agent_id, stack=stack, risk=risk)
+        except Exception:
+            data["skill_selection"] = {
+                "skills": [],
+                "instructions": "",
+                "chars": 0,
+                "stage": selected_stage,
+                "role": agent_id,
+                "stack": stack,
+                "risk": risk,
+            }
     return data
 
 
@@ -78,7 +91,7 @@ def main():
     parser.add_argument("--list", action="store_true", help="List all agents")
     parser.add_argument("--export-schema", type=str, help="Export schema for specific agent")
     parser.add_argument("--export-all", action="store_true", help="Export schema for all agents")
-    parser.add_argument("--stage", choices=sorted(set(APP_STAGES.values())), help="Authoritative workflow stage for skill composition")
+    parser.add_argument("--stage", choices=sorted(set(ALL_STAGES.values())), help="Authoritative workflow stage for skill composition")
     parser.add_argument("--stack", default="", help="Configured skill stack profile, e.g. database or ui")
     parser.add_argument("--risk", default="low", choices=["low", "medium", "high", "critical"])
     args = parser.parse_args()

@@ -283,8 +283,10 @@
         "trinh sát mạng xã hội",
         "quét twitter",
         "quét reddit",
+        "quét bài viết reddit",
         "youtube transcript",
         "phụ đề youtube",
+        "bóc tách phụ đề youtube",
         "quét bilibili",
         "tiểu hồng thư",
         "xiaohongshu",
@@ -374,7 +376,10 @@
         "audit paid media và tối ưu quảng cáo facebook",
         "kiểm toán paid media",
         "đánh giá hiệu quả paid media",
-        "phân tích hiệu quả chiến dịch đa kênh"
+        "phân tích hiệu quả chiến dịch đa kênh",
+        "kiểm toán quảng cáo đa kênh",
+        "audit tài khoản google ads",
+        "audit tracking capi ga4"
       ]
     },
     "testcontainers": {
@@ -989,6 +994,12 @@
     "max_skills": 8,
     "max_chars": 72000,
     "stage": {
+      "RESEARCH": [
+        "social-reach"
+      ],
+      "CREATION": [
+        "cong-thuc-viet-content-by-noti-v4"
+      ],
       "IMPLEMENTATION": [
         "test-driven-development",
         "source-driven-development",
@@ -1015,6 +1026,15 @@
       ]
     },
     "role": {
+      "web_researcher": [
+        "social-reach"
+      ],
+      "creator": [
+        "cong-thuc-viet-content-by-noti-v4"
+      ],
+      "compliance_critic": [
+        "check-youtube-policy"
+      ],
       "builder": [
         "test-driven-development"
       ],
