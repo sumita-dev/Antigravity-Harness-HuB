@@ -511,6 +511,11 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
 ### 3.5. Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer)
 - **Giới hạn an toàn:** Khi phiên hội thoại chạm ngưỡng 35-40 turns hoặc dung lượng transcript > 200KB, Quản đốc tự động kết xuất toàn bộ tiến độ, quyết định kiến trúc và trạng thái hiện tại sang `F:\Obsidian\wiki\_session-handoff.md`.
 - **Chủ động ngắt mạch ngữ cảnh:** Thông báo đề xuất Sếp gõ `/compact` để dọn dẹp bộ nhớ hoặc khởi tạo thread mới để bảo đảm độ chính xác suy luận, ngăn ngừa hiện tượng suy thoái chất lượng ngữ cảnh (context drift).
+- **Cơ Chế Cảnh Báo Ngưỡng Context Window Telemetry (Phương Án B):**
+  Quản đốc liên tục giám sát dung lượng và độ dài phiên làm việc (turns & transcript payload) nhằm chủ động kiểm soát cửa sổ ngữ cảnh theo 3 trạng thái đo lường:
+  - 🟢 **GREEN (<= 35 turns, < 180KB):** Phiên làm việc ở trạng thái tối ưu, ẩn telemetry để giữ giao diện trò chuyện tinh gọn và tập trung.
+  - 🟡 **YELLOW (35-40 turns, 180-240KB):** Tự động kích hoạt hiển thị thẻ cảnh báo sớm Context Telemetry ở cuối câu trả lời, nhắc nhở Sếp cân nhắc chuẩn bị dọn dẹp hoặc kết thúc chặng làm việc.
+  - 🔴 **RED (> 40 turns, > 250KB):** Bắt buộc hiển thị thẻ cảnh báo đỏ nguy cơ suy thoái ngữ cảnh, tự động kết xuất tiến độ vào `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị Sếp gõ `/compact` hoặc khởi tạo thread mới.
 
 ### 3.6. Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant)
 - **Cô lập hệ thống tệp và tiến trình:** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình.
