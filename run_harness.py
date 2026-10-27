@@ -139,6 +139,12 @@ def main(argv=None) -> int:
                         help="Thực thi kiểm chứng một feature cụ thể trong Feature List")
     parser.add_argument("--fast", action="store_true",
                         help="Chạy chế độ nhanh cho clean-state-check")
+    parser.add_argument("--evolve", "--evolve-skills", dest="evolve_skills", action="store_true",
+                        help="Quét lỗi và tạo đề xuất nâng cấp kỹ năng (RSI L3 Proposal)")
+    parser.add_argument("--apply-proposal", metavar="PROP_ID", default=None,
+                        help="Phê duyệt và áp dụng đề xuất nâng cấp kỹ năng (L3 Human Gate)")
+    parser.add_argument("--list-proposals", action="store_true",
+                        help="Xem danh sách các đề xuất nâng cấp kỹ năng đang chờ duyệt")
 
     args = parser.parse_args(argv)
 
@@ -243,6 +249,56 @@ def main(argv=None) -> int:
               f"Task {state['task_id']}: {state['stage']}; next_agent={state['next_agent']}; revision={state['revision']}")
         return 0
     orchestrator = ChiefOrchestrator()
+
+    # ----------------------- RSI SKILL EVOLVER (L3 HUMAN GATE) -----------------------
+    if args.evolve_skills:
+        from harness.memory.skill_evolver import SkillEvolver
+        evolver = SkillEvolver()
+        proposals = evolver.scan_and_propose()
+        if args.json:
+            print(json.dumps(proposals, ensure_ascii=False, indent=2))
+        else:
+            print("=== KẾT QUẢ QUÉT VÀ ĐỀ XUẤT NÂNG CẤP KỸ NĂNG (RSI L3) ===")
+            if not proposals:
+                print("Không phát hiện lỗi mới cần nâng cấp kỹ năng hoặc các đề xuất đã tồn tại.")
+            else:
+                for p in proposals:
+                    print(f"\n[ID: {p['proposal_id']}]")
+                    print(p["pr_markdown"])
+        return 0
+
+    if args.list_proposals:
+        from harness.memory.skill_evolver import SkillEvolver
+        evolver = SkillEvolver()
+        props = evolver.list_proposals()
+        if args.json:
+            print(json.dumps(props, ensure_ascii=False, indent=2))
+        else:
+            print(f"=== DANH SÁCH ĐỀ XUẤT NÂNG CẤP KỸ NĂNG CHỜ DUYỆT ({len(props)}) ===")
+            for item in props:
+                print(f"- ID: {item['proposal_id']} | Kỹ năng: {item['skill_name']} | Trạng thái: {item['status']}")
+                print(f"  Cue: {item.get('cue')}")
+                print(f"  Tạo lúc: {item.get('created_at')}")
+            if not props:
+                print("Không có đề xuất nào đang chờ duyệt.")
+        return 0
+
+    if args.apply_proposal:
+        from harness.memory.skill_evolver import SkillEvolver
+        evolver = SkillEvolver()
+        try:
+            res = evolver.apply_proposal(args.apply_proposal)
+            if args.json:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+            else:
+                print(f"Thành công: {res['message']}")
+            return 0
+        except Exception as e:
+            if args.json:
+                print(json.dumps({"error": str(e)}, ensure_ascii=False))
+            else:
+                print(f"Lỗi khi áp dụng đề xuất '{args.apply_proposal}': {e}")
+            return 1
 
     # ----------------------- DISTILL TASK -----------------------
     if args.distill:

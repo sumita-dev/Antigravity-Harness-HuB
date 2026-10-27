@@ -19,6 +19,23 @@ class MarketingRunner:
             context.record_step("DESIGN", {"actor": "web_researcher", "dossier": dossier or "Default Research Dossier"})
         if context.state == HarnessState.DESIGN:
             context.transition(HarnessState.IMPLEMENTATION)  # Content Creator
+            # Tích hợp PPC khi task_tier == 'tier_1' hoặc enable_ppc=True (bỏ qua cho Tier 2)
+            task_tier = kwargs.get("task_tier") or getattr(context, "task_tier", None)
+            enable_ppc = kwargs.get("enable_ppc", False) or task_tier == "tier_1"
+            if enable_ppc:
+                from harness.propose_probe_compose import ProposeProbeComposeEngine
+                ppc_engine = ProposeProbeComposeEngine()
+                ppc_res = ppc_engine.execute_ppc_pipeline(context, prompt=task_description, force_tier_1=True, **kwargs)
+                context.record_step("PPC_SYNTHESIS", {
+                    "tier": "tier_1",
+                    "variant_id": getattr(ppc_res.get("composed"), "variant_id", "composed"),
+                    "features": getattr(ppc_res.get("composed"), "implemented_features", []),
+                })
+                if content_artifacts is None:
+                    content_artifacts = {}
+                content_artifacts["ppc_composed"] = getattr(ppc_res.get("composed"), "content", "")
+                content_artifacts["status"] = "content_composed_ppc"
+
             context.record_step(
                 "IMPLEMENTATION",
                 {"actor": "creator", "artifacts": content_artifacts or {"status": "draft_created"}},

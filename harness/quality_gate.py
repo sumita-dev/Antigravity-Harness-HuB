@@ -319,4 +319,64 @@ class AdversarialQualityGate:
                 task_context.safe_transition(HarnessState.IMPLEMENTATION)
             return Verdict.REJECT, details
 
+    def evaluate_with_ppc(
+        self,
+        task_context,
+        variants: Optional[List[Any]] = None,
+        rubrics: Optional[Any] = None,
+        mock_critic_output: Optional[str] = None,
+        mock_checker_output: str = "VERDICT: APPROVE",
+        **kwargs,
+    ) -> Tuple[Verdict, Any]:
+        """Tích hợp Propose-Probe-Compose (Harness^2) vào vòng đời Dynamic Triad.
+
+        Quy tắc phân tầng (Hermit PPC Protocol):
+        - Tier 1: kích hoạt PPC (Probe -> Compose -> Critic -> QA).
+        - Tier 2: bỏ qua PPC, chuyển thẳng bản nháp đơn lẻ sang QA/Checker.
+        """
+        from harness.propose_probe_compose import ProposeProbeComposeEngine
+        engine = ProposeProbeComposeEngine()
+
+        # Kiểm tra Tier
+        is_tier_1 = kwargs.get("enable_ppc", False) or engine.is_tier_1(task_context)
+
+        if not is_tier_1:
+            # Tier 2: Bỏ qua PPC
+            primary_variant = variants[0] if (variants and len(variants) > 0) else "tier_2_draft"
+            if hasattr(task_context, "record_step"):
+                task_context.record_step("PPC_BYPASS", {"tier": "tier_2", "reason": "Fast-Track / Minor Task"})
+            verdict = self.evaluate(task_context, mock_checker_output)
+            return verdict, primary_variant
+
+        # Tier 1: Kích hoạt PPC
+        scenario_arg = kwargs.pop("scenario", None) or task_context
+        if variants and len(variants) >= 2:
+            scores = engine.probe(variants, rubrics=rubrics, scenario=scenario_arg, **kwargs)
+            composed_variant = engine.compose(
+                probe_results=scores,
+                variants=variants,
+                scenario=scenario_arg,
+                **kwargs
+            )
+        else:
+            res = engine.execute_ppc_pipeline(task_context, rubrics=rubrics, force_tier_1=True, scenario=scenario_arg, **kwargs)
+            composed_variant = res["composed"]
+
+        if hasattr(task_context, "record_step"):
+            task_context.record_step("PPC_COMPOSE", {
+                "tier": "tier_1",
+                "composed_id": getattr(composed_variant, "variant_id", "composed"),
+                "features": getattr(composed_variant, "implemented_features", []),
+            })
+
+        # Đánh giá qua Critic nếu cần
+        if mock_critic_output is not None:
+            critic_v = self.evaluate_critique(task_context, mock_critic_output)
+            if critic_v != Verdict.APPROVE:
+                return critic_v, composed_variant
+
+        # Đánh giá qua Checker / QA
+        checker_v = self.evaluate(task_context, mock_checker_output)
+        return checker_v, composed_variant
+
 
