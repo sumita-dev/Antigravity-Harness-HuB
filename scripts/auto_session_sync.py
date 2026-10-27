@@ -23,6 +23,13 @@ import sqlite3
 import subprocess
 import sys
 import time
+
+# Đảm bảo UTF-8 cho Windows console
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
@@ -714,7 +721,7 @@ def main():
     parser.add_argument("--repo-dir", default=None, help="Theo doi 1 workspace cu the (mac dinh: repo hien tai)")
     parser.add_argument("--app-data-dir", default=None, help="Thu muc Antigravity app data")
     parser.add_argument("--once", action="store_true", help="Chay 1 luot kiem tra/flush roi thoat ngay (phuc vu CI/test)")
-    parser.add_argument("--interval", type=float, default=1.0, help="Chu ky kiem tra moi giay (mac dinh: 1.0s, CPU 0.0%)")
+    parser.add_argument("--interval", type=float, default=1.0, help="Chu ky kiem tra moi giay (mac dinh: 1.0s, CPU 0.0%%)")
     parser.add_argument("--install-startup", action="store_true", help="Cai dat VBS launcher vao Windows Startup va khoi chay watcher ngam")
     parser.add_argument("--uninstall-startup", action="store_true", help="Go bo VBS launcher khoi Windows Startup va dung watcher ngam")
     parser.add_argument("--status", action="store_true", help="Kiem tra trang thai watcher va VBS launcher")

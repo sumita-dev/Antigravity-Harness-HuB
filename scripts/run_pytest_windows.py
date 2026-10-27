@@ -8,6 +8,12 @@ import uuid
 from pathlib import Path
 from typing import List, Tuple
 
+# Đảm bảo UTF-8 cho Windows console
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 FAST_TIER_TESTS = [
     "tests/test_harness_doctor.py",
     "tests/test_skill_router_ranking.py",

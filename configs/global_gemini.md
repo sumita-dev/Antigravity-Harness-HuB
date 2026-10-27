@@ -38,7 +38,7 @@
 ---
 
 ## 4. Kỷ Luật Thực Thi & Kinh Tế Học Ngữ Cảnh (Execution Discipline)
-1. **Zero-Polling Invariant & Dead-man's Switch:** CẤM gọi `manage_task(status)` trong loop. Bắt buộc dừng turn đón Reactive Wakeup. Khi chạy ngầm task có nguy cơ dài hạn (>1 phút), đặt timer qua `schedule(DurationSeconds=180)` làm Dead-man's Switch chống ngủ đông vô hạn.
+1. **Zero-Polling Invariant & Dead-man's Switch:** CẤM gọi `manage_task(status)` trong loop. Bắt buộc dừng turn đón Reactive Wakeup. Khi chạy ngầm task có nguy cơ dài hạn, đặt timer qua Dead-man's switch động `schedule(DurationSeconds=240)` (hoặc `45s` cho Fast-Tier) chống ngủ đông vô hạn.
 2. **Ép Phân Tầng Model Tường Minh:** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
 3. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent chỉ gửi về cha digest < 100 từ kèm hash, exit code và verdict. Log dài, diff và artifact ghi ra disk/artifact directory.
 4. **Cắt Phiên Ngắt Mạch Ngữ Cảnh (Session Rollover Gate):** Chạm 40 turns hoặc transcript vượt 250 KB: cảnh báo, ghi `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị mở phiên mới.
