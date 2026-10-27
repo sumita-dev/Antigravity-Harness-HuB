@@ -5,7 +5,7 @@ harness/memory/skill_evolver.py
 
 Recursive Self-Improvement (RSI) Loop Engine (inspired by Hermit GEPA / SkillOpt).
 Adheres strictly to L3 Autonomy Mode (Human Gate):
-- Ingests execution errors from TrajectoryStore and F:\\Obsidian\\wiki\\log.md.
+- Ingests execution errors from TrajectoryStore and Obsidian wiki/log.md.
 - Maps failure events to the corresponding SKILL.md.
 - Generates surgical micro-patches targeting '### Pitfalls & Edge Cases' or '### Procedure'.
 - Enforces ContextBudgetGuard (delta lines <= 15, delta tokens <= 120) and YAMLFrontmatterGuard.
@@ -251,7 +251,14 @@ class SkillEvolver:
         self.proposals_dir = self.brain_dir / "skill_proposals"
         self.proposals_dir.mkdir(parents=True, exist_ok=True)
 
-        self.obsidian_log_path = Path(obsidian_log_path) if obsidian_log_path else Path("F:/Obsidian/wiki/log.md")
+        if obsidian_log_path:
+            self.obsidian_log_path = Path(obsidian_log_path)
+        else:
+            vault_base = os.environ.get("OBSIDIAN_VAULT_PATH") or os.environ.get("SECOND_BRAIN_PATH")
+            if vault_base:
+                self.obsidian_log_path = Path(vault_base) / "wiki" / "log.md"
+            else:
+                self.obsidian_log_path = Path.home() / "Obsidian" / "wiki" / "log.md"
         self.rsi_engine = SkillOptRSIEngine()
 
     def find_skill_file(self, skill_name: str) -> Optional[Path]:
@@ -284,7 +291,7 @@ class SkillEvolver:
         """
         Thu thập các lỗi và bài học kinh nghiệm từ:
         1. TrajectoryStore (.brain/trajectories/trajectories.jsonl hoặc .brain/trajectories.jsonl)
-        2. Obsidian Vault (F:\\Obsidian\\wiki\\log.md nếu tồn tại)
+        2. Obsidian Vault (wiki/log.md nếu tồn tại)
         """
         extracted_errors: List[Dict[str, Any]] = []
 

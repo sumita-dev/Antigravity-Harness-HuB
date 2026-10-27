@@ -37,7 +37,7 @@ flowchart TD
 ### Bước 3: Epistemic Evidence Triangulation (Tam Giác Hóa Bằng Chứng)
 Đối chiếu chéo qua 7 nhóm nguồn chứng cứ thực tế:
 1. **Git & PRs:** Commit messages, reviewer comments, diff ngữ cảnh.
-2. **Architecture Decision Records (ADRs):** Các tài liệu kiến trúc trong `docs/` hoặc `F:\Obsidian\wiki\`.
+2. **Architecture Decision Records (ADRs):** Các tài liệu kiến trúc trong `docs/` hoặc `wiki/` (Obsidian Vault).
 3. **Issue Trackers & Bug Tickets:** Bối cảnh khách hàng hoặc lỗi production kích hoạt thay đổi.
 4. **Chat & Meeting Notes:** Ghi chú trong Second Brain (`sources/` hoặc `wiki/`).
 5. **Observability & Logs:** Các sự kiện runtime trong quá khứ liên quan đến module.

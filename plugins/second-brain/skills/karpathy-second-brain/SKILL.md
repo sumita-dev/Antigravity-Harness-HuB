@@ -43,7 +43,7 @@ Tài liệu này chuẩn hóa toàn bộ phương pháp luận và quy trình th
 Một Vault tuân thủ chuẩn Karpathy LLM Wiki phải tổ chức phân tầng nghiêm ngặt:
 
 ```
-[Vault Root] (Ví dụ: F:\Obsidian)
+[Vault Root] (Ví dụ: $env:OBSIDIAN_VAULT_PATH hoặc ~/Obsidian)
 ├── CLAUDE.md                 # SCHEMA & ĐIỀU LỆ TỐI CAO (Invariants, rules, guardrails)
 ├── Raw/                      # TẦNG 1: TÀI LIỆU GỐC (BẤT BIẾN - READ ONLY)
 │   ├── books/                # Sách điện tử, file PDF, epub

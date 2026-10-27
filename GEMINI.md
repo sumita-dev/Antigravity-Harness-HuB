@@ -28,7 +28,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 10. **Cấm Polling Chủ Động, Đón Reactive Wakeup & Cầu Dao Dead-man's Switch (Zero-Polling Invariant):** CẤM gọi `manage_task` (status) trong loop. Bắt buộc dừng turn đón Reactive Wakeup khi task hoàn tất. Dead-man's Switch (`schedule`) CHỈ được kích hoạt khi đẩy lệnh CLI terminal chạy ngầm có nguy cơ dài hạn qua `run_command` (`45s` cho Fast-Tier, `240s` cho Full-Tier / Pytest toàn diện / Batch nặng) để tự đánh thức kiểm tra nếu task không tự kết thúc, chống ngủ đông vô hạn. TUYỆT ĐỐI CẤM gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent đã có cơ chế Reactive Wakeup tự động của Antigravity (hệ thống tự động đánh thức khi subagent hoàn tất hoặc gửi tin nhắn).
 11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
 12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent gửi về digest < 100 từ kèm hash, exit code, verdict. Log dài/diff ghi ra disk/artifact directory.
-13. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Khi chạm ngưỡng 35-40 turns hoặc transcript > 200KB, Quản đốc tự động kết xuất tiến độ/trạng thái sang `F:\Obsidian\wiki\_session-handoff.md` và thông báo đề xuất Sếp gõ `/compact` hoặc khởi tạo thread mới. Cảnh Báo Ngưỡng Context Telemetry (Phương Án B): Quản đốc theo dõi dung lượng phiên làm việc. Ở trạng thái GREEN (<= 35 turns, < 180KB), trả lời bình thường không chèn telemetry. Khi chạm ngưỡng YELLOW (35-40 turns, 180-240KB) hoặc RED (> 40 turns, > 250KB), BẮT BUỘC chèn thẻ đo lường Context Telemetry ở cuối câu trả lời kèm khuyến nghị Sếp gõ `/compact` hoặc mở phiên mới để tránh suy giảm ngữ cảnh.
+13. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Khi chạm ngưỡng 35-40 turns hoặc transcript > 200KB, Quản đốc tự động kết xuất tiến độ/trạng thái sang `$OBSIDIAN_VAULT_PATH/wiki/_session-handoff.md (mặc định tại $env:OBSIDIAN_VAULT_PATH hoặc ~/Obsidian)` và thông báo đề xuất Sếp gõ `/compact` hoặc khởi tạo thread mới. Cảnh Báo Ngưỡng Context Telemetry (Phương Án B): Quản đốc theo dõi dung lượng phiên làm việc. Ở trạng thái GREEN (<= 35 turns, < 180KB), trả lời bình thường không chèn telemetry. Khi chạm ngưỡng YELLOW (35-40 turns, 180-240KB) hoặc RED (> 40 turns, > 250KB), BẮT BUỘC chèn thẻ đo lường Context Telemetry ở cuối câu trả lời kèm khuyến nghị Sếp gõ `/compact` hoặc mở phiên mới để tránh suy giảm ngữ cảnh.
 14. **Rào Chắn Chống Ảo Giác Tự Động (Autonomous Anti-Hallucination Invariant — GitNexus & Triad):**
     - Kích hoạt tự động không cần gõ lệnh.
     - Pre-Flight Symbol Grounding: Maker gọi GitNexus `impact()` & `context()` trước khi sửa hàm/class; kèm log thật (`exit code == 0`) và file vật lý.
@@ -117,9 +117,9 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 | `/loop-circuit-breaker` | Loop Circuit Breaker |
 | `/apple-inspired-design` | Apple-Inspired Design |
 | `/setup-second-brain` | Setup Second Brain |
-| `/query-wiki` | Query Wiki (F:\Obsidian) |
-| `/ingest-source` | Ingest Source (F:\Obsidian) |
-| `/lint-wiki` | Lint Wiki (F:\Obsidian) |
+| `/query-wiki` | Query Wiki (Obsidian Vault) |
+| `/ingest-source` | Ingest Source (Obsidian Vault) |
+| `/lint-wiki` | Lint Wiki (Obsidian Vault) |
 | `/second-brain-memory` | Second Brain Memory |
 | `/obsidian-markdown` | Obsidian Markdown |
 | `/json-canvas` | JSON Canvas |
@@ -167,8 +167,8 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 
 ---
 
-## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain — F:\Obsidian)
-1. **Chủ Động Tra Cứu (Auto-Query):** Nhận việc: Quản đốc BẮT BUỘC tự tra cứu `F:\Obsidian\wiki\index.md` nạp bối cảnh, bài học cũ trước khi lập kế hoạch hay giao việc cho SubAgent.
+## 7. Cơ Chế Tự Động Hoá Bộ Não Thứ 2 (Autonomous Second Brain — Obsidian Vault)
+1. **Chủ Động Tra Cứu (Auto-Query):** Nhận việc: Quản đốc BẮT BUỘC tự tra cứu `$OBSIDIAN_VAULT_PATH/wiki/index.md` nạp bối cảnh, bài học cũ trước khi lập kế hoạch hay giao việc cho SubAgent.
 2. **Chủ Động Tiêu Hoá (Auto-Ingest):** Dữ liệu mới trong `sources/` hoặc chat: tự điều phối tiêu hoá theo 3 kỷ luật (Citation cứng, Mục tiêu vs thực tế, Giữ mâu thuẫn) thành trang Evergreen trong `wiki/`, cập nhật `wiki/index.md` và `wiki/log.md`.
 3. **Chủ Động Đúc Kết (Memory Reflection & Triad Lesson Schema):** Xong việc/có bài học: lưu facts vào `memory/facts/`, `MEMORY.md`; append `wiki/log.md` (`## [YYYY-MM-DD] ...`); cập nhật `_session-handoff.md`. Đúc kết bài học bắt buộc theo cấu trúc Triad Lesson Schema gồm 3 trường: `cue` (chỉ dấu/ngữ cảnh kích hoạt), `lesson` (hành động chuẩn cần làm), `evidence` (bằng chứng thực chứng: hash commit/spec, log lỗi thực tế hoặc exit code).
 4. **Rà Soát Sức Khoẻ (Gap Detection):** Câu hỏi mở: tự append `wiki/_open-questions.md` và cảnh báo mâu thuẫn tri thức.

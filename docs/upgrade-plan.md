@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Original `D:\AntiGravity\Antigravity-Harness-HuB-main` is read-only for this work. All implementation occurs in this isolated copy.
+- Original `<repo-root>` is read-only for this work. All implementation occurs in this isolated copy.
 - Baseline represents current working-tree bytes, including existing dirty tracked files and untracked deterministic_rules implementation/tests. Do not replace these with HEAD versions.
 - Source inventory excludes .brain, .sessions, .git, real .env files/variants, dependencies and caches; the existing safe `.env.example` template is preserved unchanged and recorded in the baseline inventory. Runtime directories and all upgrade/audit evidence are excluded from the delivery payload. Never read secrets to construct evidence.
 - Existing spec/signoff invalidation, bounded retry counts, evidence path protections and non-UI N/A support remain enforced.

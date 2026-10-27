@@ -77,7 +77,7 @@ flowchart TD
 2. **Bước 2 — Multi-Hop Anomaly & Policy Retrieval:**
    - **Hop 1 (Quét lãng phí & Anomaly):** Lọc top 20% search terms / ad sets đốt 80% ngân sách nhưng không tạo ra chuyển đổi (Zero-conversion spenders).
    - **Hop 2 (Tra cứu Chính sách Nền tảng):** Đối soát các mẫu quảng cáo và từ khóa với chính sách Google Ads / Meta Ads (chống rủi ro tài khoản bị đình chỉ: Unacceptable Business Practices, Sensational Content, Circumventing Systems).
-   - **Hop 3 (Second Brain & Benchmark Retrieval):** Truy xuất `F:\Obsidian\memory\facts\` hoặc `wiki/` để đối chiếu với bài học kinh nghiệm từ các chiến dịch tương tự đã từng triển khai.
+   - **Hop 3 (Second Brain & Benchmark Retrieval):** Truy xuất `memory/facts/` hoặc `wiki/` (Obsidian Vault) để đối chiếu với bài học kinh nghiệm từ các chiến dịch tương tự đã từng triển khai.
 3. **Bước 3 — Exact Attribution & Impact Modeling (Dẫn chứng số liệu cứng):**
    - Không đưa ra lời khuyên chung chung. Mọi phát hiện đều gắn với Campaign ID thật, Ad Set ID thật, từ khóa thật và số tiền lãng phí cụ thể: *"Loại trừ 12 search terms rác thuộc Campaign ID 982173 sẽ thu hồi $1,450/tháng (tương đương 18% ngân sách chiến dịch)"*.
 4. **Bước 4 — Xuất Báo Cáo:**

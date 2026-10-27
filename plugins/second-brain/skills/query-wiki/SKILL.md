@@ -1,18 +1,18 @@
 ---
 name: query-wiki
-description: "Tra cứu và tổng hợp tri thức trong Second Brain (F:\\Obsidian) có trích dẫn nguồn bằng mô hình Agentic RAG đa chặng."
+description: "Tra cứu và tổng hợp tri thức trong Second Brain (Obsidian Vault) có trích dẫn nguồn bằng mô hình Agentic RAG đa chặng."
 group: Second Brain
 ---
-# QUERY - Tra cứu tri thức đa chặng (Agentic RAG Engine) từ Obsidian Wiki (F:\Obsidian)
+# QUERY - Tra cứu tri thức đa chặng (Agentic RAG Engine) từ Obsidian Wiki (Obsidian Vault)
 
-Khai thác tri thức trong Second Brain tại `F:\Obsidian` bằng mô hình **Agentic RAG đa chặng (Multi-Hop Graph Traversal)**: tự động phân rã câu hỏi, lần theo đồ thị liên kết, tự đánh giá độ phủ và tổng hợp câu trả lời có trích dẫn nguồn gốc xác thực.
+Khai thác tri thức trong Second Brain tại `$env:OBSIDIAN_VAULT_PATH` (hoặc `~/Obsidian`) bằng mô hình **Agentic RAG đa chặng (Multi-Hop Graph Traversal)**: tự động phân rã câu hỏi, lần theo đồ thị liên kết, tự đánh giá độ phủ và tổng hợp câu trả lời có trích dẫn nguồn gốc xác thực.
 
 ## Vault Root & Cấu trúc mặc định
-- **Vault Root**: `F:\Obsidian`
-- **Bản đồ tri thức chính**: `F:\Obsidian\wiki\_index.md` & `F:\Obsidian\wiki\index.md`
-- **Thư mục Wiki (Evergreen Notes)**: `F:\Obsidian\wiki\`
-- **Nguồn thô (Raw Sources)**: `F:\Obsidian\sources\` (hoặc `F:\Obsidian\Raw\`)
-- **Câu hỏi tồn đọng**: `F:\Obsidian\wiki\_open-questions.md`
+- **Vault Root**: `$env:OBSIDIAN_VAULT_PATH` (hoặc `~/Obsidian`)
+- **Bản đồ tri thức chính**: `wiki/_index.md` & `wiki/index.md`
+- **Thư mục Wiki (Evergreen Notes)**: `wiki/`
+- **Nguồn thô (Raw Sources)**: `sources/` (hoặc `Raw/`)
+- **Câu hỏi tồn đọng**: `wiki/_open-questions.md`
 
 ## Khi nào dùng
 Kích hoạt khi người dùng hỏi hoặc cần khai thác tri thức trong Second Brain:
@@ -57,5 +57,5 @@ Tác tử tự rà soát:
 
 ### Bước 5: Compounding (Đề xuất bồi đắp tri thức)
 - Nếu câu trả lời mang lại giá trị tái sử dụng cao (bảng tổng hợp mới, so sánh hệ thống):
-  - Đề xuất tạo một trang wiki mới trong `F:\Obsidian\wiki\`.
+  - Đề xuất tạo một trang wiki mới trong `wiki/`.
   - Cập nhật liên kết vào `wiki/index.md` và ghi nhận nhật ký vào `wiki/log.md`.

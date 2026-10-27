@@ -147,7 +147,7 @@ Antigravity-Harness-Hub/
 | `agents/app/e2e_engineer.md` | Tác tử lập trình kịch bản Playwright E2E tự động hóa kiểm thử giao diện theo tiêu chuẩn Page Object Model. |
 | `agents/app/e2e_critic.md` | Tác tử kiểm định độc lập kịch bản Playwright E2E (phát hiện hardcoded sleep, selector mong manh, thiếu assertion). |
 | `plugins/code/skills/anti-hallucination-guard/SKILL.md` | Rào chắn chống ảo giác 4 trụ cột: Symbol & AST Grounding, Path & Resource Veracity, Strict Evidence-First, Deterministic Execution Verification. |
-| `plugins/second-brain/` | Bộ 9 kỹ năng tích hợp Second Brain (F:\Obsidian): khởi tạo chuẩn hóa vault mới (`setup-second-brain`), kiến trúc LLM Wiki (`karpathy-second-brain`), tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), cú pháp Markdown (`obsidian-markdown`), sơ đồ Canvas (`json-canvas`) và cơ sở dữ liệu (`obsidian-bases`). |
+| `plugins/second-brain/` | Bộ 9 kỹ năng tích hợp Second Brain (Obsidian Vault): khởi tạo chuẩn hóa vault mới (`setup-second-brain`), kiến trúc LLM Wiki (`karpathy-second-brain`), tra cứu tri thức (`query-wiki`), tiêu hóa tài liệu (`ingest-source`), kiểm tra vault (`lint-wiki`), quản lý bộ nhớ (`second-brain-memory`), cú pháp Markdown (`obsidian-markdown`), sơ đồ Canvas (`json-canvas`) và cơ sở dữ liệu (`obsidian-bases`). |
 | `plugins/apple-inspired-design/` | Plugin kiểm định và hoàn thiện giao diện chuẩn Apple Human Interface Guidelines (HIG), tích hợp bộ nhớ thiết kế và AI Critic. |
 | `plugins/computer/` | Bộ 3 kỹ năng bảo dưỡng hệ thống máy tính Windows & Second Brain Karpathy: chăm sóc tối ưu PC (`cham-soc-may-tinh`), dọn dẹp trình duyệt tự động & tiến trình mồ côi (`browser-hygiene`), và kiến trúc LLM Wiki (`karpathy-second-brain`). |
 | `harness/state_machine.py` | Định nghĩa các trạng thái (`INIT`, `INTAKE`, `DESIGN`, `IMPLEMENTATION`, `CRITIQUE`, `AUDIT`, `APPROVED`, `REJECTED`, `ESCALATED`) và quản lý bước chuyển trạng thái hợp lệ, ngăn chặn việc nhảy cóc quy trình. |
@@ -449,9 +449,9 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
 | :--- | :--- | :--- |
 | `/setup-second-brain` | Setup Second Brain | Thiết lập mới hoặc chuẩn hoá Vault Obsidian Second Brain chuẩn theo mô hình Karpathy & Guide v1.0 (Inspect, Minimal Structure, AI_RULES, Templates, Evidence Block) |
 | `/karpathy-second-brain` | Karpathy Second Brain | Xây dựng và vận hành Bộ não thứ 2 Obsidian theo đúng kiến trúc LLM Wiki của Andrej Karpathy |
-| `/query-wiki` | Query Wiki (F:\Obsidian) | Tra cứu và tổng hợp tri thức trong Second Brain (F:\Obsidian\wiki\) có trích dẫn nguồn |
-| `/ingest-source` | Ingest Source (F:\Obsidian) | Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật chưng cất tri thức |
-| `/lint-wiki` | Lint Wiki (F:\Obsidian) | Rà soát sức khoẻ Vault Obsidian (broken links, orphan notes, open questions) |
+| `/query-wiki` | Query Wiki (Obsidian Vault) | Tra cứu và tổng hợp tri thức trong Second Brain (Obsidian Vault wiki/) có trích dẫn nguồn |
+| `/ingest-source` | Ingest Source (Obsidian Vault) | Tiêu hoá tài liệu thô từ sources/ vào wiki/ theo 3 kỷ luật chưng cất tri thức |
+| `/lint-wiki` | Lint Wiki (Obsidian Vault) | Rà soát sức khoẻ Vault Obsidian (broken links, orphan notes, open questions) |
 | `/second-brain-memory` | Second Brain Memory | Đồng bộ bài học kinh nghiệm, facts và session handoff vào memory/ và wiki/log.md |
 | `/obsidian-markdown` | Obsidian Markdown | Cú pháp Obsidian Flavored Markdown (wikilinks, callouts, embeds, properties) |
 | `/json-canvas` | JSON Canvas | Tạo và chỉnh sửa sơ đồ JSON Canvas (.canvas) theo chuẩn 1.0 trong Obsidian |
@@ -509,13 +509,13 @@ Bên cạnh 14 kỹ năng nhánh Marketing (Mục 2.3) và Plugin Impeccable (M�
 - **Cấm tiến trình mồ côi:** CẤM TUYỆT ĐỐI để subagents con tồn tại idle hoặc mồ côi sau khi bàn giao phiên làm việc.
 
 ### 3.5. Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer)
-- **Giới hạn an toàn:** Khi phiên hội thoại chạm ngưỡng 35-40 turns hoặc dung lượng transcript > 200KB, Quản đốc tự động kết xuất toàn bộ tiến độ, quyết định kiến trúc và trạng thái hiện tại sang `F:\Obsidian\wiki\_session-handoff.md`.
+- **Giới hạn an toàn:** Khi phiên hội thoại chạm ngưỡng 35-40 turns hoặc dung lượng transcript > 200KB, Quản đốc tự động kết xuất toàn bộ tiến độ, quyết định kiến trúc và trạng thái hiện tại sang `$OBSIDIAN_VAULT_PATH/wiki/_session-handoff.md` (mặc định tại `$env:OBSIDIAN_VAULT_PATH` hoặc `~/Obsidian`).
 - **Chủ động ngắt mạch ngữ cảnh:** Thông báo đề xuất Sếp gõ `/compact` để dọn dẹp bộ nhớ hoặc khởi tạo thread mới để bảo đảm độ chính xác suy luận, ngăn ngừa hiện tượng suy thoái chất lượng ngữ cảnh (context drift).
 - **Cơ Chế Cảnh Báo Ngưỡng Context Window Telemetry (Phương Án B):**
   Quản đốc liên tục giám sát dung lượng và độ dài phiên làm việc (turns & transcript payload) nhằm chủ động kiểm soát cửa sổ ngữ cảnh theo 3 trạng thái đo lường:
   - 🟢 **GREEN (<= 35 turns, < 180KB):** Phiên làm việc ở trạng thái tối ưu, ẩn telemetry để giữ giao diện trò chuyện tinh gọn và tập trung.
   - 🟡 **YELLOW (35-40 turns, 180-240KB):** Tự động kích hoạt hiển thị thẻ cảnh báo sớm Context Telemetry ở cuối câu trả lời, nhắc nhở Sếp cân nhắc chuẩn bị dọn dẹp hoặc kết thúc chặng làm việc.
-  - 🔴 **RED (> 40 turns, > 250KB):** Bắt buộc hiển thị thẻ cảnh báo đỏ nguy cơ suy thoái ngữ cảnh, tự động kết xuất tiến độ vào `F:\Obsidian\wiki\_session-handoff.md` và khuyến nghị Sếp gõ `/compact` hoặc khởi tạo thread mới.
+  - 🔴 **RED (> 40 turns, > 250KB):** Bắt buộc hiển thị thẻ cảnh báo đỏ nguy cơ suy thoái ngữ cảnh, tự động kết xuất tiến độ vào `$OBSIDIAN_VAULT_PATH/wiki/_session-handoff.md` và khuyến nghị Sếp gõ `/compact` hoặc khởi tạo thread mới.
 
 ### 3.6. Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant)
 - **Cô lập hệ thống tệp và tiến trình:** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình.

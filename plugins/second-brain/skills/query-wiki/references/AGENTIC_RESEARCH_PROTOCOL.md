@@ -36,9 +36,9 @@ Model: "flash"
 Prompt:
 ## 1. Mục Tiêu & Phân Rã Truy Vấn (Decomposed Queries)
 - Câu hỏi chính: [Yêu cầu của Sếp]
-- Sub-query 1: Định vị các thực thể cốt lõi trong `F:\Obsidian\wiki\_index.md` hoặc `wiki/index.md`.
+- Sub-query 1: Định vị các thực thể cốt lõi trong `wiki/_index.md` hoặc `wiki/index.md`.
 - Sub-query 2: Lần theo các [[wikilink]] và backlinks liên quan trực tiếp đến [Chủ đề].
-- Sub-query 3: Kiểm tra nguồn thô trong `F:\Obsidian\sources\` nếu trang wiki chưa đủ thông tin.
+- Sub-query 3: Kiểm tra nguồn thô trong `sources/` nếu trang wiki chưa đủ thông tin.
 
 ## 2. Ranh Giới Khảo Sát & Cầu Dao (Boundaries & Hop Budget)
 - Công cụ sử dụng: `mcp_obsidian-vault_*` (read_file, search_files).
@@ -63,4 +63,4 @@ Prompt:
 1. **Reactive Wakeup:** Quản đốc dừng turn, không gọi polling loop, chờ hệ thống tự đánh thức khi subagent hoàn tất.
 2. **Đối soát biên bản:** Quản đốc kiểm tra tin nhắn digest và đọc lướt artifact tại `scratch/`.
 3. **Phản hồi cho Sếp:** Tổng hợp báo cáo tinh gọn, dẫn link file artifact và trích dẫn `[[wikilink]]` nguồn.
-4. **Compounding:** Nếu kết quả nghiên cứu có giá trị lũy tiến cao, Quản đốc đề xuất với Sếp tạo trang wiki chính thức mới trong `F:\Obsidian\wiki\`.
+4. **Compounding:** Nếu kết quả nghiên cứu có giá trị lũy tiến cao, Quản đốc đề xuất với Sếp tạo trang wiki chính thức mới trong `wiki/`.

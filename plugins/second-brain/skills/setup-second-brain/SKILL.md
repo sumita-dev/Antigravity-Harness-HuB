@@ -77,7 +77,7 @@ flowchart TD
 
 1. **Xác nhận Vault Path vật lý:**
    - Bắt buộc kiểm tra rõ ràng thư mục Vault đích.
-   - Nếu người dùng không truyền đường dẫn trong câu lệnh, kiểm tra thư mục mặc định `F:\Obsidian` (theo quy chuẩn Antigravity Rules) hoặc dùng công cụ hỏi (`ask_question`) để xác nhận.
+   - Nếu người dùng không truyền đường dẫn trong câu lệnh, kiểm tra biến môi trường `$env:OBSIDIAN_VAULT_PATH` / `$env:SECOND_BRAIN_PATH` hoặc thư mục mặc định `~/Obsidian` hoặc dùng công cụ hỏi (`ask_question`) để xác nhận.
    - **Tuyệt đối cấm** tự ý sử dụng `current working directory` (CWD) nếu không có sự đồng thuận rõ ràng từ người dùng.
 2. **Rà soát tệp chỉ thị và quy tắc có sẵn:**
    - Kiểm tra xem Vault đã có `AI_RULES.md`, `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` chưa.

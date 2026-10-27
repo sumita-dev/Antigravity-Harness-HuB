@@ -40,7 +40,7 @@ YELLOW_THRESHOLD_TURNS = 35
 RED_THRESHOLD_BYTES = 250 * 1024     # 256,000 bytes (250 KB)
 RED_THRESHOLD_TURNS = 40
 
-DEFAULT_OBSIDIAN_VAULT = Path("F:/Obsidian")
+DEFAULT_OBSIDIAN_VAULT = Path(os.environ.get("OBSIDIAN_VAULT_PATH") or os.environ.get("SECOND_BRAIN_PATH") or (Path.home() / "Obsidian"))
 DEFAULT_HANDOFF_PATH = DEFAULT_OBSIDIAN_VAULT / "wiki" / "_session-handoff.md"
 
 
@@ -161,7 +161,7 @@ def generate_handoff_content(
 - **Đã hoàn thành**: Ghi nhận toàn bộ tiến trình trước khi rollover ({size_kb:.1f} KB, {turns} turns).
 - **Đang xử lý**: {summary}
 - **Quyết định đã chốt**: Kích hoạt Session Rollover Gate theo GEMINI.md Điều 1.13; ngắt mạch phiên và bàn giao sang phiên mới.
-- **Các bước tiếp theo**: Khởi tạo phiên mới, nạp lại bối cảnh từ F:\\Obsidian\\wiki\\_session-handoff.md và tiếp tục nhiệm vụ.
+- **Các bước tiếp theo**: Khởi tạo phiên mới, nạp lại bối cảnh từ Obsidian Vault wiki/_session-handoff.md và tiếp tục nhiệm vụ.
 - **File liên quan**: `{transcript_path}`
 - **Status**: active
 """
@@ -181,7 +181,7 @@ def write_handoff_file(
         dest.write_text(content, encoding="utf-8")
         return dest
     except Exception as exc:
-        # Fallback về repo local nếu không ghi được vào F:\Obsidian
+        # Fallback về repo local nếu không ghi được vào Obsidian Vault
         fallback = REPO_ROOT / ".brain" / "_session-handoff.md"
         try:
             fallback.parent.mkdir(parents=True, exist_ok=True)

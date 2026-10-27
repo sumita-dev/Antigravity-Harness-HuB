@@ -4,13 +4,13 @@ description: "Rà soát chính sách YouTube (YPP, bản quyền, bạo lực, E
 ---
 # YouTube Policy Auditor Skill (`/check-youtube-policy`)
 
-Kỹ năng hỗ trợ sàng lọc rủi ro kịch bản trước sản xuất. Tích hợp động cơ quét heuristic regex cục bộ kết hợp bộ ma trận 9 cụm chính sách và kho tri thức **Second Brain Vault** (`F:\Obsidian\wiki\youtube-policies-hub.md`). Script hỗ trợ phát hiện sớm các từ khóa nhạy cảm, bạo lực 7s đầu, liên kết ngoài độc hại, dấu hiệu AI sản xuất hàng loạt và cảnh báo bắt buộc công bố nội dung AI / bảo vệ quyền riêng tư sinh trắc học (Likeness Protection). Checker độc lập phải đối soát ngữ cảnh thực tế; script không tự chứng nhận quyết định của YouTube.
+Kỹ năng hỗ trợ sàng lọc rủi ro kịch bản trước sản xuất. Tích hợp động cơ quét heuristic regex cục bộ kết hợp bộ ma trận 9 cụm chính sách và kho tri thức **Second Brain Vault** (`wiki/youtube-policies-hub.md`). Script hỗ trợ phát hiện sớm các từ khóa nhạy cảm, bạo lực 7s đầu, liên kết ngoài độc hại, dấu hiệu AI sản xuất hàng loạt và cảnh báo bắt buộc công bố nội dung AI / bảo vệ quyền riêng tư sinh trắc học (Likeness Protection). Checker độc lập phải đối soát ngữ cảnh thực tế; script không tự chứng nhận quyết định của YouTube.
 
 ---
 
 ## 1. NGUỒN TRI THỨC NỀN TẢNG & KHO SECOND BRAIN (KNOWLEDGE BASE)
 
-Toàn bộ logic kiểm định được neo chặt vào hệ thống tri thức Second Brain Vault tại `F:\Obsidian\wiki\` và 5 tài liệu tham chiếu đóng gói tại `references/`:
+Toàn bộ logic kiểm định được neo chặt vào hệ thống tri thức Second Brain Vault tại `wiki/` và 5 tài liệu tham chiếu đóng gói tại `references/`:
 
 ### Kết nối Second Brain Wiki:
 - **Trung tâm điều phối**: `[[youtube-policies-hub]]` — Bản đồ MOC chính sách YouTube toàn diện & mô hình 4Rs.
@@ -84,7 +84,7 @@ flowchart TD
   python plugins/marketing/skills/check-youtube-policy/scripts/audit_policy.py --text "<nội_dung_kịch_bản>"
   ```
 - **Hop 2 (Second Brain Policy Traversal):**
-  Tra cứu mạng lưới chính sách tại Second Brain Vault `F:\Obsidian\wiki\youtube-policies-hub.md` và các trang liên kết (`[[youtube-ai-policies]]`, `[[youtube-kiem-tien-va-ypp]]`, `[[youtube-noi-dung-phu-hop-nha-quang-cao]]`) để nắm tiền lệ xử phạt và mô hình 4Rs.
+  Tra cứu mạng lưới chính sách tại Second Brain Vault (`wiki/youtube-policies-hub.md`) và các trang liên kết (`[[youtube-ai-policies]]`, `[[youtube-kiem-tien-va-ypp]]`, `[[youtube-noi-dung-phu-hop-nha-quang-cao]]`) để nắm tiền lệ xử phạt và mô hình 4Rs.
 - **Hop 3 (Ma trận 9 Cụm & ID Chính Sách Thật):**
   Đối soát chéo với các tài liệu tham chiếu cốt lõi (100% trích dẫn mã điều khoản thật):
   * `references/policy_rules_matrix.md`: Kiểm tra 9 cụm chính sách cốt lõi.
