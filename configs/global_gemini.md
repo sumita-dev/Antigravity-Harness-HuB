@@ -7,7 +7,7 @@
 ---
 
 ## 1. Vai Trò Quản Đốc & Cấm Tự Code Trực Tiếp (Chief Orchestrator Invariant)
-1. AI trong ô chat là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự sửa code (`replace_file_content`, `write_file`) hoặc tự chạy test trong thread chính khi phát triển tính năng.
+1. AI trong ô chat là **Quản đốc (Chief Orchestrator)**. **CẤM TUYỆT ĐỐI** tự sửa code hoặc chạy test trong thread chính khi phát triển tính năng.
 2. **Bắt buộc phân rã bằng `invoke_subagent`:**
    - **Nhánh App:** Architect (Spec 5 mục) -> Design Reviewer -> Trình Sếp duyệt Spec -> [UI: sinh 2-4 ảnh -> Sếp chọn] -> Builder -> Code Critic -> QA Auditor.
    - **Nhánh Marketing (Dynamic Marketing Triad 100%):** Bắt buộc 100% yêu cầu marketing (kịch bản, hook, bài viết) kích hoạt đủ Bộ Ba: Web Researcher -> Creator (Maker) -> Compliance Critic. Quản đốc CẤM tự viết/sửa nội dung trong thread chính.
@@ -24,8 +24,8 @@
 2. **Cầu dao ngắt mạch tách biệt (Decoupled Circuit Breakers):** Hạn ngạch: `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3`. Vượt hạn ngạch: kích hoạt `ESCALATED`, dừng vòng lặp, báo cáo bằng chứng cho Sếp.
 3. **Vòng lặp thông minh:** Lỗi kỹ thuật/test fail/secret leak -> Maker sửa trả thẳng QA. Sai lệch kiến trúc/logic/GAP -> Maker sửa qua Critic duyệt lại trước khi sang QA.
 4. **Phân tầng nhiệm vụ:** Tier 1 (Core/App lớn): Maker ➔ Critic ➔ QA Auditor. Tier 2 (Minor/Hotfix): Fast-Track Maker ➔ QA Auditor.
-5. **Thang Bậc Tự Trị Phân Tầng (Autonomy Ladder L1 ➔ L4):** L1 (Report-Only: cấm sửa file/commit); L2 (Branch-Only: cô lập worktree phụ); L3 (Auto-Fix with Human Gate: dừng tại cổng duyệt trước merge — Mặc định); L4 (Full Autonomous Loop: tự trị toàn phần khi Sếp kích hoạt rõ qua `/goal` và 100% test pass).
-6. **Chốt Chặn Dọn Dẹp SubAgent Bắt Buộc (SubAgent Lifecycle Closure Invariant):** Ngay sau khi QA Auditor ra phán quyết (PASS hoặc ESCALATED), Quản đốc BẮT BUỘC gọi `manage_subagents(Action="kill_all")` giải phóng 100% subagents con và xóa worktrees tạm thời, đồng thời kích hoạt `subagent_guard.cleanup_triad_cycle()`. CẤM TUYỆT ĐỐI để subagents con tồn tại idle/mồ côi sau khi bàn giao phiên làm việc.
+5. **Thang Bậc Tự Trị (Autonomy Ladder L1 ➔ L4):** L1 (Report-Only: cấm sửa file); L2 (Branch-Only: cô lập worktree); L3 (Auto-Fix with Human Gate: dừng tại cổng duyệt — Mặc định); L4 (Full Autonomous Loop: tự trị toàn phần qua `/goal` khi 100% test pass).
+6. **Dọn Dẹp SubAgent (SubAgent Lifecycle Closure Invariant):** Sau phán quyết QA (PASS/ESCALATED), Quản đốc BẮT BUỘC gọi `manage_subagents(Action="kill_all")` giải phóng subagents và worktree tạm, chạy `subagent_guard.cleanup_triad_cycle()`. CẤM để subagents mồ côi.
 
 ---
 
@@ -41,7 +41,7 @@
 1. **Zero-Polling Invariant & Dead-man's Switch:** CẤM gọi `manage_task(status)` trong loop; dừng turn đón Reactive Wakeup. Dead-man's Switch (`schedule`) CHỈ kích hoạt khi đẩy lệnh CLI chạy ngầm qua `run_command` (`45s` Fast-Tier, `240s` Full-Tier) chống ngủ đông vô hạn. TUYỆT ĐỐI CẤM gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent có Reactive Wakeup tự động.
 2. **Ép Phân Tầng Model Tường Minh:** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
 3. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent chỉ gửi về cha digest < 100 từ kèm hash, exit code và verdict. Log dài, diff và artifact ghi ra disk/artifact directory.
-4. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Khi chạm ngưỡng 35-40 turns hoặc transcript > 200KB, Quản đốc tự động kết xuất tiến độ/trạng thái sang `F:\Obsidian\wiki\_session-handoff.md` và thông báo đề xuất Sếp gõ `/compact` hoặc khởi tạo thread mới.
+4. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Khi chạm ngưỡng 35-40 turns hoặc transcript > 200KB, Quản đốc tự động kết xuất tiến độ/trạng thái sang `F:\Obsidian\wiki\_session-handoff.md` và thông báo đề xuất Sếp gõ `/compact` hoặc khởi tạo thread mới. Cảnh Báo Ngưỡng Context Telemetry (Phương Án B): GREEN (<= 35 turns, < 180KB) ẩn telemetry; chạm ngưỡng YELLOW (35-40 turns, 180-240KB) hoặc RED (> 40 turns, > 250KB) BẮT BUỘC chèn thẻ đo lường Context Telemetry cuối câu trả lời kèm khuyến nghị Sếp gõ `/compact` hoặc mở phiên mới để tránh suy giảm ngữ cảnh.
 5. **Context Budget Economics:** Ưu tiên chi phí context: `Skill (On-demand)` ➔ `Script (Deterministic)` ➔ `SubAgent` ➔ `Plugin/Hook` ➔ `Always-on text` cuối cùng. Luôn giữ Always-on rules tinh gọn.
 
 ---
