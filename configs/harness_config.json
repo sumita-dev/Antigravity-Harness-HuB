@@ -826,6 +826,56 @@
         "bootstrap vault",
         "setup vault"
       ]
+    },
+    "interview-me": {
+      "branch": "app",
+      "keywords": [
+        "interview-me",
+        "interview me",
+        "grill me",
+        "phỏng vấn ý định",
+        "trích xuất ý định",
+        "làm rõ yêu cầu",
+        "chất vấn tôi đi"
+      ]
+    },
+    "source-driven-development": {
+      "branch": "app",
+      "keywords": [
+        "source-driven-development",
+        "source-driven",
+        "tài liệu chính thống",
+        "official docs",
+        "tra cứu tài liệu",
+        "xác minh api"
+      ]
+    },
+    "doubt-driven-development": {
+      "branch": "app",
+      "keywords": [
+        "doubt-driven-development",
+        "doubt-driven",
+        "phản biện đối kháng",
+        "adversarial review",
+        "fresh-context review",
+        "hoài nghi kỹ thuật",
+        "stress-test plan"
+      ]
+    },
+    "webperf": {
+      "branch": "app",
+      "keywords": [
+        "webperf",
+        "web performance",
+        "web vitals",
+        "cwv audit",
+        "tối ưu web",
+        "lcp",
+        "inp",
+        "cls",
+        "long tasks",
+        "bundle size"
+      ]
     }
   },
   "runtime_policy": {

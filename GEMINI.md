@@ -126,6 +126,10 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 | `/doc-to-markdown` | Document to Markdown |
 | `/testcontainers` | Ephemeral Database Sandbox |
 | `/gemini-sdk` | Chuẩn Hóa Google GenAI SDK |
+| `/interview-me` | Interview Me & Intent Extraction |
+| `/source-driven-development` | Source-Driven Development |
+| `/doubt-driven-development` | Doubt-Driven Adversarial Review |
+| `/webperf` | Web Performance & Core Web Vitals |
 
 
 ### 4.1 Gemini Native App Workflow (`plugins/code/skills/app/SKILL.md` & `docs/app-workflow-guide.md`)
