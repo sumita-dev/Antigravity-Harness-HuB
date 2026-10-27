@@ -32,27 +32,50 @@ class SkillRouter:
     def __init__(self, config_path: Optional[str] = None):
         self.routing_table = {}
         self.composition = {}
+        self.aliases = {}
         path = Path(config_path) if config_path else DEFAULT_CONFIG
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 config = json.load(f)
                 self.routing_table = config.get("skill_routing", {})
                 self.composition = config.get("skill_composition", {})
+                self.aliases = config.get("aliases", {}) or config.get("skill_aliases", {})
+                for skill_name, data in self.routing_table.items():
+                    if isinstance(data, dict) and "alias" in data:
+                        self.aliases[skill_name] = data["alias"]
+
+    def resolve_alias(self, skill_name: Optional[str]) -> Optional[str]:
+        if not skill_name:
+            return None
+        visited = set()
+        current = skill_name
+        while current in self.aliases and current not in visited:
+            visited.add(current)
+            current = self.aliases[current]
+        return current
 
     def route(self, task_description: str) -> Tuple[Optional[str], str]:
         text = task_description.lower()
 
-        matches = []
+        candidates = []
         for skill_name, data in self.routing_table.items():
             branch = data.get("branch", "app")
-            for kw in data.get("keywords", []):
-                if kw.lower() in text:
-                    # Keyword dài hơn = tín hiệu cụ thể hơn -> ưu tiên
-                    matches.append((len(kw), skill_name, branch))
+            matched_kws = [kw for kw in data.get("keywords", []) if kw.lower() in text]
+            if matched_kws:
+                max_len = max(len(kw) for kw in matched_kws)
+                count = len(matched_kws)
+                # Score = (độ dài từ khóa dài nhất * 10) + tổng số từ khóa của skill đó xuất hiện trong prompt
+                score = (max_len * 10) + count
+                candidates.append((score, count, max_len, skill_name, branch))
 
-        if matches:
-            matches.sort(key=lambda x: x[0], reverse=True)
-            return matches[0][1], matches[0][2]
+        if candidates:
+            # Sắp xếp theo score giảm dần; nếu bằng nhau ưu tiên count, max_len
+            candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+            winner_skill = candidates[0][3]
+            winner_branch = candidates[0][4]
+            final_skill = self.resolve_alias(winner_skill)
+            final_branch = self.routing_table.get(final_skill, {}).get("branch", winner_branch)
+            return final_skill, final_branch
 
         if any(w in text for w in MARKETING_HINTS):
             return None, "marketing"
@@ -98,12 +121,33 @@ class SkillRouter:
 
 
 class SkillLoader:
-    def __init__(self, skills_dir: str = "skills", search_dirs: Optional[list] = None):
+    def __init__(self, skills_dir: str = "skills", search_dirs: Optional[list] = None, aliases: Optional[dict] = None):
         if search_dirs:
             self.search_dirs = [Path(d) for d in search_dirs]
         else:
             self.search_dirs = [d for d in DEFAULT_SKILL_DIRS if d.is_dir()]
             self.search_dirs.append(Path(skills_dir))
+        self.aliases = aliases or {}
+        if not self.aliases and DEFAULT_CONFIG.exists():
+            try:
+                with open(DEFAULT_CONFIG, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    self.aliases = cfg.get("aliases", {}) or cfg.get("skill_aliases", {})
+                    for s_name, data in cfg.get("skill_routing", {}).items():
+                        if isinstance(data, dict) and "alias" in data:
+                            self.aliases[s_name] = data["alias"]
+            except Exception:
+                pass
+
+    def resolve_alias(self, skill_name: Optional[str]) -> Optional[str]:
+        if not skill_name:
+            return None
+        visited = set()
+        current = skill_name
+        while current in self.aliases and current not in visited:
+            visited.add(current)
+            current = self.aliases[current]
+        return current
 
     def find_skill_path(self, skill_name: Optional[str]) -> Optional[str]:
         if not skill_name:
@@ -112,6 +156,12 @@ class SkillLoader:
             candidate = base_dir / skill_name / "SKILL.md"
             if candidate.is_file():
                 return str(candidate)
+        target = self.resolve_alias(skill_name)
+        if target and target != skill_name:
+            for base_dir in self.search_dirs:
+                candidate = base_dir / target / "SKILL.md"
+                if candidate.is_file():
+                    return str(candidate)
         return None
 
     def get_skill_dependencies(self, skill_name: str) -> list[str]:

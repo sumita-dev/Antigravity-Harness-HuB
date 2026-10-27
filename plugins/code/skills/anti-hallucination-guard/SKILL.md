@@ -8,6 +8,7 @@ description: "Rào chắn chống ảo giác tự động: Symbol & AST Groundin
 ## Tổng Quan & Tuyên Ngôn Cốt Lõi
 
 > **Nguyên tắc bất biến (Autonomous System Invariant):** Không có tuyên bố thành công nào được chấp nhận nếu không có bằng chứng thực chứng tươi mới (Fresh Empirical Evidence). Cơ chế này kích hoạt tự động 100% trong toàn bộ các phiên làm việc của Antigravity 2.0 mà không cần gọi lệnh thủ công.
+> *(Kỹ năng tích hợp toàn diện và kế thừa quy chuẩn The Iron Law từ `/verification-before-completion`).*
 
 AI Agents trong các tác vụ phát triển phần mềm và điều phối tự động thường mắc các dạng ảo giác nguy hiểm:
 1. **Ảo giác đường dẫn (Path Hallucination):** Bịa ra file/thư mục không có thật, hoặc suy đoán sai đường dẫn module.
@@ -26,7 +27,7 @@ flowchart TD
     A["Tác Vụ Lập Trình"] --> B["Trụ Cột 1: Path & Resource Veracity<br/>(Kiểm chứng tồn tại đường dẫn vật lý)"]
     B --> C["Trụ Cột 2: Symbol & AST Grounding<br/>(GitNexus impact & AST Verification)"]
     C --> D["Trụ Cột 3: Strict Evidence-First<br/>(Triệt tiêu từ ngữ võ đoán)"]
-    D --> E["Trụ Cột 4: Deterministic Execution<br/>(Test command thật & Exit code == 0)"]
+    D --> E["Trụ Cột 4: Deterministic Execution & The Iron Law<br/>(Test command thật & Exit code == 0)"]
     E --> F["Phán Quyết Nghiệm Thu (AuditResult)"]
 ```
 
@@ -52,12 +53,48 @@ flowchart TD
   - Tiếng Việt: `chắc là`, `dường như`, `có lẽ`, `sẽ hoạt động bình thường mà không cần test`, `nghĩ là ổn`, `chắc chắn sẽ chạy`, `không thể sai được`, `chắc ăn`.
 - **Hành vi bắt buộc:** Nếu chưa chạy lệnh, ghi rõ: `Chưa chạy kiểm tra thực tế`. Code Critic tự động phán quyết `VERDICT: REJECT` ngay lập tức nếu phát hiện Red Flag Phrases.
 
-### 4. Trụ Cột 4: Deterministic Execution Verification (Xác Minh Thực Thi Xác Thực)
-- **Quy tắc:** Tuyên bố "Pass", "Hoàn thành", "Sửa thành công" bắt buộc phải đi kèm block log thực thi thực tế với `exit code == 0`.
-- **Quy trình:**
-  1. Maker đính kèm command, cwd, exit code và stdout/stderr thực tế.
-  2. QA Auditor chạy lại độc lập (rerun) toàn bộ các lệnh kiểm thử trong subshell riêng biệt.
-  3. Nếu exit code != 0 hoặc thiếu log: phán quyết `FAIL / REJECT` ngay lập tức.
+### 4. Trụ Cột 4: Deterministic Execution Verification & The Iron Law (Luật Thép Thực Thi Xác Thực)
+
+#### The Iron Law
+```
+NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+(Tuyệt đối không tuyên bố hoàn tất nếu không có bằng chứng kiểm thử tươi mới trong phiên)
+```
+
+Nếu bạn chưa trực tiếp chạy lệnh xác minh ngay trong lượt tương tác hiện tại, bạn **CẤM TUYỆT ĐỐI** tuyên bố tính năng đã pass hoặc hoàn thành.
+
+#### The Gate Function (Hàm Chốt Chặn 5 Bước)
+Trước khi tuyên bố bất kỳ trạng thái nào hoặc thể hiện sự hài lòng:
+1. **IDENTIFY:** Lệnh chính xác nào chứng minh cho tuyên bố này?
+2. **RUN:** Chạy TOÀN BỘ lệnh kiểm thử (mới nhất, đầy đủ, không cắt xén).
+3. **READ:** Đọc toàn bộ đầu ra log, kiểm tra `exit code == 0`, đếm số lỗi/failures.
+4. **VERIFY:** Kết quả có thực sự xác nhận tuyên bố không?
+   - Nếu KHÔNG: Khai báo trung thực trạng thái thực tế kèm toàn bộ log lỗi.
+   - Nếu CÓ: Khẳng định hoàn tất KÈM THEO bằng chứng log và exit code 0.
+5. **ONLY THEN:** Đưa ra kết luận hoặc bàn giao. Bỏ qua bất kỳ bước nào đồng nghĩa với ngụy tạo bằng chứng.
+
+#### Bảng Đối Chiếu Thất Bại Nghiệm Thu Thường Gặp
+
+| Tuyên Bố | Bằng Chứng Bắt Buộc | Bằng Chứng KHÔNG Đủ Chuẩn |
+|:---|:---|:---|
+| **Tests pass** | Command output thực tế: 0 failures, exit 0 | Lần chạy trước, "chắc là pass", log cũ |
+| **Linter clean** | Linter output thực tế: 0 errors | Chạy kiểm tra 1 file lẻ, ngoại suy |
+| **Build succeeds** | Build command output: exit code 0 | Linter pass, "trông có vẻ đúng" |
+| **Bug fixed** | Test tái hiện triệu chứng gốc chạy thành công | Code đã sửa nhưng chưa rerun test case gốc |
+| **Regression test works** | Chu trình TDD Red-Green được kiểm chứng | Test chỉ pass 1 lần mà chưa chứng minh red |
+| **Agent completed** | VCS diff hoặc git status thể hiện thay đổi | Agent tự báo cáo "success" |
+| **Requirements met** | Checklist đối soát từng tiêu chí AC | Chỉ dựa vào unit test pass |
+
+#### Ngăn Ngừa Tự Ngụy Biện (Rationalization Prevention)
+
+| Lời Biện Bạch | Thực Tế Bắt Buộc |
+|:---|:---|
+| *"Chắc là chạy được rồi"* | BẮT BUỘC CHẠY lệnh kiểm thử thực tế |
+| *"Tôi rất tự tin với code này"* | Tự tin $\ne$ Bằng chứng thực nghiệm |
+| *"Chỉ bỏ qua một lần này thôi"* | Không có ngoại lệ |
+| *"Linter đã pass rồi"* | Linter $\ne$ Trình biên dịch/Runtime |
+| *"Agent cấp dưới báo đã pass"* | Tự chạy lại để đối soát độc lập |
+| *"Kiểm tra một phần là đủ"* | Kiểm tra một phần không chứng minh được gì |
 
 ---
 

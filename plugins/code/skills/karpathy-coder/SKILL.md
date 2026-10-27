@@ -6,6 +6,10 @@ description: "4 nguyên lý Karpathy - Think Before Coding, Simplicity First, Su
 
 Kỹ năng này định hướng quá trình phát triển, tái cấu trúc (refactoring) và sửa lỗi (debugging) mã nguồn tuân thủ 4 nguyên lý thực dụng của Andrej Karpathy nhằm chống lại over-engineering và đảm bảo mã nguồn bền vững.
 
+> **Ranh giới Hợp đồng & Phân định với Ponytail Review:**
+> - `/karpathy-coder` chuyên trách: Kỷ luật và tư duy thực thi của Builder trong lúc viết mã (Think Before Coding, Simplicity First, Surgical Changes).
+> - `/ponytail-review` chuyên trách: Khâu phản biện độc lập sau khi viết mã (Diff Review, rà soát và cắt giảm abstraction/mã phình dư thừa).
+
 ## 4 Nguyên lý cốt lõi
 
 ### 1. Think Before Coding (Nghĩ trước khi gõ)

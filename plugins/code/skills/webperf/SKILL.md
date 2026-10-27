@@ -13,6 +13,10 @@ metadata:
 
 Kỹ năng này chuẩn hóa quy trình audit, chẩn đoán và khắc phục hiệu năng ứng dụng Web theo các chỉ số **Core Web Vitals** chính thức của Google (LCP, INP, CLS), kết hợp giám sát các tác vụ chặn Main Thread (**Long Tasks > 50ms**) và kiểm soát dung lượng gói tải (**Bundle Size**). Được tích hợp năng lực của **Chrome DevTools MCP** giúp tác tử trực tiếp đo lường trên trình duyệt thực tế.
 
+> **Ranh giới Hợp đồng (Contract Boundary):**
+> - `webperf` chuyên trách độc quyền về: Đo đạc và tối ưu số liệu hiệu năng (Core Web Vitals: LCP, INP, CLS; long tasks; network telemetry; bundle size budgets). Hỗ trợ script tất định `scripts/check_bundle_budget.py`.
+> - Kiểm tra hiển thị giao diện trực quan, render layout, micro-interactions và ảnh chụp screenshot do kỹ năng `/verify-ui` phụ trách.
+
 ---
 
 ## Chỉ Số Mục Tiêu Core Web Vitals (Google Targets)
@@ -54,6 +58,7 @@ Kỹ năng chia làm hai chế độ vận hành rạch ròi:
 1. **Maker (SubAgent Builder):**
    - Không tối ưu mù quáng. Bắt đầu bằng việc ghi nhận baseline (báo cáo đo lường hiện tại).
    - Áp dụng các giải pháp phẫu thuật chính xác (Surgical Changes) theo [optimization-patterns.md](references/optimization-patterns.md).
+   - Chạy script tất định `python plugins/code/skills/webperf/scripts/check_bundle_budget.py` để kiểm soát dung lượng gói tải.
 2. **Critic (SubAgent Code Critic):**
    - Soi xét kiến trúc: Ngăn chặn over-engineering (tránh việc bọc `useMemo` / `useCallback` bừa bãi làm tăng rác bộ nhớ mà không cải thiện thời gian render).
    - Kiểm tra Metric-Honesty Rule: REJECT ngay nếu Maker tự tiện đưa ra số liệu thời gian vẽ màn hình mà không có log/bằng chứng từ công cụ đo.
@@ -113,7 +118,7 @@ Tham khảo chi tiết tại [references/optimization-patterns.md](references/op
 - Nếu chỉ số không cải thiện mà độ phức tạp code tăng lên $\rightarrow$ **Rollback ngay lập tức**.
 
 ### Bước 5: Thiết lập rào chắn (Guard)
-- Thêm ngưỡng cảnh báo kích thước gói tải vào cấu hình build (ví dụ `bundlesize` trong `package.json` hoặc Webpack/Vite performance hints).
+- Thêm ngưỡng cảnh báo kích thước gói tải vào cấu hình build qua `python plugins/code/skills/webperf/scripts/check_bundle_budget.py`.
 
 ---
 

@@ -6,6 +6,10 @@ description: "Khảo cổ học kiến trúc mã nguồn bằng Epistemics Multi
 
 Hệ thống hóa sự hiểu biết sâu sắc về mã nguồn trước khi thay đổi bằng mô hình **Epistemics Multi-Hop Agentic RAG**: truy vết lý do lịch sử, mục đích thiết kế nguyên bản và bảo vệ các quyết định kiến trúc qua nguyên lý Hàng Rào Chesterton.
 
+> **Ranh giới Hợp đồng & Phân định với Systematic Debugging / Forensics:**
+> - `/why` chuyên trách: Khảo cổ học quyết định kiến trúc lịch sử (Epistemics RAG, Chesterton's Fence, ADRs, PR rationale) nhằm trả lời câu hỏi *"Tại sao đoạn code/kiến trúc này lại được viết như vậy?"* trước khi thay đổi.
+> - Khác với `/systematic-debugging` (sửa bug chức năng) và `/forensics` (truy vết lỗi ngầm/regression), `/why` bảo vệ các giả định kiến trúc ban đầu không bị phá hủy bừa bãi.
+
 ---
 
 ## Khung Nhận Thức 4 Bước Epistemics RAG
@@ -48,4 +52,3 @@ Phân loại độ tin cậy của mọi phát hiện thành 3 mức nghiêm ng�
 
 > **Nguyên tắc Bất Biến — Chesterton's Fence:**  
 > *"Đừng bao giờ phá bỏ một hàng rào cho đến khi bạn biết chắc chắn lý do vì sao nó được dựng lên."*  
-> Tác tử TUYỆT ĐỐI KHÔNG đề xuất xóa, refactor hay đơn giản hóa một đoạn mã "có vẻ thừa thãi" nếu chưa giải mã được lý do nguyên bản ở mức `CONFIRMED_FACT`.

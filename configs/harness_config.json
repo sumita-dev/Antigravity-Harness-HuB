@@ -32,6 +32,7 @@
       "branch": "marketing",
       "keywords": [
         "bóc phốt",
+        "boc phot storytelling",
         "boc phot",
         "mổ sổ",
         "lật tờ rơi",
@@ -49,6 +50,7 @@
       "branch": "marketing",
       "keywords": [
         "chính sách youtube",
+        "check youtube policy",
         "vi phạm youtube",
         "bản quyền youtube",
         "gậy youtube",
@@ -66,6 +68,7 @@
       "branch": "marketing",
       "keywords": [
         "phân tích đối thủ youtube",
+        "yt competitor analyzer",
         "kênh đối thủ",
         "quét kênh youtube",
         "video outlier",
@@ -79,6 +82,7 @@
       "branch": "marketing",
       "keywords": [
         "grand slam offer",
+        "alex hormozi offer builder",
         "value stack",
         "đóng gói offer",
         "đảo ngược rủi ro",
@@ -100,6 +104,7 @@
       "branch": "marketing",
       "keywords": [
         "money models",
+        "alex hormozi money models",
         "mô hình định giá",
         "thang giá trị",
         "pricing strategy",
@@ -119,6 +124,7 @@
       "branch": "marketing",
       "keywords": [
         "kahneman",
+        "kahneman creative ads",
         "creative strategy",
         "content angles",
         "ad territories",
@@ -139,6 +145,7 @@
       "branch": "marketing",
       "keywords": [
         "traffic secrets",
+        "traffic secrets playbook",
         "kế hoạch traffic",
         "tìm khách hàng",
         "dream 100",
@@ -158,6 +165,7 @@
       "branch": "marketing",
       "keywords": [
         "viết content",
+        "cong thuc viet content by noti v4",
         "viết copy",
         "viết quảng cáo",
         "content ads",
@@ -192,6 +200,7 @@
       "branch": "marketing",
       "keywords": [
         "tối ưu bài viết",
+        "viet content seo geo v5",
         "tối ưu seo",
         "chấm điểm seo",
         "viết lại chuẩn seo",
@@ -212,6 +221,7 @@
       "branch": "marketing",
       "keywords": [
         "meta ads analysis",
+        "meta ads analyzer mod by noti",
         "phân tích quảng cáo meta",
         "phân tích tài khoản quảng cáo",
         "facebook ads performance",
@@ -249,6 +259,7 @@
       "branch": "marketing",
       "keywords": [
         "framework marketing đa kênh",
+        "framework marketing da kenh",
         "marketing đa kênh",
         "hành trình khách hàng",
         "lập kế hoạch đa kênh",
@@ -267,6 +278,7 @@
       "branch": "marketing",
       "keywords": [
         "social-reach",
+        "social reach",
         "agent-reach",
         "trinh sát mạng xã hội",
         "quét twitter",
@@ -309,32 +321,77 @@
     },
     "browser-hygiene": {
       "branch": "app",
-      "keywords": ["browser-hygiene", "dọn trình duyệt", "trình duyệt bị treo", "tiến trình trình duyệt mồ côi", "orphan browser process", "browser process cleanup"]
+      "keywords": [
+        "browser-hygiene",
+        "browser hygiene",
+        "dọn trình duyệt",
+        "trình duyệt bị treo",
+        "tiến trình trình duyệt mồ côi",
+        "orphan browser process",
+        "browser process cleanup"
+      ]
     },
     "cham-soc-may-tinh": {
       "branch": "app",
-      "keywords": ["cham-soc-may-tinh", "chăm sóc máy tính", "dọn cache windows", "tối ưu máy tính windows", "bảo dưỡng máy tính"]
+      "keywords": [
+        "cham-soc-may-tinh",
+        "cham soc may tinh",
+        "chăm sóc máy tính",
+        "dọn cache windows",
+        "tối ưu máy tính windows",
+        "bảo dưỡng máy tính"
+      ]
     },
     "doc-to-markdown": {
       "branch": "app",
-      "keywords": ["doc-to-markdown", "chuyển docx thành markdown", "chuyển file docx thành markdown", "chuyển tài liệu sang markdown", "convert document to markdown", "trích xuất markdown từ doc"]
+      "keywords": [
+        "doc-to-markdown",
+        "doc to markdown",
+        "chuyển docx thành markdown",
+        "chuyển file docx thành markdown",
+        "chuyển tài liệu sang markdown",
+        "convert document to markdown",
+        "trích xuất markdown từ doc"
+      ]
     },
     "flowkit": {
       "branch": "marketing",
-      "keywords": ["flowkit", "google flow veo", "tạo video bằng flow", "làm video veo", "quy trình video flow"]
+      "keywords": [
+        "flowkit",
+        "google flow veo",
+        "tạo video bằng flow",
+        "làm video veo",
+        "quy trình video flow"
+      ]
     },
     "paid-media-auditor": {
       "branch": "marketing",
-      "keywords": ["paid-media-auditor", "paid media audit", "audit paid media", "audit paid media và tối ưu quảng cáo facebook", "kiểm toán paid media", "đánh giá hiệu quả paid media", "phân tích hiệu quả chiến dịch đa kênh"]
+      "keywords": [
+        "paid-media-auditor",
+        "paid media auditor",
+        "paid media audit",
+        "audit paid media",
+        "audit paid media và tối ưu quảng cáo facebook",
+        "kiểm toán paid media",
+        "đánh giá hiệu quả paid media",
+        "phân tích hiệu quả chiến dịch đa kênh"
+      ]
     },
     "testcontainers": {
       "branch": "app",
-      "keywords": ["testcontainers", "testcontainers postgres", "integration test với testcontainers", "kiểm thử database container", "test cơ sở dữ liệu bằng container"]
+      "keywords": [
+        "testcontainers",
+        "testcontainers postgres",
+        "integration test với testcontainers",
+        "kiểm thử database container",
+        "test cơ sở dữ liệu bằng container"
+      ]
     },
     "gemini-sdk": {
       "branch": "app",
       "keywords": [
         "gemini-sdk",
+        "gemini sdk",
         "google-genai",
         "@google/genai",
         "gemini api",
@@ -344,12 +401,20 @@
     },
     "youtube-suggest": {
       "branch": "marketing",
-      "keywords": ["youtube-suggest", "youtube autocomplete", "gợi ý từ khóa youtube", "youtube search suggestions", "đề xuất truy vấn youtube"]
+      "keywords": [
+        "youtube-suggest",
+        "youtube suggest",
+        "youtube autocomplete",
+        "gợi ý từ khóa youtube",
+        "youtube search suggestions",
+        "đề xuất truy vấn youtube"
+      ]
     },
     "youtube-keyword-intelligence": {
       "branch": "marketing",
       "keywords": [
         "youtube-keyword-intelligence",
+        "youtube keyword intelligence",
         "nghiên cứu từ khóa youtube",
         "phân tích từ khóa youtube",
         "serp audit youtube",
@@ -383,10 +448,10 @@
       "branch": "app",
       "keywords": [
         "karpathy",
+        "karpathy coder",
         "surgical",
         "simplicity first",
         "surgical changes",
-        "chống over-engineering",
         "tối giản code"
       ]
     },
@@ -447,6 +512,7 @@
       "branch": "app",
       "keywords": [
         "reverse-lab",
+        "reverse lab",
         "dịch ngược binary",
         "dịch ngược apk",
         "phân tích mạng tls",
@@ -461,6 +527,7 @@
       "branch": "app",
       "keywords": [
         "gitnexus-plan",
+        "gitnexus plan",
         "lập kế hoạch kỹ thuật sâu",
         "plan change knowledge graph",
         "pdg analysis",
@@ -473,6 +540,7 @@
       "branch": "app",
       "keywords": [
         "gitnexus-work",
+        "gitnexus work",
         "thực thi kế hoạch gitnexus",
         "execute the plan",
         "impact checks before symbol edit",
@@ -484,6 +552,7 @@
       "branch": "app",
       "keywords": [
         "gitnexus-review",
+        "gitnexus review",
         "review pr gitnexus",
         "merge-risk assessment",
         "regression hunt",
@@ -495,6 +564,7 @@
       "branch": "app",
       "keywords": [
         "domain-modeling",
+        "domain modeling",
         "mô hình hóa nghiệp vụ",
         "ubiquitous language",
         "eric evans ddd",
@@ -508,6 +578,7 @@
       "branch": "app",
       "keywords": [
         "tdd",
+        "test driven development",
         "test-driven-development",
         "red-green-refactor",
         "viết test trước",
@@ -520,12 +591,15 @@
       "branch": "app",
       "keywords": [
         "systematic-debugging",
+        "systematic debugging",
         "sửa lỗi tuần tự",
         "chẩn đoán bug",
         "test failure",
         "unexpected behavior",
         "điều tra lỗi tuần tự",
-        "debug bài bản"
+        "debug bài bản",
+        "root cause",
+        "root cause analysis"
       ]
     },
     "impeccable": {
@@ -563,9 +637,9 @@
       "branch": "app",
       "keywords": [
         "verify-ui",
+        "verify ui",
         "kiểm chứng giao diện",
         "chrome devtools mcp",
-        "core web vitals",
         "second agent review",
         "chụp màn hình kiểm tra",
         "kiểm tra ui"
@@ -575,17 +649,20 @@
       "branch": "app",
       "keywords": [
         "verification-before-completion",
+        "verification before completion",
         "chứng minh trước khi tuyên bố",
         "evidence before assertions",
         "chạy test trước khi commit",
         "xác minh hoàn tất",
         "bằng chứng nghiệm thu"
-      ]
+      ],
+      "alias": "anti-hallucination-guard"
     },
     "ponytail-review": {
       "branch": "app",
       "keywords": [
         "ponytail-review",
+        "ponytail review",
         "over-engineering",
         "cắt giảm code thừa",
         "xóa abstraction dư thừa",
@@ -593,13 +670,16 @@
         "what can we delete",
         "rà soát phình mã",
         "dọn dẹp code thừa",
-        "review over-engineering"
+        "review over-engineering",
+        "chống over-engineering",
+        "cắt bớt code"
       ]
     },
     "database-migrations": {
       "branch": "app",
       "keywords": [
         "database-migrations",
+        "database migrations",
         "migration database",
         "schema change",
         "zero-downtime",
@@ -614,6 +694,7 @@
       "branch": "app",
       "keywords": [
         "security-review",
+        "security review",
         "kiểm tra bảo mật",
         "owasp",
         "sql injection",
@@ -628,6 +709,7 @@
       "branch": "app",
       "keywords": [
         "loop-circuit-breaker",
+        "loop circuit breaker",
         "ngắt mạch lặp",
         "chống cháy token",
         "stagnation circuit breaker",
@@ -651,6 +733,7 @@
       "branch": "app",
       "keywords": [
         "apple-inspired",
+        "apple inspired design",
         "apple design",
         "apple hig",
         "hig",
@@ -663,6 +746,7 @@
       "branch": "app",
       "keywords": [
         "second-brain-memory",
+        "second brain memory",
         "second-brain",
         "save-memory",
         "lưu bộ nhớ",
@@ -676,6 +760,7 @@
       "branch": "app",
       "keywords": [
         "query-wiki",
+        "query wiki",
         "tra cứu wiki",
         "hỏi wiki",
         "tìm kiếm wiki",
@@ -698,6 +783,7 @@
       "branch": "app",
       "keywords": [
         "lint-wiki",
+        "lint wiki",
         "kiểm tra wiki",
         "rà soát wiki",
         "health check wiki",
@@ -709,6 +795,7 @@
       "branch": "app",
       "keywords": [
         "obsidian-markdown",
+        "obsidian markdown",
         "cú pháp obsidian",
         "wikilinks",
         "obsidian callout",
@@ -719,6 +806,7 @@
       "branch": "app",
       "keywords": [
         "json-canvas",
+        "json canvas",
         "obsidian canvas",
         "sơ đồ canvas",
         "tạo canvas",
@@ -729,6 +817,7 @@
       "branch": "app",
       "keywords": [
         "obsidian-bases",
+        "obsidian bases",
         "obsidian base",
         "bảng .base",
         ".base file"
@@ -738,6 +827,7 @@
       "branch": "app",
       "keywords": [
         "receiving-code-review",
+        "receiving code review",
         "tiếp nhận code review",
         "tiep nhan code review",
         "nhận review",
@@ -752,6 +842,7 @@
       "branch": "app",
       "keywords": [
         "subagent-driven-development",
+        "subagent driven development",
         "sdd",
         "phát triển theo subagent",
         "subagent task loop",
@@ -765,6 +856,7 @@
       "branch": "app",
       "keywords": [
         "finishing-a-development-branch",
+        "finishing a development branch",
         "hoàn tất nhánh",
         "hoan tat nhanh",
         "nghiệm thu nhánh",
@@ -778,6 +870,7 @@
       "branch": "app",
       "keywords": [
         "diagnosing-harness",
+        "diagnosing harness",
         "chẩn đoán harness",
         "kiểm toán transcript",
         "audit transcript",
@@ -792,6 +885,7 @@
       "branch": "app",
       "keywords": [
         "anti-hallucination-guard",
+        "anti hallucination guard",
         "chống ảo giác",
         "anti-hallucination",
         "grounding",
@@ -843,6 +937,7 @@
       "branch": "app",
       "keywords": [
         "source-driven-development",
+        "source driven development",
         "source-driven",
         "tài liệu chính thống",
         "official docs",
@@ -854,6 +949,7 @@
       "branch": "app",
       "keywords": [
         "doubt-driven-development",
+        "doubt driven development",
         "doubt-driven",
         "phản biện đối kháng",
         "adversarial review",
@@ -874,7 +970,10 @@
         "inp",
         "cls",
         "long tasks",
-        "bundle size"
+        "bundle size",
+        "core web vitals",
+        "core web vital",
+        "cwv"
       ]
     }
   },
@@ -891,10 +990,13 @@
     "max_chars": 72000,
     "stage": {
       "IMPLEMENTATION": [
-        "test-driven-development"
+        "test-driven-development",
+        "source-driven-development",
+        "doubt-driven-development"
       ],
       "CRITIQUE": [
-        "security-review"
+        "security-review",
+        "ponytail-review"
       ],
       "DESIGN": [
         "app",
@@ -904,7 +1006,12 @@
         "accessibility"
       ],
       "AUDIT": [
-        "verification-before-completion"
+        "verification-before-completion",
+        "anti-hallucination-guard",
+        "webperf"
+      ],
+      "INTAKE": [
+        "interview-me"
       ]
     },
     "role": {
@@ -952,5 +1059,8 @@
         "security-review"
       ]
     }
+  },
+  "skill_aliases": {
+    "verification-before-completion": "anti-hallucination-guard"
   }
 }

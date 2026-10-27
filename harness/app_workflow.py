@@ -51,7 +51,54 @@ def _is_link(path):
     return path.is_symlink() or _is_junction(path)
 
 
+STAGE_GATES = {
+    "INTAKE": {
+        "stage": "INTAKE",
+        "recommended_skills": ["interview-me"],
+        "description": "Pre-Spec intent extraction and requirement clarification (/interview-me)",
+        "slash_commands": ["/interview-me"],
+    },
+    "DESIGN": {
+        "stage": "DESIGN",
+        "recommended_skills": ["app", "domain-modeling"],
+        "description": "Architecture specification and domain modeling",
+        "slash_commands": ["/app", "/domain-modeling"],
+    },
+    "DESIGN_REVIEW": {
+        "stage": "DESIGN_REVIEW",
+        "recommended_skills": ["accessibility"],
+        "description": "Independent design and accessibility audit",
+        "slash_commands": ["/accessibility"],
+    },
+    "IMPLEMENTATION": {
+        "stage": "IMPLEMENTATION",
+        "recommended_skills": ["test-driven-development", "source-driven-development", "doubt-driven-development"],
+        "description": "TDD build with official docs verification (/source-driven-development) and adversarial review (/doubt-driven-development)",
+        "slash_commands": ["/test-driven-development", "/source-driven-development", "/doubt-driven-development"],
+    },
+    "BUILD": {
+        "stage": "IMPLEMENTATION",
+        "recommended_skills": ["test-driven-development", "source-driven-development", "doubt-driven-development"],
+        "description": "TDD build with official docs verification (/source-driven-development) and adversarial review (/doubt-driven-development)",
+        "slash_commands": ["/test-driven-development", "/source-driven-development", "/doubt-driven-development"],
+    },
+    "CRITIQUE": {
+        "stage": "CRITIQUE",
+        "recommended_skills": ["security-review", "ponytail-review"],
+        "description": "Security audit and anti-overengineering review (/ponytail-review)",
+        "slash_commands": ["/security-review", "/ponytail-review"],
+    },
+    "AUDIT": {
+        "stage": "AUDIT",
+        "recommended_skills": ["anti-hallucination-guard", "webperf", "verify-ui"],
+        "description": "Deterministic test verification, performance budget (/webperf), and UI proof (/verify-ui)",
+        "slash_commands": ["/anti-hallucination-guard", "/webperf", "/verify-ui"],
+    },
+}
+
+
 class AppWorkflowStore:
+    STAGE_GATES = STAGE_GATES
     NEXT_AGENT = {"DESIGN": "architect", "DESIGN_REVIEW": "design_reviewer", "SIGN_OFF": "human",
                   "IMPLEMENTATION": "builder", "CRITIQUE": "code_critic", "AUDIT": "qa_auditor",
                   "AUDIT_PENDING_BROWSER": "human_browser_verification",
@@ -60,6 +107,44 @@ class AppWorkflowStore:
     DOWNSTREAM = {"execution_runs", "code_review", "manifest", "manifest_sha256", "implementation_report", "audit", "evidence",
                   "overall_verdict", "browser_status", "functional_status", "http_status", "qa_actor_id",
                   "browser_verification", "browser_verification_request"}
+
+    @classmethod
+    def get_stage_gate(cls, stage: str) -> dict:
+        return cls.STAGE_GATES.get(stage.upper(), {})
+
+    @classmethod
+    def validate_stage_skills(cls, stage: str, task_context: dict = None) -> dict:
+        stage_key = stage.upper()
+        gate = cls.STAGE_GATES.get(stage_key, {})
+        suggestions = list(gate.get("recommended_skills", []))
+        validation_flags = {}
+
+        if stage_key == "INTAKE":
+            desc = (task_context or {}).get("description", "")
+            has_3d = any(k in desc.lower() for k in ("who:", "why:", "constraint:", "cho ai", "mục đích", "ràng buộc"))
+            validation_flags["intent_clarified"] = has_3d
+            if not has_3d and "interview-me" not in suggestions:
+                suggestions.insert(0, "interview-me")
+
+        elif stage_key in {"IMPLEMENTATION", "BUILD"}:
+            validation_flags["requires_source_driven"] = True
+            is_core = any(k in str(task_context or "").lower() for k in ("core", "harness", "runtime", "security", "engine"))
+            if is_core and "doubt-driven-development" not in suggestions:
+                suggestions.append("doubt-driven-development")
+            validation_flags["is_core_module"] = is_core
+
+        elif stage_key == "AUDIT":
+            touches_ui = any(k in str(task_context or "").lower() for k in ("ui", "frontend", "plugin", "web", "html", "css", "component"))
+            validation_flags["touches_ui"] = touches_ui
+            if touches_ui and "webperf" not in suggestions:
+                suggestions.append("webperf")
+
+        return {
+            "stage": stage_key,
+            "recommended_skills": suggestions,
+            "description": gate.get("description", ""),
+            "flags": validation_flags,
+        }
 
     def __init__(self, root=None):
         self.root = Path(root or os.environ.get("HARNESS_BRAIN_DIR", Path(__file__).resolve().parents[1] / ".brain")) / "app_workflows"

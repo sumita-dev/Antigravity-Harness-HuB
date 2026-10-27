@@ -6,6 +6,10 @@ description: "Chẩn đoán chuyên sâu trước khi fix bug bằng Agentic RAG
 
 Chẩn đoán chuyên sâu trước khi can thiệp vào mã nguồn nhằm tìm kiếm nguồn gốc lỗi ngầm, race condition và hồi quy mã nguồn bằng mô hình **Multi-Hop Forensics RAG**.
 
+> **Ranh giới Hợp đồng & Phân định với Systematic Debugging / Why:**
+> - `/forensics` chuyên trách: Khảo cổ học vết lỗi ngầm (Runtime memory leak, race condition, crash dump, flamegraph, git bisect regression). Forensics thu thập bằng chứng thực tế và bàn giao nguyên nhân gốc cho `/systematic-debugging` thực hiện chu trình sửa lỗi 4 pha.
+> - Khác với `/why` (tập trung vào *lý do kiến trúc lịch sử* và *Chesterton's Fence*), `/forensics` tập trung thuần túy vào *truy tìm nguồn gốc phát sinh lỗi kỹ thuật*.
+
 ---
 
 ## Ba Nhánh Chẩn Đoán Cốt Lõi
@@ -48,7 +52,7 @@ flowchart TD
 
 ## Tiêu Chuẩn Báo Cáo Forensics (Evidence-First)
 
-Mọi báo cáo chẩn đoán phải tuân thủ nghiêm ngặt chuẩn chứng cứ:
-1. **Phả hệ lỗi (Genealogy of Bug):** Commit khởi tạo $\rightarrow$ commit refactor làm lệch logic $\rightarrow$ caller kích hoạt.
-2. **Dẫn chứng vật lý:** File path, dòng code, commit SHA, hot frame name, hoặc thông số heap retention cụ thể.
-3. **Phán quyết:** Chỉ rõ lỗi do Runtime Leak, Logic Regression hay Race Condition trước khi chuyển giao sang bước sửa mã.
+Mọi kết luận từ `/forensics` phải đi kèm:
+1. Đường dẫn vật lý của trace file hoặc commit hash xác định (`exit code == 0`).
+2. Log trích xuất trực tiếp từ runtime metrics hoặc git log.
+3. Không phỏng đoán: Nếu thiếu trace file, khai báo rõ `Chưa đủ dữ liệu runtime` thay vì võ đoán nguyên nhân.

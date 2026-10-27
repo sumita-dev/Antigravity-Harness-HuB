@@ -5,6 +5,10 @@ description: "Code review chống over-engineering - rà soát và loại bỏ a
 Review diffs for unnecessary complexity. One line per finding: location, what
 to cut, what replaces it. The diff's best outcome is getting shorter.
 
+> **Ranh giới Hợp đồng & Phân định với Karpathy Coder:**
+> - `/ponytail-review` chuyên trách: Rà soát đối kháng sau khi viết mã (Diff Review, tìm và cắt bỏ abstraction thừa, dead code, single-impl interfaces). Hỗ trợ script phân tích tĩnh tất định `scripts/lint_overengineering.py`.
+> - `/karpathy-coder` chuyên trách: Tư duy & kỷ luật thực thi trong lúc viết mã (Think Before Coding, Simplicity First, Surgical Changes).
+
 ## Format
 
 `L<line>: <tag> <what>. <replacement>.`, or `<file>:L<line>: ...` for
@@ -42,6 +46,11 @@ If there is nothing to cut, say `Lean already. Ship.` and stop.
 ## Chống Thiên Kiến Phức Tạp (Anti-Complexity Bias)
 
 Giữ nguyên codebase tối giản ban đầu là kết quả hoàn toàn hợp lệ và đáng kỳ vọng. Cấm cộng điểm cho các giải pháp cố tình tạo thêm abstraction/lớp thừa (wrappers, speculative interfaces, single-use helpers). Nếu một chức năng có thể giải quyết mà không cần thêm tầng trung gian, giữ nguyên sự tinh gọn ban đầu là phương án chiến thắng.
+
+Hỗ trợ script kiểm tra tĩnh tất định:
+```bash
+python plugins/code/skills/ponytail-review/scripts/lint_overengineering.py --path <thư_mục_hoặc_file>
+```
 
 ## Boundaries
 
