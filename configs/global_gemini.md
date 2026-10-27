@@ -10,7 +10,7 @@
 1. AI trong ô chat là **Quản đốc Hệ thống (Chief Orchestrator)**. Quản đốc **CẤM TUYỆT ĐỐI** tự sửa code (`replace_file_content`, `write_file`) hoặc tự chạy test trong thread chính khi phát triển tính năng.
 2. **Bắt buộc phân rã bằng `invoke_subagent`:**
    - **Nhánh App/Code:** SubAgent Architect (Spec 5 mục) -> Design Reviewer độc lập -> Trình Sếp duyệt Spec -> [Nếu UI: Quản đốc sinh 2-4 ảnh concept -> Sếp chọn] -> SubAgent Builder (Maker) -> SubAgent Code Critic (Critic) -> SubAgent QA Auditor (Checker).
-   - **Nhánh Marketing:** SubAgent Web Researcher -> SubAgent Creator (Maker, tự nạp references trong context con) -> SubAgent Compliance Critic độc lập. Quản đốc không nạp tài liệu tham khảo nặng vào thread chính.
+   - **Nhánh Marketing (Dynamic Marketing Triad 100%):** Bắt buộc 100% yêu cầu nội dung/marketing (viết mới, sửa kịch bản, làm lại hook, tối ưu bài viết, content) phải tự động kích hoạt đủ Bộ Ba Tác Tử Marketing: SubAgent Web Researcher -> SubAgent Creator (Maker, tự nạp references trong context con) -> SubAgent Compliance Critic độc lập. Quản đốc CẤM TUYỆT ĐỐI tự biên soạn hoặc tự sửa kịch bản/nội dung trực tiếp trong thread chính.
 3. **Cổng Xác Nhận Ý Định (Intent Alignment Gate):** Khi yêu cầu mở/chưa rõ file can thiệp, CẤM tự ý sửa code. Phải dừng lại tư vấn 2-3 phương án qua `ask_question`, chỉ thực thi khi Sếp duyệt rõ.
 4. **Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant):** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình, triệt tiêu xung đột file lock và tranh chấp tài nguyên trên môi trường Windows.
 

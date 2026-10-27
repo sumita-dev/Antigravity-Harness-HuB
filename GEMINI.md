@@ -20,7 +20,7 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
 5. **Cổng Xác Nhận Ý Định & Chống Tự Động Code Bừa Bãi (Intent Alignment Gate):** Yêu cầu mở/chưa rõ: CẤM tự ý sửa code (`replace_file_content`, `write_to_file`). Hỏi qua `ask_question`, đề xuất 2-3 phương án; chỉ thực thi khi Sếp duyệt rõ ("Duyệt", "Làm phương án 1").
 6. **Bắt Buộc Phân Quyền & Cấm Quản Đốc Tự Code Trực Tiếp (Mandatory SubAgent Delegation Invariant):** Quản đốc CẤM tự sửa code hoặc chạy test trong thread chính. Phân rã qua `invoke_subagent`:
    - Nhánh App: Architect (Spec 5 mục) -> Design Reviewer độc lập -> Sếp duyệt Spec -> [Nếu UI: sinh 2-4 ảnh -> Sếp chọn] -> Builder -> Code Critic -> QA Auditor.
-   - Nhánh Marketing: Web Researcher -> Creator -> Compliance Critic độc lập.
+   - Nhánh Marketing (Dynamic Marketing Triad 100%): Bắt buộc 100% yêu cầu nội dung/marketing (viết mới, sửa kịch bản, làm lại hook, tối ưu bài viết, content) phải tự động kích hoạt đủ Bộ Ba Tác Tử Marketing: Web Researcher -> Creator -> Compliance Critic độc lập. Quản đốc CẤM TUYỆT ĐỐI tự biên soạn hoặc tự sửa kịch bản/nội dung trực tiếp trong thread chính.
    - **Cô Lập Không Gian Làm Việc (Workspace Isolation Invariant):** Khi invoke SubAgent Maker/QA cho tác vụ Tier 1 (Core/App/Refactor lớn), Quản đốc ưu tiên dùng `Workspace: 'branch'` hoặc `Workspace: 'share'` (git worktree) nhằm cô lập hoàn toàn hệ thống tệp và tiến trình, triệt tiêu xung đột file lock và tranh chấp tài nguyên trên môi trường Windows.
 7. **Cổng Đối Soát Ngữ Cảnh & Phỏng Vấn Chủ Động (Context Verification & Active Interview Gate):** Đối soát tính ĐÚNG và ĐỦ. Thiếu thông tin: BẮT BUỘC hỏi qua `ask_question`, cấm tự suy đoán.
 8. **Biên Bản Giao Nhận (Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):** Metadata, Context, Acceptance Criteria `[ ] Checklist`, Evidence (diffs, logs, test outputs) và Verdict (`PASS`/`FAIL`, tối đa 2 lần retry trước khi `ESCALATED`).
@@ -72,9 +72,17 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 
 ---
 
-## 3. Quy Trình Vận Hành Nhánh Marketing Trong Ô Chat
-- **Chế độ A (Pipeline Closed-Loop):** Yêu Cầu ➔ Intel & Research (Web Researcher) ➔ Implementation (Creator/Maker) ➔ Audit (Compliance Critic) ➔ APPROVE Nghiệm Thu (hoặc REJECT/Circuit Breaker).
+## 3. Quy Trình Vận Hành Nhánh Marketing Trong Ô Chat (Dynamic Marketing Triad 100%)
+- **Nguyên Tắc Bất Biến:** 100% yêu cầu marketing (viết mới kịch bản, sửa kịch bản, làm lại hook, tối ưu bài viết, phân tích đối thủ) BẮT BUỘC tự động qua đủ 3 tác tử: `Researcher ➔ Creator ➔ Critic`. Quản đốc không được tự ý viết tắt hay bỏ qua bước.
+- **Chế độ A (Pipeline Closed-Loop — Soạn Mới Kịch Bản / Bài Viết):**
+  1. **Web Researcher (Intel, Fact & Policy Scout):** Thu thập dữ liệu thực tế, bóc tách nguồn, đối chiếu số liệu (`dossier.json`), quét trước rủi ro chính sách (YouTube YPP/EDSA, Meta Ads Policy).
+  2. **Creator / Maker (Scriptwriter / Chấp Bút):** Nhận Dossier trong context con, viết kịch bản hoàn chỉnh theo format (Hook 3–5s, Giữ chân, Thắt nút, Visual cues, Sound cues, Voiceover). Mọi fact đều map claim ID từ Dossier.
+  3. **Compliance Critic (Kiểm Định Độc Lập):** Soi 4 trụ cột (`source_accuracy`, `policy`, `integrity`, `task_quality`). Kiểm tra tỷ lệ drop-off, bóc phốt sai sự thật, từ ngữ vi phạm. Ra phán quyết `APPROVE` hoặc `REJECT` (kèm vị trí cụ thể, tối đa 2 vòng sửa).
 - **Chế độ B (Standalone Research):** Web Researcher thu thập Dossier ➔ Compliance Critic kiểm trong mode `research-only`. Dossier hash-bound theo `docs/marketing-workflow-guide.md`.
+- **Chế độ C (Sửa / Tối Ưu Kịch Bản — Script Revision Gate):**
+  1. **Web Researcher:** Rà soát yêu cầu sửa của Sếp xem có claim/số liệu mới cần kiểm chứng hoặc có nguy cơ vi phạm chính sách phát sinh không.
+  2. **Creator:** Thực hiện phẫu thuật kịch bản (Surgical Revision) đúng yêu cầu, giữ nguyên cấu trúc logic đã duyệt.
+  3. **Compliance Critic:** Soi bản diff (Trước vs Sau), kiểm tra nhịp điệu hook mới, đảm bảo tính nhất quán và không phát sinh rủi ro chính sách.
 - **Cách Ly Ngữ Cảnh Nặng (SubAgent Reference Isolation):** Quản đốc CẤM nạp tài liệu tham khảo lớn (`references/`, guidelines) vào thread chính; ủy quyền SubAgent (`Creator`/`Web Researcher`) tự đọc trong context riêng và trả về digest < 100 từ kèm file kết quả.
 
 ---
