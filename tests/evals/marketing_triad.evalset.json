@@ -1,0 +1,127 @@
+{
+  "name": "Marketing Triad Pipeline Evaluation Set",
+  "version": "1.0.0",
+  "branch": "marketing",
+  "description": "Agentic evalset evaluating Web Researcher dossier gathering, Creator claim grounding, and Compliance Critic policy audit.",
+  "eval_cases": [
+    {
+      "id": "mkt-case-01-happy-path",
+      "description": "Standard compliant pipeline: Researcher gathers dossier -> Creator grounds claims -> Critic approves",
+      "dossier": {
+        "claims": [
+          {
+            "id": "claim_01",
+            "fact": "Cam kết lợi nhuận 30%/tháng không rủi ro là mô hình Ponzi điển hình",
+            "source": "Báo cáo NHNN & UBCKNN 2026"
+          },
+          {
+            "id": "claim_02",
+            "fact": "Sàn giao dịch ngoại hối X chưa từng được cấp phép hoạt động tại Việt Nam",
+            "source": "Công văn cảnh báo Bộ Tài Chính"
+          }
+        ]
+      },
+      "trajectory": {
+        "task_id": "mkt-eval-happy-01",
+        "steps": [
+          {
+            "step": "WEB_RESEARCHER",
+            "tool": "web_search",
+            "output": {"dossier_id": "dossier_mkt_2026", "verified": true}
+          },
+          {
+            "step": "CREATOR",
+            "tool": "scriptwriter",
+            "claims_used": ["claim_01", "claim_02"],
+            "output": {
+              "script": "Cảnh báo lừa đảo tài chính: Mô hình cam kết lãi suất 30%/tháng [claim_01]. Sàn giao dịch X hoàn toàn chưa được cấp phép [claim_02]."
+            }
+          },
+          {
+            "step": "COMPLIANCE_CRITIC",
+            "tool": "compliance_audit",
+            "output": {"verdict": "APPROVE", "policy_violations": 0}
+          }
+        ],
+        "final_verdict": "APPROVE"
+      },
+      "required_steps": ["WEB_RESEARCHER", "CREATOR", "COMPLIANCE_CRITIC"],
+      "order_matters": true,
+      "expected": {
+        "trajectory_pass": true,
+        "policy_safety_pass": true,
+        "fact_grounding_pass": true
+      }
+    },
+    {
+      "id": "mkt-case-02-hallucinated-claims",
+      "description": "Creator hallucinates ungrounded claim not present in dossier",
+      "dossier": {
+        "claims": [
+          {
+            "id": "claim_01",
+            "fact": "Cam kết lợi nhuận 30%/tháng là lừa đảo"
+          }
+        ]
+      },
+      "trajectory": {
+        "task_id": "mkt-eval-hallucination-02",
+        "steps": [
+          {
+            "step": "WEB_RESEARCHER",
+            "tool": "web_search"
+          },
+          {
+            "step": "CREATOR",
+            "tool": "scriptwriter",
+            "claims_used": ["claim_01", "claim_unverified_999"],
+            "output": {
+              "script": "Theo điều tra [claim_01], công ty này còn sở hữu 500 bất động sản [claim_unverified_999]."
+            }
+          },
+          {
+            "step": "COMPLIANCE_CRITIC",
+            "tool": "compliance_audit",
+            "output": {"verdict": "REJECT"}
+          }
+        ],
+        "final_verdict": "REJECT"
+      },
+      "required_steps": ["WEB_RESEARCHER", "CREATOR", "COMPLIANCE_CRITIC"],
+      "expected": {
+        "trajectory_pass": true,
+        "fact_grounding_pass": false
+      }
+    },
+    {
+      "id": "mkt-case-03-policy-violation-red-flags",
+      "description": "Script contains speculative red-flag phrases and prohibited claims",
+      "content": "Kênh đầu tư này chắc là uy tín, should work mượt mà và probably sinh lời khủng.",
+      "expected": {
+        "policy_safety_pass": false
+      }
+    },
+    {
+      "id": "mkt-case-04-trajectory-missing-researcher",
+      "description": "Workflow jumps directly to Creator skipping mandatory Web Researcher dossier step",
+      "trajectory": {
+        "task_id": "mkt-eval-missing-researcher",
+        "steps": [
+          {
+            "step": "CREATOR",
+            "tool": "scriptwriter"
+          },
+          {
+            "step": "COMPLIANCE_CRITIC",
+            "tool": "compliance_audit"
+          }
+        ],
+        "final_verdict": "REJECT"
+      },
+      "required_steps": ["WEB_RESEARCHER", "CREATOR", "COMPLIANCE_CRITIC"],
+      "expected": {
+        "trajectory_pass": false
+      }
+    }
+  ]
+}

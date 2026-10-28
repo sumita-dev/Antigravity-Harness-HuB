@@ -317,7 +317,7 @@ def test_no_undeclared_third_party_dependencies():
     }
 
     # Các thư viện phụ trợ được bọc an toàn trong try/except hoặc chỉ chạy trên OS đặc thù
-    optional_dynamic = {"opik", "rapidfuzz", "playwright", "win32com", "pythoncom"}
+    optional_dynamic = {"opik", "rapidfuzz", "playwright", "win32com", "pythoncom", "google"}
 
     # Các module / package nội bộ của dự án
     local_roots = {

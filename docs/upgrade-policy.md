@@ -21,3 +21,33 @@ python scripts/dispatch_subagents.py --export-schema qa_auditor --stage AUDIT --
 ```
 
 The DESIGN profile includes the existing app skill and its TDD/Karpathy dependencies; UI profiles add accessibility. E2E role profiles include verify-ui/accessibility. Critique and higher risk profiles include security review. Composition limits remain enforced on the complete dependency closure, including production exports. Integration evidence: `upgrade-evidence/policy-integration-red.txt` and `policy-integration-green.txt` (22 focused tests).
+
+---
+
+## Google ADK & Agentic Evals Extension Layer
+
+The harness integrates an optional, zero-bloat extension layer bridging Google Agent Development Kit (ADK) and Agentic Evaluation suites into the Antigravity Harness Hub architecture without impacting core boot latency or existing test performance.
+
+### 1. Architectural Components
+
+- **`harness/adk/`**:
+  - `ADKTrajectoryAdapter`: Captures ADK runner asynchronous events and normalizes them 1:1 into the canonical `TrajectoryStore` and `TaskContext.trace_steps` schema.
+  - `ADKLiveRunner`: Headless workflow execution engine implementing deterministic multi-agent patterns (`SequentialAgent` for linear pipelines, `LoopAgent` for Maker-Critic cycles) while respecting system invariants and circuit breakers.
+  - Zero-Bloat Lazy Import: All ADK dependencies (`google-adk`, `fastapi`, `uvicorn`, `opentelemetry`) are guarded behind dynamic lazy imports and fallback gracefully when not installed.
+  - Safe Process Lifecycle Guard: Manages background dashboard processes, checking available ports dynamically and providing deterministic cleanup hooks (`cleanup_dashboard_process`) to guarantee zero orphan processes.
+
+- **`harness/eval/`**:
+  - `AgentEvaluatorBridge`: Master evaluation bridge connecting harness quality gates with `google.adk.evaluation.AgentEvaluator` and standalone deterministic evaluators.
+  - `TrajectoryEvaluator`: Assesses step execution order, required tool sequencing, and trajectory fidelity against golden targets.
+  - `PolicySafetyEvaluator`: Detects policy boundary breaches and red-flag phrases (`should work`, `probably`, `chắc là`).
+  - `FactGroundingEvaluator`: Verifies dossier claim mappings, citation veracity, and enforces anti-hallucination standards.
+
+### 2. Execution Flags & Test Segmentation
+
+- **CLI Execution Flags (`run_harness.py`)**:
+  - `--live`: Dispatches task execution via `ADKLiveRunner` (headless multi-agent workflow) instead of pure state-machine simulation.
+  - `--visual`: Inspects or launches the Google ADK local web dashboard (`adk web`) on a verified safe port (default: 8000).
+
+- **Two-Tier Test Segmentation**:
+  - Deterministic Core Suite: Fast unit and integration tests run via `python -m pytest -q` ($0 API cost, zero-delay).
+  - Agentic Evals Suite: Targeted agent evaluations are tagged with `@pytest.mark.eval` (`python -m pytest -m eval`), keeping operational CI fast while enabling rigorous offline benchmarking.

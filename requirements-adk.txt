@@ -1,0 +1,12 @@
+# ==============================================================================
+# Extended Optional Dependencies for Google ADK Integration
+# ==============================================================================
+# Gói mở rộng tùy chọn cho Agentic Evals và Headless Live Runner.
+# KHÔNG bắt buộc cho core runtime và deterministic test suite của Harness Hub.
+#
+# Cài đặt khi cần chạy Agentic Evals hoặc Live Headless Runner:
+#   pip install -r requirements-adk.txt
+# ==============================================================================
+
+google-adk>=0.1.0
+google-genai>=0.1.0

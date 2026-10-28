@@ -145,6 +145,14 @@ def main(argv=None) -> int:
                         help="Phê duyệt và áp dụng đề xuất nâng cấp kỹ năng (L3 Human Gate)")
     parser.add_argument("--list-proposals", action="store_true",
                         help="Xem danh sách các đề xuất nâng cấp kỹ năng đang chờ duyệt")
+    parser.add_argument("--live", action="store_true",
+                        help="Chạy task qua ADKLiveRunner (thực thi headless/workflow) thay vì simulation thuần")
+    parser.add_argument("--visual", action="store_true",
+                        help="Khởi tạo hoặc kiểm tra visual web dashboard của Google ADK (adk web)")
+    parser.add_argument("--port", type=int, default=8000,
+                        help="Cổng cho visual dashboard (mặc định: 8000)")
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="Host cho visual dashboard (mặc định: 127.0.0.1)")
 
     args = parser.parse_args(argv)
 
@@ -384,10 +392,73 @@ def main(argv=None) -> int:
             print(f"Lỗi khi từ chối skill: {str(e)}")
             return 1
 
+    # ----------------------- ADK VISUAL DASHBOARD STANDALONE -----------------------
+    if args.visual and not args.task:
+        from harness.adk import launch_visual_dashboard
+        dash = launch_visual_dashboard(port=args.port, host=args.host, check_only=True)
+        if args.json:
+            print(json.dumps(dash, ensure_ascii=False, indent=2))
+        else:
+            if dash["ready"]:
+                print(f"ADK Visual Dashboard sẵn sàng: {dash['command']}")
+                print(f"URL: {dash['url']}")
+            else:
+                print(f"ADK Visual Dashboard: {dash['message']}")
+                print(f"Gợi ý: {dash['hint']}")
+        return 0
+
     # ----------------------- TASK PROCESSING -----------------------
     if not args.task:
         parser.print_help()
         return 1
+
+    # ----------------------- LIVE RUNNER (ADK) -----------------------
+    if args.live:
+        from harness.adk import ADKLiveRunner
+        runner = ADKLiveRunner()
+        mock_verdict = "APPROVE"
+        if args.checker_output and "REJECT" in args.checker_output.upper():
+            mock_verdict = "REJECT"
+
+        result = runner.run_task(
+            task_description=args.task,
+            branch=args.branch,
+            task_id=args.task_id,
+            max_rounds=max(1, args.review_rounds),
+            mock_verdict=mock_verdict,
+            auto_distill=args.auto_distill,
+        )
+
+        if args.visual:
+            from harness.adk import launch_visual_dashboard
+            dash = launch_visual_dashboard(port=args.port, host=args.host, check_only=True)
+            result["visual_dashboard"] = dash
+
+        if args.dump_skill:
+            skill_name, _ = runner.router.route(args.task)
+            if skill_name:
+                from harness.skills.router import SkillLoader
+                instructions = SkillLoader().load_instructions(skill_name)
+                print(instructions or "(không có skill nào được nạp)")
+
+        if args.json:
+            print(json.dumps({
+                "task_id": result["task_id"],
+                "branch": result["branch"],
+                "workflow_type": result["workflow_type"],
+                "execution_mode": result["execution_mode"],
+                "verdict": result["verdict"],
+                "critique_rounds": result["critique_rounds"],
+                "events_count": result["events_count"],
+                "trajectory_path": result["trajectory_path"],
+                "visual_dashboard": result.get("visual_dashboard"),
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"Live ADK Task Finished [{result['execution_mode']}]. Branch: {result['branch']}, Workflow: {result['workflow_type']}, Verdict: {result['verdict']}, Events: {result['events_count']}")
+            if args.visual:
+                dash_cmd = result.get("visual_dashboard", {}).get("command", f"adk web --port {args.port}")
+                print(f"Visual Dashboard: {dash_cmd}")
+        return 0 if result["verdict"] == "APPROVE" else 1
 
     context, verdict = orchestrator.process_task(
         task_description=args.task,

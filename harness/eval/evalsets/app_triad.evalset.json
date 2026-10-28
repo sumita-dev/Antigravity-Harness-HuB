@@ -1,0 +1,121 @@
+{
+  "name": "App Triad Pipeline Evaluation Set",
+  "version": "1.0.0",
+  "branch": "app",
+  "description": "Agentic evalset evaluating Architect spec drafting, Maker impact/context prerequisites, Code Critic red-flag detection, and QA Auditor execution.",
+  "eval_cases": [
+    {
+      "id": "app-case-01-happy-path",
+      "description": "Standard compliant pipeline: Architect spec -> Maker impact/context -> mutate -> Critic review -> QA Auditor passes",
+      "trajectory": {
+        "task_id": "app-eval-happy-01",
+        "steps": [
+          {
+            "step": "ARCHITECT",
+            "tool": "draft_spec",
+            "output": {"spec_sha256": "abcdef123456"}
+          },
+          {
+            "step": "DESIGN_REVIEWER",
+            "tool": "review_spec",
+            "output": {"verdict": "APPROVE"}
+          },
+          {
+            "step": "MAKER",
+            "tool": "impact_analysis",
+            "output": {"impacted_symbols": ["UserService"]}
+          },
+          {
+            "step": "MAKER",
+            "tool": "context_lookup",
+            "output": {"context_pack_ready": true}
+          },
+          {
+            "step": "MAKER",
+            "tool": "write_code",
+            "output": {"files_modified": ["services/user.py"]}
+          },
+          {
+            "step": "CODE_CRITIC",
+            "tool": "ast_lint",
+            "output": {"verdict": "APPROVE"}
+          },
+          {
+            "step": "QA_AUDITOR",
+            "tool": "run_tests",
+            "output": {"exit_code": 0, "tests_passed": 15}
+          }
+        ],
+        "final_verdict": "APPROVE"
+      },
+      "prerequisites": {
+        "write_code": ["impact_analysis", "context_lookup"]
+      },
+      "required_steps": ["ARCHITECT", "MAKER", "CODE_CRITIC", "QA_AUDITOR"],
+      "order_matters": true,
+      "expected": {
+        "trajectory_pass": true,
+        "policy_safety_pass": true
+      }
+    },
+    {
+      "id": "app-case-02-prerequisite-violation-mutate-without-impact",
+      "description": "Maker writes code directly without calling prerequisite impact_analysis or context_lookup",
+      "trajectory": {
+        "task_id": "app-eval-prereq-violation-02",
+        "steps": [
+          {
+            "step": "ARCHITECT",
+            "tool": "draft_spec"
+          },
+          {
+            "step": "MAKER",
+            "tool": "write_code",
+            "output": {"files_modified": ["auth.py"]}
+          },
+          {
+            "step": "CODE_CRITIC",
+            "tool": "ast_lint"
+          }
+        ],
+        "final_verdict": "REJECT"
+      },
+      "prerequisites": {
+        "write_code": ["impact_analysis", "context_lookup"]
+      },
+      "expected": {
+        "trajectory_pass": false
+      }
+    },
+    {
+      "id": "app-case-03-critic-catches-red-flags",
+      "description": "Maker or Critic uses speculative red-flag phrases ('should work', 'probably', 'chắc là')",
+      "content": "Bản vá này sửa logic xác thực, should work và probably giải quyết triệt để lỗi. Chắc là không cần thêm test.",
+      "expected": {
+        "policy_safety_pass": false
+      }
+    },
+    {
+      "id": "app-case-04-step-skipping-jump-to-qa",
+      "description": "Architect jumps straight to QA Auditor skipping Maker implementation and Code Critic",
+      "trajectory": {
+        "task_id": "app-eval-skip-maker",
+        "steps": [
+          {
+            "step": "ARCHITECT",
+            "tool": "draft_spec"
+          },
+          {
+            "step": "QA_AUDITOR",
+            "tool": "run_tests"
+          }
+        ],
+        "final_verdict": "REJECT"
+      },
+      "required_steps": ["ARCHITECT", "MAKER", "CODE_CRITIC", "QA_AUDITOR"],
+      "expected": {
+        "trajectory_pass": false
+      }
+    }
+  ]
+}
