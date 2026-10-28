@@ -10,6 +10,7 @@ from enum import Enum
 import fnmatch
 from pathlib import Path
 import re
+import shlex
 from typing import List, Optional, Tuple
 
 
@@ -87,6 +88,72 @@ SENSITIVE_SYSTEM_PATHS = [
 ]
 
 
+STREAM_SEARCH_OPTIONS_WITH_ARGS = {
+    "-e", "-f", "-g", "-t", "-T", "-m", "-C", "-A", "-B", "-E", "-M", "-r", "-d", "-D",
+    "--regexp", "--file", "--glob", "--iglob", "--type", "--type-not", "--type-add",
+    "--max-count", "--context", "--after-context", "--before-context", "--encoding",
+    "--replace", "--max-columns", "--max-filesize", "--path-separator",
+    "--exclude", "--include", "--exclude-dir", "--include-dir",
+}
+
+
+def _is_stream_search_missing_target_path(command_segment: str) -> bool:
+    """Kiểm tra một phân đoạn lệnh shell xem có phải rg/grep bị thiếu target path hay không."""
+    cmd_clean = command_segment.strip()
+    if not cmd_clean:
+        return False
+    try:
+        tokens = shlex.split(cmd_clean, posix=False)
+    except Exception:
+        tokens = cmd_clean.split()
+
+    if not tokens:
+        return False
+
+    exe = Path(tokens[0]).name.lower()
+    if exe not in ("rg", "grep", "rg.exe", "grep.exe"):
+        return False
+
+    args = tokens[1:]
+    if not args:
+        return False
+
+    for arg in args:
+        if arg in ("--help", "-h", "--version", "-V"):
+            return False
+
+    i = 0
+    has_explicit_pattern = False
+    positional_args: List[str] = []
+
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            positional_args.extend(args[i + 1:])
+            break
+        if tok in ("-e", "--regexp", "-f", "--file"):
+            has_explicit_pattern = True
+            i += 2
+            continue
+        if tok.startswith(("-e=", "--regexp=", "-f=", "--file=")):
+            has_explicit_pattern = True
+            i += 1
+            continue
+        if tok in STREAM_SEARCH_OPTIONS_WITH_ARGS:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        positional_args.append(tok)
+        i += 1
+
+    if has_explicit_pattern:
+        return len(positional_args) == 0
+    else:
+        return len(positional_args) == 1
+
+
 def _is_path_sensitive(path_str: str) -> bool:
     """Kiểm tra đường dẫn có rơi vào thư mục hệ thống nhạy cảm hay không."""
     normalized = path_str.replace("/", "\\").lower() if "\\" in path_str or ":" in path_str else path_str.lower()
@@ -135,7 +202,20 @@ def evaluate_command_policy(
                 matched_pattern=pattern,
             )
 
-    # 2. Thẩm định truy cập hoặc phá hoại đường dẫn nhạy cảm
+    # 2. Thẩm định lệnh tìm kiếm stream thiếu target path (nguy cơ treo STDIN)
+    sub_commands = re.split(r"&&|\|\||;", cmd_clean)
+    for sub_cmd in sub_commands:
+        sub_clean = sub_cmd.strip()
+        first_stage = sub_clean.split("|")[0].strip()
+        if _is_stream_search_missing_target_path(first_stage):
+            return PolicyDecision(
+                action=PolicyAction.WARN,
+                reason="Lệnh tìm kiếm stream (rg/grep) thiếu đối số đường dẫn mục tiêu (cần thêm '.' hoặc đường dẫn cụ thể), có nguy cơ block trên STDIN.",
+                command=command,
+                matched_pattern="stream_search_missing_path",
+            )
+
+    # 3. Thẩm định truy cập hoặc phá hoại đường dẫn nhạy cảm
     # Bắt các đối số đường dẫn trong câu lệnh (ví dụ: rm C:\Windows\System32, del /f /q /etc/passwd)
     tokens = re.split(r"[\s\"'|;&]+", cmd_clean)
     for token in tokens:

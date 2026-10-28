@@ -3,7 +3,11 @@
 import sys
 from pathlib import Path
 import pytest
-from scripts.safe_task_runner import run_command_with_timeout, TIMEOUT_EXIT_CODE
+from scripts.safe_task_runner import (
+    run_command_with_timeout,
+    sanitize_stream_command,
+    TIMEOUT_EXIT_CODE,
+)
 from scripts.safe_com_runner import safe_convert_doc, safe_convert_xls
 
 
@@ -35,3 +39,40 @@ def test_safe_com_missing_file():
     ok, msg = safe_convert_doc(Path("non_existent_file.doc"))
     assert ok is False
     assert "File không tồn tại" in msg
+
+
+def test_safe_runner_stdin_devnull_prevents_hang():
+    """Kiểm tra lệnh đọc stdin hoàn thành ngay lập tức và không bị treo nhờ stdin=subprocess.DEVNULL."""
+    cmd = [sys.executable, "-c", "import sys; sys.stdin.read()"]
+    res = run_command_with_timeout(cmd, timeout_sec=3.0)
+    assert res["status"] == "SUCCESS"
+    assert res["exit_code"] == 0
+    assert not res["timed_out"]
+    assert res["elapsed_sec"] < 2.5
+
+
+def test_sanitize_stream_command():
+    """Kiểm tra lệnh rg/grep thiếu path được tự động bổ sung '.' an toàn."""
+    # List format: thiếu path -> tự động thêm '.'
+    assert sanitize_stream_command(["rg", "-i", "pattern"]) == ["rg", "-i", "pattern", "."]
+    assert sanitize_stream_command(["rg", "-i", "pattern", "-g", "!*.pyc"]) == ["rg", "-i", "pattern", "-g", "!*.pyc", "."]
+
+    # List format: đã có path -> giữ nguyên
+    assert sanitize_stream_command(["rg", "-i", "pattern", "."]) == ["rg", "-i", "pattern", "."]
+    assert sanitize_stream_command(["rg", "foo", "src/"]) == ["rg", "foo", "src/"]
+
+    # String format: thiếu path -> tự động thêm ' .'
+    assert sanitize_stream_command('rg -i "pattern"') == 'rg -i "pattern" .'
+    assert sanitize_stream_command('rg -i "pattern" -g "!*.pyc"') == 'rg -i "pattern" -g "!*.pyc" .'
+
+    # String format: đã có path -> giữ nguyên
+    assert sanitize_stream_command('rg -i "pattern" .') == 'rg -i "pattern" .'
+    assert sanitize_stream_command('rg -i "pattern" -g "!*.pyc" .') == 'rg -i "pattern" -g "!*.pyc" .'
+
+    # Grep commands
+    assert sanitize_stream_command(["grep", "-rn", "TODO"]) == ["grep", "-rn", "TODO", "."]
+    assert sanitize_stream_command(["grep", "-rn", "TODO", "."]) == ["grep", "-rn", "TODO", "."]
+
+    # Lệnh khác (python, git) không bị ảnh hưởng
+    py_cmd = [sys.executable, "-c", "print(1)"]
+    assert sanitize_stream_command(py_cmd) == py_cmd

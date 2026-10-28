@@ -108,3 +108,32 @@ def test_sensitive_cwd_blocked():
 
     decision_posix = evaluate_command_policy("ls", cwd="/etc")
     assert decision_posix.action == PolicyAction.BLOCK
+
+
+def test_stream_search_missing_path_warned():
+    """Lệnh tìm kiếm stream (rg/grep) thiếu target path phải nhận cảnh báo WARN về STDIN hang."""
+    warn_commands = [
+        'rg -i "pattern"',
+        'rg -i "pattern" -g "!*.pyc"',
+        'rg "TODO"',
+        'grep -rn "fixme"',
+        'git status && rg -i "pattern"',
+        'rg -i "pattern" | head -n 5',
+    ]
+    for cmd in warn_commands:
+        decision = evaluate_command_policy(cmd)
+        assert decision.action == PolicyAction.WARN, f"Expected WARN for missing target path: {cmd}, got: {decision.action}"
+        assert "STDIN" in decision.reason or "đường dẫn mục tiêu" in decision.reason
+        assert is_command_safe(cmd) is True
+
+    # Khi có target path cụ thể (như '.' hoặc thư mục), phải được ALLOW
+    allowed_commands = [
+        'rg -i "pattern" .',
+        'rg -i "pattern" -g "!*.pyc" .',
+        'rg "TODO" src/',
+        'grep -rn "fixme" .',
+        'cat file.txt | grep "pattern"',
+    ]
+    for cmd in allowed_commands:
+        decision = evaluate_command_policy(cmd)
+        assert decision.action == PolicyAction.ALLOW, f"Expected ALLOW for command with target path: {cmd}, got: {decision.action}"

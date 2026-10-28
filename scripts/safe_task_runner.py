@@ -14,6 +14,7 @@ Chốt chặn cấp độ Script / Tooling:
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 
@@ -28,6 +29,88 @@ from typing import Dict, Any, List, Optional
 
 TIMEOUT_EXIT_CODE = 124
 DEFAULT_TIMEOUT_SECONDS = 180
+
+# Các flag nhận đối số giá trị của rg và grep
+STREAM_OPTIONS_WITH_ARGS = {
+    "-e", "-f", "-g", "-t", "-T", "-m", "-C", "-A", "-B", "-E", "-M", "-r", "-d", "-D",
+    "--regexp", "--file", "--glob", "--iglob", "--type", "--type-not", "--type-add",
+    "--max-count", "--context", "--after-context", "--before-context", "--encoding",
+    "--replace", "--max-columns", "--max-filesize", "--path-separator",
+    "--exclude", "--include", "--exclude-dir", "--include-dir",
+}
+
+
+def _is_stream_missing_target_path(args: List[str]) -> bool:
+    """Kiểm tra danh sách đối số của rg/grep có thiếu target path hay không."""
+    if not args:
+        return False
+
+    for arg in args:
+        if arg in ("--help", "-h", "--version", "-V"):
+            return False
+
+    i = 0
+    has_explicit_pattern = False
+    positional_args: List[str] = []
+
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            positional_args.extend(args[i + 1:])
+            break
+        if tok in ("-e", "--regexp", "-f", "--file"):
+            has_explicit_pattern = True
+            i += 2
+            continue
+        if tok.startswith(("-e=", "--regexp=", "-f=", "--file=")):
+            has_explicit_pattern = True
+            i += 1
+            continue
+        if tok in STREAM_OPTIONS_WITH_ARGS:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        positional_args.append(tok)
+        i += 1
+
+    if has_explicit_pattern:
+        return len(positional_args) == 0
+    else:
+        return len(positional_args) == 1
+
+
+def sanitize_stream_command(cmd: List[str] | str) -> List[str] | str:
+    """Nếu lệnh bắt đầu bằng rg hoặc grep, phân tích các đối số.
+    Nếu lệnh chỉ có flags và 1 pattern tìm kiếm nhưng hoàn toàn không có target path,
+    tự động append '.' làm target path mặc định để ngăn chặn việc ripgrep/grep rơi vào chế độ đọc STDIN stream.
+    """
+    if isinstance(cmd, str):
+        cmd_clean = cmd.strip()
+        if not cmd_clean:
+            return cmd
+        try:
+            tokens = shlex.split(cmd_clean, posix=(os.name != "nt"))
+        except Exception:
+            tokens = cmd_clean.split()
+        if not tokens:
+            return cmd
+        exe = Path(tokens[0]).name.lower()
+        if exe in ("rg", "grep", "rg.exe", "grep.exe"):
+            if _is_stream_missing_target_path(tokens[1:]):
+                return f"{cmd_clean} ."
+        return cmd
+    elif isinstance(cmd, (list, tuple)):
+        if not cmd:
+            return cmd
+        exe = Path(cmd[0]).name.lower()
+        if exe in ("rg", "grep", "rg.exe", "grep.exe"):
+            tokens = list(cmd[1:])
+            if _is_stream_missing_target_path(tokens):
+                return list(cmd) + ["."]
+        return list(cmd)
+    return cmd
 
 
 def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> None:
@@ -83,10 +166,11 @@ def run_command_with_timeout(
     shell: bool = False,
     cwd: Optional[str] = None,
     cleanup_names: Optional[List[str]] = None,
-    env: Optional[Dict[str, str]] = None
+    env: Optional[Dict[str, str]] = None,
+    stdin: Any = subprocess.DEVNULL
 ) -> Dict[str, Any]:
     """
-    Chạy lệnh với hard timeout.
+    Chạy lệnh với hard timeout và bảo vệ STDIN stream.
     Trả về dict:
     {
         "status": "SUCCESS" | "TIMEOUT" | "ERROR",
@@ -107,9 +191,15 @@ def run_command_with_timeout(
         "timed_out": False
     }
 
+    if stdin is None:
+        stdin = subprocess.DEVNULL
+
+    cmd = sanitize_stream_command(cmd)
+
     try:
         proc = subprocess.Popen(
             cmd,
+            stdin=stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
