@@ -871,6 +871,19 @@
         "merge feature branch"
       ]
     },
+    "agy-doctor": {
+      "branch": "app",
+      "keywords": [
+        "agy-doctor",
+        "agy doctor",
+        "khám sức khỏe antigravity",
+        "audit antigravity",
+        "kiểm tra runtime antigravity",
+        "bác sĩ antigravity",
+        "chẩn đoán antigravity",
+        "antigravity health check"
+      ]
+    },
     "diagnosing-harness": {
       "branch": "app",
       "keywords": [

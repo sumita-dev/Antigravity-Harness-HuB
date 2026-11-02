@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Antigravity 2.0 Health Thresholds Reference",
+  "description": "Bảng ngưỡng tham chiếu tiêu chuẩn cho hệ thống chẩn đoán agy-doctor trên Antigravity 2.0",
+  "version": "1.0.0",
+  "context_budget": {
+    "gemini_md_max_bytes": 24576,
+    "global_gemini_md_max_bytes": 8192,
+    "description": "Trần ngân sách quy chuẩn Always-on: GEMINI.md <= 24KB (24,576 bytes); global_gemini.md <= 8KB (8,192 bytes)."
+  },
+  "session_telemetry": {
+    "green": {
+      "max_bytes": 204800,
+      "max_turns": 35,
+      "status": "GREEN",
+      "description": "Phiên làm việc an toàn, hiệu năng ngữ cảnh tối ưu."
+    },
+    "yellow": {
+      "min_bytes": 204801,
+      "min_turns": 36,
+      "status": "YELLOW",
+      "description": "Cảnh báo sớm: Ngữ cảnh sắp đầy, khuyến nghị Sếp gõ /compact hoặc hoàn tất tác vụ."
+    },
+    "red": {
+      "min_bytes": 256000,
+      "min_turns": 41,
+      "status": "RED",
+      "description": "Ngắt mạch bắt buộc: Ngữ cảnh chạm trần, bắt buộc kết xuất _session-handoff.md và gõ /compact."
+    }
+  },
+  "triad_protocol": {
+    "max_critic_rounds": 2,
+    "max_qa_rounds": 2,
+    "max_total_cycles": 3,
+    "dead_man_switch_fast_tier_seconds": 45,
+    "dead_man_switch_full_tier_seconds": 240,
+    "description": "Cầu dao ngắt mạch tách biệt và Dead-man's Switch cho CLI nền."
+  },
+  "storage_hygiene": {
+    "sessions_warn_bytes": 524288000,
+    "brain_warn_bytes": 524288000,
+    "description": "Cảnh báo khi thư mục phiên hoặc brain vượt quá 500MB."
+  },
+  "execution": {
+    "doctor_execution_timeout_seconds": 3.0,
+    "description": "Thời gian thực thi tối đa cho một lượt quét agy-doctor."
+  },
+  "process_and_git_hygiene": {
+    "git_stuck_lock_age_seconds": 1800,
+    "orphan_browser_check": true,
+    "description": "Phát hiện file lock treo quá 30 phút hoặc tiến trình trình duyệt mồ côi."
+  },
+  "rubric_mapping": {
+    "OPTIMAL": "🟢 Hệ thống hoàn hảo, toàn bộ 5 trụ cột đạt chuẩn an toàn, không có lỗi hay cảnh báo.",
+    "OBSERVE": "🟡 Cảnh báo mức nhẹ/tiềm ẩn (tiệm cận ngưỡng, cấu hình tùy chọn chưa kích hoạt). Hoạt động bình thường nhưng cần lưu ý.",
+    "ATTENTION": "🔴 Lỗi nghiêm trọng hoặc vi phạm quy chuẩn (lock file kẹt, vượt ngân sách context, lỗi cú pháp cấu hình). Cần can thiệp ngay."
+  }
+}

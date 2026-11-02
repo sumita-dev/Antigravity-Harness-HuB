@@ -93,6 +93,7 @@ Kích hoạt qua `plugins/<plugin>/skills/<tên_skill>/SKILL.md`:
 
 | Lệnh Slash | Tên Kỹ Năng |
 | :--- | :--- |
+| `/agy-doctor` | Bác Sĩ Antigravity 2.0 |
 | `/app` | App MVP Loop |
 | `/test-driven-development` | TDD Workflow |
 | `/systematic-debugging` | Systematic Debugging |
