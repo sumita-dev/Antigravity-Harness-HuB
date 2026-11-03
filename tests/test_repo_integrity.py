@@ -323,7 +323,7 @@ def test_no_undeclared_third_party_dependencies():
     local_roots = {
         "harness", "scripts", "plugins", "tests", "run_harness",
         "fetch_suggestions", "keyword_intelligence", "session_manager",
-        "test_app_workflow", "test_repo_integrity",
+        "test_app_workflow", "test_repo_integrity", "upload_file", "inspect_video",
     }
 
     stdlib = set(sys.stdlib_module_names) if hasattr(sys, "stdlib_module_names") else set()

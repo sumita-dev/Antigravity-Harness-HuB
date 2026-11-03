@@ -993,6 +993,46 @@
         "core web vital",
         "cwv"
       ]
+    },
+    "gemini-omni-flash-api": {
+      "branch": "app",
+      "keywords": [
+        "gemini-omni-flash-api",
+        "gemini omni",
+        "gemini-omni-1.1-flash",
+        "text-to-video",
+        "generative video",
+        "first-frame-to-video",
+        "video extension"
+      ]
+    },
+    "modern-web-guidance": {
+      "branch": "app",
+      "keywords": [
+        "modern-web-guidance",
+        "modern web",
+        "html5",
+        "css3",
+        "anchor positioning",
+        "container queries",
+        "view transitions",
+        "web perf",
+        "core web vitals"
+      ]
+    },
+    "us-finance-script-auditor": {
+      "branch": "marketing",
+      "keywords": [
+        "us-finance-script-auditor",
+        "us payroll",
+        "broke and building",
+        "bảng lương mỹ",
+        "thuế irs",
+        "thuế fica",
+        "phúc lợi kff",
+        "audit kịch bản tài chính",
+        "kịch bản tài chính mỹ"
+      ]
     }
   },
   "runtime_policy": {
