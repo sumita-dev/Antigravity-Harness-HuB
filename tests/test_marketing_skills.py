@@ -22,7 +22,8 @@ MARKETING_SKILLS = [
     "youtube-keyword-intelligence",
     "social-reach",
     "paid-media-auditor",
-    "flowkit"
+    "flowkit",
+    "short-video-storytelling"
 ]
 
 CODE_SKILLS = [
