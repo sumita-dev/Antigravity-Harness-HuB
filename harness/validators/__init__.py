@@ -82,6 +82,17 @@ from harness.validators.feature_list_validator import (
     VCRMetrics,
     WIPViolationError,
 )
+from harness.validators.repro_first_verifier import (
+    ReproFirstVerifier,
+    ReproVerificationResult,
+    verify_repro_first,
+)
+from harness.validators.event_filter import (
+    DEFAULT_BOT_PATTERNS,
+    EventFilter,
+    FilterResult,
+    clean_and_truncate_log,
+)
 
 __all__ = [
     "AuditDimension",
@@ -92,16 +103,19 @@ __all__ = [
     "ContainsMetric",
     "CorrectionAttempt",
     "DESTRUCTIVE_SHELL_PATTERNS",
+    "DEFAULT_BOT_PATTERNS",
     "DebugArtifactViolation",
     "DegenerationMetric",
     "DimensionResult",
     "DimensionStatus",
     "EqualsMetric",
+    "EventFilter",
     "FakePassingError",
     "FeatureItem",
     "FeatureList",
     "FeatureListValidationError",
     "FeatureListValidator",
+    "FilterResult",
     "HallucinationScoreMetric",
     "IsJsonMetric",
     "LevenshteinRatioMetric",
@@ -112,6 +126,8 @@ __all__ = [
     "PolicyAction",
     "PolicyDecision",
     "RegexMatchMetric",
+    "ReproFirstVerifier",
+    "ReproVerificationResult",
     "RubricGEvalMetric",
     "RuleAuditResult",
     "SENSITIVE_SYSTEM_PATHS",
@@ -124,6 +140,7 @@ __all__ = [
     "audit_deterministic_constraints",
     "audit_response",
     "calculate_context_growth",
+    "clean_and_truncate_log",
     "default_deterministic_fixer",
     "detect_model_inheritance_waste",
     "detect_polling_loops",
@@ -142,6 +159,7 @@ __all__ = [
     "verify_json_format",
     "verify_markdown_headers",
     "verify_paragraph_count",
+    "verify_repro_first",
     "verify_required_keywords",
     "verify_start_end_phrase",
     "verify_test_lethality",

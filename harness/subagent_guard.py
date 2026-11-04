@@ -13,7 +13,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -29,6 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Cấu hình Dead-man Switch theo phân tầng test/task
 FAST_TIER_TIMEOUT = 45   # 45 giây cho fast-tier / smoke checks
 FULL_TIER_TIMEOUT = 240  # 240 giây cho full test suite / batch tasks
+import time
 
 
 def get_deadman_timeout(tier: str = "full") -> int:
@@ -239,6 +242,209 @@ def cleanup_triad_cycle(cycle_id: Optional[str] = None, dry_run: bool = False, r
     return SubagentGuard(repo_root).cleanup_triad_cycle(cycle_id=cycle_id, dry_run=dry_run)
 
 
+@dataclass
+class MonitoredProcess:
+    """Thông tin tiến trình đang được Watchdog giám sát."""
+    pid: int
+    cmdline: List[str] = field(default_factory=list)
+    start_time: float = field(default_factory=time.time)
+    timeout: int = FULL_TIER_TIMEOUT
+    tier: str = "full"
+    name: str = "python"
+    proc: Optional[Any] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d.pop("proc", None)
+        return d
+
+
+class ProcessWatchdog:
+    """Giám sát tiến trình thời gian thực, phát hiện và dọn dẹp tiến trình treo (Hung/Stall)."""
+
+    def __init__(self, repo_root: Optional[Path] = None) -> None:
+        self.repo_root = Path(repo_root or REPO_ROOT).resolve()
+        self._monitored: Dict[int, MonitoredProcess] = {}
+
+    def register_process(
+        self,
+        pid: int,
+        cmdline: Optional[List[str]] = None,
+        timeout: Optional[int] = None,
+        tier: str = "full",
+        name: str = "python",
+        proc: Optional[Any] = None,
+    ) -> MonitoredProcess:
+        """Đăng ký tiến trình cần giám sát."""
+        resolved_timeout = timeout if timeout is not None else get_deadman_timeout(tier)
+        item = MonitoredProcess(
+            pid=pid,
+            cmdline=cmdline or [],
+            start_time=time.time(),
+            timeout=resolved_timeout,
+            tier=tier,
+            name=name,
+            proc=proc,
+        )
+        self._monitored[pid] = item
+        return item
+
+    def unregister_process(self, pid: int) -> Optional[MonitoredProcess]:
+        """Hủy giám sát tiến trình."""
+        return self._monitored.pop(pid, None)
+
+    def is_process_hung(self, pid: int, timeout_override: Optional[int] = None) -> bool:
+        """Kiểm tra xem một tiến trình có đang bị treo/vượt quá thời gian cho phép hay không."""
+        item = self._monitored.get(pid)
+        if not item:
+            return False
+
+        limit = timeout_override if timeout_override is not None else item.timeout
+        elapsed = time.time() - item.start_time
+        return elapsed >= limit
+
+    def get_elapsed_time(self, pid: int) -> float:
+        """Lấy thời gian đã trôi qua (giây) của tiến trình."""
+        item = self._monitored.get(pid)
+        if not item:
+            return 0.0
+        return time.time() - item.start_time
+
+    def terminate_hung_process(self, pid: int) -> bool:
+        """Dọn dẹp an toàn tiến trình treo và giải phóng tài nguyên."""
+        item = self._monitored.pop(pid, None)
+        killed = False
+
+        # 1. Thử terminate qua proc object nếu được lưu trữ (subprocess.Popen)
+        if item and item.proc is not None:
+            try:
+                item.proc.terminate()
+                try:
+                    item.proc.wait(timeout=2)
+                except Exception:
+                    item.proc.kill()
+                killed = True
+            except Exception:
+                pass
+
+        # 2. Thử terminate qua psutil nếu có
+        try:
+            import psutil
+            if psutil.pid_exists(pid):
+                p = psutil.Process(pid)
+                p.terminate()
+                try:
+                    p.wait(timeout=2)
+                except psutil.TimeoutExpired:
+                    p.kill()
+                killed = True
+        except ImportError:
+            # Fallback nếu không có psutil
+            try:
+                if sys.platform == "win32":
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(pid)],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=5,
+                    )
+                else:
+                    import signal
+                    os.kill(pid, signal.SIGKILL)
+                killed = True
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        return killed
+
+    def sweep_all_hung(self, timeout_override: Optional[int] = None) -> List[SubagentInfo]:
+        """Quét và kết thúc tất cả tiến trình bị treo theo phân tầng hạn ngạch."""
+        hung_list: List[SubagentInfo] = []
+        pids = list(self._monitored.keys())
+
+        for pid in pids:
+            if self.is_process_hung(pid, timeout_override=timeout_override):
+                item = self._monitored.get(pid)
+                name = item.name if item else "python"
+                cmdline = item.cmdline if item else []
+                self.terminate_hung_process(pid)
+                hung_list.append(
+                    SubagentInfo(
+                        pid=pid,
+                        name=name,
+                        cmdline=cmdline,
+                        status="terminated_hung",
+                        is_orphaned=True,
+                    )
+                )
+
+        return hung_list
+
+
+class L3BranchGuard:
+    """Rào chắn an toàn nhánh chuẩn Autonomy Level 3 (L3 Autonomy Guard).
+
+    - Chặn hoàn toàn thao tác merge trực tiếp hoặc push trực tiếp vào main/master.
+    - Bắt buộc tác tử hoạt động trên nhánh phụ (fix/..., feature/..., agent/...).
+    - Yêu cầu tạo PR Draft và trả về trạng thái AWAITING_HUMAN_APPROVAL.
+    """
+
+    PROTECTED_BRANCHES = {"main", "master", "release", "prod", "production"}
+
+    @classmethod
+    def enforce(cls, current_branch: str, target_branch: str = "main") -> Dict[str, Any]:
+        """Kiểm tra và thực thi chính sách bảo vệ nhánh L3."""
+        curr = (current_branch or "").strip()
+        target = (target_branch or "main").strip()
+
+        if not curr:
+            return {
+                "is_allowed": False,
+                "status": "INVALID_BRANCH",
+                "message": "Current branch name cannot be empty.",
+                "current_branch": curr,
+                "target_branch": target,
+                "requires_human_gate": True,
+            }
+
+        curr_lower = curr.lower()
+
+        # Nếu tác tử đang đứng trên nhánh chính hoặc cố tác động trực tiếp vào nhánh chính
+        if curr_lower in cls.PROTECTED_BRANCHES:
+            return {
+                "is_allowed": False,
+                "status": "REJECTED_DIRECT_MERGE",
+                "message": (
+                    f"Direct modification/merge on protected branch '{curr}' is strictly "
+                    "prohibited by L3 Autonomy Guard. Work must be isolated in a secondary branch."
+                ),
+                "current_branch": curr,
+                "target_branch": target,
+                "requires_human_gate": True,
+            }
+
+        # Nếu target_branch là protected (như main) và current_branch là nhánh hợp lệ
+        return {
+            "is_allowed": True,
+            "status": "AWAITING_HUMAN_APPROVAL",
+            "message": (
+                f"L3 Autonomy Gate: Branch '{curr}' is verified. Direct merge to '{target}' "
+                "is locked; PR Draft required awaiting human signoff."
+            ),
+            "current_branch": curr,
+            "target_branch": target,
+            "requires_human_gate": True,
+        }
+
+
+def enforce_l3_branch_policy(current_branch: str, target_branch: str = "main") -> Dict[str, Any]:
+    """Hàm module-level kiểm tra tuân thủ chính sách nhánh L3."""
+    return L3BranchGuard.enforce(current_branch=current_branch, target_branch=target_branch)
+
+
 __all__ = [
     "FAST_TIER_TIMEOUT",
     "FULL_TIER_TIMEOUT",
@@ -248,6 +454,10 @@ __all__ = [
     "SubagentGuard",
     "list_idle_subagents",
     "cleanup_triad_cycle",
+    "MonitoredProcess",
+    "ProcessWatchdog",
+    "L3BranchGuard",
+    "enforce_l3_branch_policy",
 ]
 
 

@@ -19,9 +19,10 @@ description: "Chẩn đoán và sửa lỗi bài bản theo 4 pha cô lập nguy
 
 ```
 NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
+SILENTLY REPRODUCE FIRST (REPRO-FIRST INVARIANT)
 ```
 
-If you haven't completed Phase 1, you cannot propose fixes.
+If you haven't completed Phase 1 (including a failing repro test), you cannot propose fixes.
 
 ## When to Use
 
@@ -49,36 +50,48 @@ Use for ANY technical issue:
 
 You MUST complete each phase before proceeding to the next.
 
-### Phase 1: Root Cause Investigation
+### Phase 1: Root Cause Investigation & Silently Reproduce First
 
 **BEFORE attempting ANY fix:**
 
-1. **Reproduce Consistently**
+1. **Silently Reproduce First (Repro-First Invariant - Chốt Chặn Bắt Buộc 1.1)**
+   - **Tự lập test tái hiện tại `tests/repro/test_issue_<id>.py`**: Khi nhận bug report/issue, Maker BẮT BUỘC tự viết test case tái hiện độc lập trong sandbox trước khi được đề xuất giải pháp hay viết mã sửa.
+   - **Xác nhận trạng thái RED (fail, exit code != 0)**: Test tái hiện phải chạy và trả về **RED (exit code != 0)** để chứng minh lỗi thực sự tồn tại trên mã nguồn hiện tại. TUYỆT ĐỐI CẤM viết mã sửa nếu chưa có test tái hiện fail.
+   - **Cơ chế Fallback & Ngưỡng Phỏng Vấn (Fallback to `ask_question`)**:
+     * Maker được phép thử nghiệm tối đa **3 giả thuyết** độc lập để kích hoạt và tái hiện lỗi.
+     * **CẤM** hỏi người dùng dồn dập ngay từ đầu làm gián đoạn chú ý (Human Attention Bottleneck).
+     * CHỈ KHI thất bại trong việc tái hiện sau tối đa 3 giả thuyết (kèm bằng chứng log thực thi thực tế), Maker mới được kích hoạt `ask_question` hỏi Sếp.
+     * Khi kích hoạt `ask_question`, bắt buộc tổng hợp báo cáo tinh gọn gồm:
+       (1) 3 giả thuyết đã thử,
+       (2) Log thực thi thực tế của từng giả thuyết,
+       (3) Điểm nghi vấn cụ thể cần làm rõ.
+
+2. **Reproduce Consistently**
    - Create minimal reproduction case
    - Document exact steps/inputs
    - Verify it fails every time
    - If intermittent: identify variables (timing, state, data)
 
-2. **Gather Evidence**
+3. **Gather Evidence**
    - Read error messages completely (don't skim)
    - Examine stack traces (note line numbers, call hierarchy)
    - Inspect recent changes (git diff, commits)
    - Check logs, metrics, telemetry
    - Add targeted logging if needed (remove before commit)
 
-3. **Trace Data Flow**
+4. **Trace Data Flow**
    - Where does bad data originate?
    - Trace backwards from symptom to source
    - Inspect state at each boundary
    - Don't assume values—verify with debugger/logging
 
-4. **Identify Hypothesis**
+5. **Identify Hypothesis**
    - Form testable explanation of WHY it fails
    - "It fails because X causes Y when Z"
    - Must explain ALL observed symptoms
    - If hypothesis doesn't explain everything, keep looking
 
-5. **Test Hypothesis**
+6. **Test Hypothesis**
    - Make PREDICTION: "If I change X, then Y should happen"
    - Test minimal change to prove/disprove
    - If disproved: return to step 2
@@ -105,11 +118,11 @@ You MUST complete each phase before proceeding to the next.
 
 ### Phase 3: Targeted Fix
 
-1. **Write Failing Test First (TDD)**
-   - Minimal unit/regression test reproducing issue
-   - Verify test FAILS on current code
+1. **Write Failing Test First (TDD & Repro Test)**
+   - Minimal unit/regression test reproducing issue tại `tests/repro/test_issue_<id>.py` (từ Phase 1)
+   - Verify test FAILS on current code (RED, exit code != 0, được thẩm định qua `repro_first_verifier`)
    - Verify test failure matches original symptom
-   - If test passes, test is wrong or bug not understood
+   - If test passes, test is wrong or bug not understood (INVALID_FAILURE)
 
 2. **Implement Minimal Fix**
    - Surgical change addressing ROOT CAUSE

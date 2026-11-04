@@ -45,6 +45,46 @@ Skip any step = lying, not verifying
 | Regression test works | Red-green cycle verified | Test passes once |
 | Agent completed | VCS diff shows changes | Agent reports "success" |
 | Requirements met | Line-by-line checklist | Tests passing |
+| Syntax vs Runtime | 2-Tier Evidence (State & Lifecycle) | `node --check`, `py_compile`, `tsc --noEmit` |
+
+## 2-Tier Definition of Done (DoD) & Runtime Evidence Protocol
+
+> [!CAUTION]
+> **Cú Pháp Tĩnh $\ne$ Hoạt Động Runtime (Syntax Check is NOT Functional Proof)**
+> Lệnh `node --check` hay `tsc --noEmit` chỉ chứng minh parser đọc được cú pháp, HOÀN TOÀN KHÔNG chứng minh code chạy được trong môi trường thật (Chrome Extension, Browser runtime, OS hooks).
+
+Để được công nhận hoàn thành một tính năng (Definition of Done), Maker & QA bắt buộc phải thu thập bằng chứng từ **2 Tầng Thực Nghiệm**:
+
+```mermaid
+flowchart TD
+    Feature["Tính Năng Mới Triển Khai"] --> T1["Tier 1: State & Persistence Verification<br/>(Dữ liệu có được lưu trữ thật không?)"]
+    Feature --> T2["Tier 2: Lifecycle & Event Trigger Verification<br/>(Luồng chạy ngầm có thực sự nạp và kích hoạt?)"]
+    
+    T1 --> PassT1{"Dữ liệu thật ghi nhận?<br/>(Key, Value, DB record)"}
+    T2 --> PassT2{"Event fired & Handler executed?<br/>(Runtime log, Dispatch response)"}
+    
+    PassT1 -- Có --> Evidence1["Bằng chứng Tầng 1: ĐẠT"]
+    PassT1 -- Không --> Reject["REJECT: Chưa lưu trữ"]
+    
+    PassT2 -- Có --> Evidence2["Bằng chứng Tầng 2: ĐẠT"]
+    PassT2 -- Không --> Reject2["REJECT: Lifecycle bị đứt"]
+    
+    Evidence1 & Evidence2 --> DoD["DoD COMPLETE (Được phép tuyên bố hoàn tất)"]
+```
+
+### 1. Tier 1: State & Persistence Verification (Tầng Lưu Trữ & Trạng Thái)
+- **Yêu cầu:** Dữ liệu đầu ra, token, settings, hoặc kết quả xử lý phải được ghi nhận thực tế vào Storage/Database/File.
+- **Bằng chứng bắt buộc:**
+  - Với Web/Extension: Trích xuất trực tiếp giá trị từ `chrome.storage.local.get()` hoặc `localStorage` (chỉ rõ key, value thật).
+  - Với Backend/App: Trích xuất bản ghi trong SQLite, file JSON cấu hình, hoặc file cache vật lý trên đĩa.
+  - CẤM: Chỉ in console.log trong bộ nhớ RAM mà không kiểm chứng ghi xuống disk/storage.
+
+### 2. Tier 2: Lifecycle & Event Trigger Verification (Tầng Vòng Đời & Kích Hoạt)
+- **Yêu cầu:** Các hook chạy ngầm (Startup, background worker, event listeners, observers) phải được gắn và kích hoạt thành công trong vòng đời ứng dụng.
+- **Bằng chứng bắt buộc:**
+  - Chạy kịch bản runtime (node simulator, headless browser hoặc dispatch event) kích hoạt event listener tương ứng.
+  - Trích xuất execution log chứng minh handler đã tiếp nhận event, xử lý và phản hồi (`exit code == 0`).
+  - CẤM: Khai báo listener trong code nhưng không kiểm tra xem trình duyệt/runtime có gọi tới listener đó khi có sự kiện hay không.
 
 ## Red Flags - STOP
 

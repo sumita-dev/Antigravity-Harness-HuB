@@ -15,8 +15,9 @@ AI Agents trong các tác vụ phát triển phần mềm và điều phối t�
 2. **Ảo giác biểu tượng (Symbol/AST Hallucination):** Gọi các hàm, class, thuộc tính hoặc method không hề tồn tại trong mã nguồn.
 3. **Ngôn ngữ võ đoán (Speculative Assertions):** Dùng các cụm từ "chắc là sẽ chạy", "should work", "dường như đã pass" thay vì chạy thật.
 4. **Tuyên bố thành công giả mạo (Unverified Completion Claims):** Khẳng định tính năng đã xong, test đã pass nhưng không có execution log thực tế với exit code 0.
+5. **Ảo giác hoàn thiện / Cắt xén phạm vi (Scope Reduction & Prototype Fallacy):** Tự ý rút gọn hệ thống phức tạp thành bản mockup/scaffold sơ sài rồi ngụy tạo kết luận "đã hoàn thành 100% chức năng".
 
-Hệ thống thiết lập **4 Trụ Cột Rào Chắn Chống Ảo Giác** kết hợp **Bộ Ba Tác Tử (Dynamic Triad)** và **GitNexus MCP** vận hành tự động.
+Hệ thống thiết lập **5 Trụ Cột Rào Chắn Chống Ảo Giác & Kỷ Luật Phạm Vi** kết hợp **Bộ Ba Tác Tử (Dynamic Triad)** và **GitNexus MCP** vận hành tự động.
 
 ---
 
@@ -98,6 +99,27 @@ Trước khi tuyên bố bất kỳ trạng thái nào hoặc thể hiện sự 
 
 ---
 
+### 5. Trụ Cột 5: Anti-Scope-Reduction & Feature Parity Inventory (Kỷ Luật Đối Soát 1:1)
+
+#### Bản chất rủi ro:
+Reward Hacking khiến tác tử có xu hướng rút ngắn đường đi: tạo ra vài file prototype tối giản thay vì giải quyết toàn diện một hệ thống hoàn chỉnh.
+
+#### Quy chuẩn bắt buộc khi thực hiện dự án Rebuild / Reverse / Refactor lớn (>20 files):
+1. **Feature Parity Inventory (Bảng Kiểm kê Đối chiếu 1:1):**
+   - Maker TUYỆT ĐỐI CẤM viết code ngay lập tức.
+   - Bắt buộc dùng `invoke_subagent(research)` để rà soát mã nguồn gốc và xuất ra bảng ma trận Markdown đối soát:
+     + *Giao diện & Thành phần UI:* Từng view/popup/screen có những button, action, state nào?
+     + *Vòng đời & Tiến trình ngầm:* Background scripts, listeners, message handlers, observers.
+     + *Hợp đồng dữ liệu & Cấu hình:* Storage keys, cookies, tokens, environment variables.
+     + *Quyền hạn & Mạng lưới:* Permissions, network interceptors, web requests.
+2. **Chia nhỏ thành Milestones độc lập:**
+   - Chia dự án thành các chặng độc lập (Epic 1: Auth & Storage ➔ Epic 2: Core Background Lifecycle ➔ Epic 3: UI & Action Dispatcher).
+   - Nghiệm thu dứt điểm từng Milestone trước khi mở rộng sang module tiếp theo.
+3. **Quyền phủ quyết của Critic & QA:**
+   - Critic BẮT BUỘC đối soát mã mới viết với bảng Feature Parity Inventory. Nếu phát hiện thiếu dù chỉ 1 event listener hoặc lifecycle hook của bản gốc: `VERDICT: REJECT` ngay lập tức.
+
+---
+
 ## Tiêu Chí Đánh Giá Nghiệm Thu (Audit Result Rubric)
 
 Mọi báo cáo bàn giao của SubAgent tự động đối soát qua `harness/validators/hallucination_detector.py`:
@@ -109,6 +131,7 @@ Mọi báo cáo bàn giao của SubAgent tự động đối soát qua `harness/
 | **Speculative Language** | 0 cụm từ võ đoán | `REJECT` - Viết lại báo cáo bằng chứng thực |
 | **Unverified Claim** | 0 tuyên bố thiếu log | `REJECT` - Chạy lệnh và đính kèm execution log |
 | **Execution Exit Code** | Bắt buộc `code == 0` | `FAIL` - Báo cáo lỗi kỹ thuật cho Maker fix |
+| **Scope Reduction** | 0 tính năng/lifecycle bị cắt xén | `REJECT` - Bắt buộc bổ sung theo Feature Parity Matrix |
 
 ---
 
