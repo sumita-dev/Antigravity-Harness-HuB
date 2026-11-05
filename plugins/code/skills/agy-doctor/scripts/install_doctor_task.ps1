@@ -1,5 +1,5 @@
 # Antigravity Doctor - Windows Scheduled Task Installer
-# Tuân thủ: Chạy mỗi 2 giờ, Zero-Token, 100% Read-Only
+# Tuân thủ: Chạy mỗi 1 giờ, Zero-Token, Tự Động Tối Ưu Hóa
 
 $ErrorActionPreference = "Stop"
 
@@ -18,11 +18,11 @@ $action = New-ScheduledTaskAction `
     -Argument "`"$scriptPath`"" `
     -WorkingDirectory $workspaceRoot
 
-# Tạo Trigger: Lặp lại mỗi 2 giờ bắt đầu từ thời điểm hiện tại
+# Tạo Trigger: Lặp lại mỗi 1 giờ bắt đầu từ thời điểm hiện tại
 $trigger = New-ScheduledTaskTrigger `
     -Once `
     -At (Get-Date) `
-    -RepetitionInterval (New-TimeSpan -Hours 2)
+    -RepetitionInterval (New-TimeSpan -Hours 1)
 
 # Cấu hình Settings
 $settings = New-ScheduledTaskSettingsSet `
@@ -37,8 +37,8 @@ Register-ScheduledTask `
     -Action $action `
     -Trigger $trigger `
     -Settings $settings `
-    -Description "Antigravity 2.0 Doctor Periodic Health Watcher (Zero-Token, Run every 2 hours)" `
+    -Description "Antigravity 2.0 Doctor Periodic Health & Optimization Watcher (Zero-Token, Run every 1 hour)" `
     -Force | Out-Null
 
 Write-Host "Da cai dat thanh cong Scheduled Task '$taskName'!" -ForegroundColor Green
-Write-Host "Tan suat: Moi 2 gio tu dong chay va cap nhat bao cao vao Obsidian Vault." -ForegroundColor Green
+Write-Host "Tan suat: Moi 1 gio tu dong chay va cap nhat bao cao vao Obsidian Vault." -ForegroundColor Green

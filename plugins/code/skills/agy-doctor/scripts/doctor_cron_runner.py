@@ -46,7 +46,7 @@ def send_windows_notification(title: str, message: str) -> None:
 
 
 def run_doctor_audit() -> int:
-    """Thực thi chẩn đoán và kết xuất vào Obsidian Vault."""
+    """Thực thi chẩn đoán, tự động tối ưu hóa và kết xuất vào Obsidian Vault."""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Đảm bảo thư mục wiki trong Vault tồn tại
@@ -54,7 +54,7 @@ def run_doctor_audit() -> int:
     target_dir.mkdir(parents=True, exist_ok=True)
     report_file = target_dir / "agy-doctor-latest.md"
 
-    # Chạy audit_antigravity.py
+    # Chạy audit_antigravity.py lần 1
     cmd = [sys.executable, str(AUDIT_SCRIPT), "--markdown"]
     result = subprocess.run(
         cmd,
@@ -70,10 +70,40 @@ def run_doctor_audit() -> int:
     if not report_content and result.stderr:
         report_content = f"Lỗi thực thi audit:\n```\n{result.stderr}\n```\n"
 
+    # TỰ ĐỘNG TỐI ƯU HÓA:
+    # Nếu phát hiện trùng lặp quy tắc cross-scope gây lãng phí token (ERR_DUPLICATE_RULES_ACROSS_SCOPES)
+    auto_optimized = False
+    if "ERR_DUPLICATE_RULES_ACROSS_SCOPES" in report_content:
+        opt_cmd = [sys.executable, str(AUDIT_SCRIPT), "--fix-duplicate-rules"]
+        opt_res = subprocess.run(
+            opt_cmd,
+            cwd=str(WORKSPACE_ROOT),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if opt_res.returncode == 0:
+            auto_optimized = True
+            # Re-run audit sau khi tối ưu hóa để lấy báo cáo mới nhất
+            re_audit = subprocess.run(
+                cmd,
+                cwd=str(WORKSPACE_ROOT),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            result = re_audit
+            report_content = re_audit.stdout or report_content
+
     # Ghi nhận thời gian audit vào đầu file
+    opt_badge = " (Đã tự động tối ưu hóa quy tắc)" if auto_optimized else ""
     header = (
-        f"> 🕒 **Lần Khám Gần Nhất (Watcher):** `{now_str}`  \n"
-        f"> 🔄 **Tần Suất:** Định kỳ mỗi 2 giờ | **Vận Hành:** Zero-Token OS Task\n\n"
+        f"> 🕒 **Lần Khám Gần Nhất (Watcher):** `{now_str}`{opt_badge}  \n"
+        f"> 🔄 **Tần Suất:** Định kỳ mỗi 1 giờ | **Vận Hành:** Zero-Token OS Task\n\n"
     )
     final_output = header + report_content
 
