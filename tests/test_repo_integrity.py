@@ -50,7 +50,7 @@ def _skill_dirs():
 def _doc_files():
     for p in REPO.rglob("*"):
         parts = p.relative_to(REPO).parts
-        if not p.is_file() or ".git" in parts or ".venv" in parts or ".gitnexus" in parts or ".brain" in parts or ".sessions" in parts or ".harness-upgrade-backups" in parts:
+        if not p.is_file() or ".git" in parts or ".venv" in parts or "node_modules" in parts or ".gitnexus" in parts or ".brain" in parts or ".sessions" in parts or ".harness-upgrade-backups" in parts:
             continue
         if any(part.startswith(".pytest") for part in parts):
             continue

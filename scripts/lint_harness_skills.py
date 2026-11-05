@@ -25,7 +25,7 @@ LOCAL_CHECKOUT = re.compile(r"(?i)(?:file:///|[A-Z]:[/\\])[^\s)]*(?:antigravity-
 def lint(root: Path) -> list[str]:
     errors: list[str] = []
     skills: dict[str, list[Path]] = defaultdict(list)
-    skill_files = sorted((root / "plugins").rglob("SKILL.md"))
+    skill_files = sorted(p for p in (root / "plugins").rglob("SKILL.md") if "node_modules" not in p.parts)
     for path in skill_files:
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
