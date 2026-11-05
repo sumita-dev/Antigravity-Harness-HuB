@@ -18,7 +18,13 @@ import logging
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
+from typing import Any, Dict, List, Optional
+import urllib.parse
+import uuid
 from typing import Any, Dict, List, Optional
 import urllib.parse
 
@@ -558,6 +564,11 @@ class AdNormalizer:
             ad_snapshot_url=snapshot_url,
         )
 
+    @staticmethod
+    def normalize_scrape_js_item(item: Dict[str, Any]) -> AdCreative:
+        """Chuẩn hóa một item từ scrape.js (Node.js engine) sang AdCreative."""
+        return map_scrape_js_item_to_ad_creative(item)
+
     normalize_raw_ad = normalize_node
 
 
@@ -617,6 +628,211 @@ def _parse_ad_start_date(text: str) -> str:
     return "N/A"
 
 
+def map_scrape_js_item_to_ad_creative(item: Dict[str, Any]) -> AdCreative:
+    """Chuyển đổi dữ liệu từ output của scrape.js sang mô hình chuẩn AdCreative."""
+    raw_id = str(item.get("ad_id") or item.get("id") or "N/A")
+    raw_start = item.get("start_date")
+    start_date_str = str(raw_start).strip() if raw_start and str(raw_start).strip() else "N/A"
+
+    days_running = item.get("days_running")
+    if days_running is not None:
+        try:
+            days_active = max(0, int(days_running))
+        except (ValueError, TypeError):
+            days_active = 0
+    elif start_date_str != "N/A":
+        try:
+            start_dt = datetime.date.fromisoformat(start_date_str[:10])
+            days_active = max(0, (datetime.date.today() - start_dt).days)
+        except Exception:
+            days_active = 0
+    else:
+        days_active = 0
+
+    variants = item.get("variants") or 1
+    try:
+        variant_count = max(1, int(variants))
+    except (ValueError, TypeError):
+        variant_count = 1
+
+    platforms = item.get("platforms") or item.get("publisher_platforms") or ["facebook"]
+    if isinstance(platforms, str):
+        platforms = [platforms]
+    publisher_platforms = [str(p).lower() for p in platforms]
+
+    raw_format = str(item.get("format") or "").upper()
+    videos = [v for v in (item.get("videos") or []) if isinstance(v, str) and (v.startswith("http://") or v.startswith("https://"))]
+    images = [img for img in (item.get("images") or []) if isinstance(img, str) and (img.startswith("http://") or img.startswith("https://"))]
+    card_count = int(item.get("card_count") or 0)
+
+    if "VIDEO" in raw_format or len(videos) > 0:
+        media_type = "video"
+    elif "MULTI" in raw_format or "CAROUSEL" in raw_format or card_count > 1 or len(images) > 1:
+        media_type = "carousel"
+    elif "IMAGE" in raw_format or len(images) > 0:
+        media_type = "image"
+    elif not images and not videos:
+        media_type = "text_only"
+    else:
+        media_type = "image"
+
+    media_urls: List[str] = []
+    for u in videos + images:
+        if u not in media_urls:
+            media_urls.append(u)
+
+    video_prev = item.get("video_preview")
+    if video_prev and isinstance(video_prev, str) and (video_prev.startswith("http://") or video_prev.startswith("https://")):
+        if video_prev not in media_urls:
+            media_urls.append(video_prev)
+
+    lib_url = item.get("library_url")
+    if lib_url and isinstance(lib_url, str) and (lib_url.startswith("http://") or lib_url.startswith("https://")):
+        snapshot_url = lib_url
+    else:
+        snapshot_url = f"https://www.facebook.com/ads/library/?id={raw_id}"
+
+    return AdCreative(
+        id=raw_id,
+        ad_archive_id=raw_id,
+        page_id=str(item.get("page_id") or "N/A"),
+        page_name=str(item.get("page_name") or "Fanpage"),
+        page_profile_picture_url=None,
+        start_date=start_date_str,
+        end_date=item.get("end_date"),
+        is_active=bool(item.get("is_active", True)),
+        days_active=days_active,
+        variant_count=variant_count,
+        publisher_platforms=publisher_platforms,
+        body_text=str(item.get("body") or ""),
+        title=item.get("title") or None,
+        caption=item.get("link_caption") or None,
+        cta_text=item.get("cta") or None,
+        link_url=item.get("link_url") or None,
+        media_type=media_type,
+        media_urls=media_urls,
+        ad_snapshot_url=snapshot_url,
+    )
+
+
+def kill_process_tree(pid: int) -> None:
+    """Triệt tiêu toàn bộ cây tiến trình (process tree) tránh sót node.exe hoặc chrome.exe mồ côi trên Windows."""
+    try:
+        import psutil
+        parent = psutil.Process(pid)
+        for child in parent.children(recursive=True):
+            try:
+                child.kill()
+            except Exception:
+                pass
+        parent.kill()
+    except Exception:
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except Exception:
+            pass
+
+
+def run_node_scrape_subprocess(
+    keyword: str,
+    country: str = "VN",
+    limit: int = 20,
+    active_only: bool = True,
+    media_type: str = "all",
+    cdp_port: Optional[int] = None,
+    timeout: int = 120,
+    scrape_script_path: Optional[Path] = None,
+) -> List[AdCreative]:
+    """Khởi chạy node scrape.js qua subprocess an toàn với STDIN DevNull Guard và Process Hygiene."""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        raise RuntimeError("Môi trường không tìm thấy lệnh 'node' trong PATH.")
+
+    if scrape_script_path is None:
+        project_root = Path(__file__).resolve().parent.parent
+        scrape_script_path = project_root / "plugins" / "marketing" / "tools" / "ad-library" / "scrape.js"
+
+    if not scrape_script_path.is_file():
+        raise FileNotFoundError(f"Không tìm thấy tệp script scrape.js tại: {scrape_script_path}")
+
+    temp_dir = Path(tempfile.gettempdir())
+    temp_out = temp_dir / f"meta_scout_{uuid.uuid4().hex[:10]}.json"
+
+    cmd = [
+        node_bin,
+        str(scrape_script_path),
+        "--q", keyword,
+        "--country", country,
+        "--max", str(limit),
+        "--out", str(temp_out),
+    ]
+
+    status_val = "active" if active_only else "all"
+    cmd.extend(["--status", status_val])
+
+    if media_type in ("image", "video"):
+        cmd.extend(["--media", media_type])
+    else:
+        cmd.extend(["--media", "all"])
+
+    if cdp_port is not None:
+        cmd.extend(["--cdp-port", str(cdp_port)])
+
+    logger.info(f"Khởi chạy Node Scraper Adapter: {' '.join(cmd[:4])} ...")
+
+    proc = None
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        stdout, stderr = proc.communicate(timeout=timeout)
+        if proc.returncode != 0:
+            logger.warning(f"Node scraper exit code {proc.returncode}. Stderr: {stderr[:300]}")
+            raise RuntimeError(f"Node scraper thất bại (exit code {proc.returncode}): {stderr.strip()[:200]}")
+
+        if not temp_out.exists():
+            raise RuntimeError(f"Node scraper hoàn tất nhưng không tạo tệp kết quả tại {temp_out}")
+
+        with open(temp_out, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+
+        raw_ads = payload.get("ads", [])
+        if not raw_ads:
+            logger.warning("Node scraper trả về 0 kết quả.")
+            return []
+
+        ads = [map_scrape_js_item_to_ad_creative(item) for item in raw_ads]
+        return ads[:limit]
+
+    except subprocess.TimeoutExpired:
+        logger.warning(f"Node scraper timed out sau {timeout}s. Đang dọn dẹp tiến trình mồ côi...")
+        if proc:
+            kill_process_tree(proc.pid)
+        raise TimeoutError(f"Node scraper bị timeout sau {timeout} giây.")
+    except Exception as e:
+        if proc and proc.poll() is None:
+            kill_process_tree(proc.pid)
+        raise e
+    finally:
+        if temp_out.exists():
+            try:
+                temp_out.unlink()
+            except OSError:
+                pass
+
+
 # ==============================================================================
 # 7. MULTI-TIER SCRAPING ENGINE
 # ==============================================================================
@@ -627,6 +843,25 @@ class MetaScraperEngine:
     def __init__(self, seed_data: Optional[List[Dict[str, Any]]] = None):
         self.seed_data = seed_data or SEED_ADS
 
+    def _fetch_tier1_node(
+        self,
+        keyword: str,
+        country: str,
+        limit: int,
+        active_only: bool,
+        media_type: str,
+        cdp_port: Optional[int] = None,
+    ) -> List[AdCreative]:
+        """Cào qua Node.js Scraper Adapter."""
+        return run_node_scrape_subprocess(
+            keyword=keyword,
+            country=country,
+            limit=limit,
+            active_only=active_only,
+            media_type=media_type,
+            cdp_port=cdp_port,
+        )
+
     def fetch(
         self,
         keyword: str,
@@ -636,6 +871,7 @@ class MetaScraperEngine:
         active_only: bool = True,
         media_type: str = "all",
         use_seed_only: bool = False,
+        cdp_port: Optional[int] = None,
     ) -> tuple[List[AdCreative], CoverageMetrics, str]:
         target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type)
 
@@ -643,17 +879,34 @@ class MetaScraperEngine:
             logger.info("Chế độ --seed / --seed-only được kích hoạt. Nạp bộ dữ liệu mẫu tức thì.")
             return self._load_seed(keyword, limit)
 
-        # Tier 1: Cào dữ liệu thực tế và realtime từ Meta Ads Library bằng Playwright Chromium
+        # Tier 1: Thử Node.js Scraper Adapter (Playwright Node / CDP)
         try:
-            logger.info("Tier 1: Đang khởi chạy Playwright Chromium cào dữ liệu thực tế từ Meta Ads Library...")
+            logger.info("Tier 1: Đang khởi chạy Node.js Scraper Adapter (scrape.js)...")
+            ads = self._fetch_tier1_node(
+                keyword=keyword,
+                country=country,
+                limit=limit,
+                active_only=active_only,
+                media_type=media_type,
+                cdp_port=cdp_port,
+            )
+            if ads:
+                coverage = compute_coverage(ads, requested=limit)
+                return ads, coverage, "tier1_node_scraper"
+        except Exception as e:
+            logger.warning(f"Tier 1 (Node Scraper Adapter) thất bại hoặc không khả dụng ({e}). Graceful fallback sang Tier 2 (Playwright Python)...")
+
+        # Tier 2: Cào dữ liệu thực tế và realtime từ Meta Ads Library bằng Playwright Chromium
+        try:
+            logger.info("Tier 2: Đang khởi chạy Playwright Chromium Python cào dữ liệu thực tế từ Meta Ads Library...")
             ads = self._fetch_tier1_playwright(target_url, limit)
             if ads:
                 coverage = compute_coverage(ads, requested=limit)
                 return ads, coverage, "tier1_playwright_live"
         except Exception as e:
-            logger.warning(f"Tier 1 (Playwright) thất bại ({e}). Chuyển sang kiểm tra Tier 2...")
+            logger.warning(f"Tier 2 (Playwright Python) thất bại ({e}). Chuyển sang kiểm tra Tier 3...")
 
-        # Tier 2: Thử Graph API nếu có META_ACCESS_TOKEN
+        # Tier 3: Thử Graph API nếu có META_ACCESS_TOKEN
         token = os.getenv("META_ACCESS_TOKEN")
         if token:
             try:
@@ -910,6 +1163,59 @@ class MetaScraperEngine:
 # 8. REPORT EXPORTERS (JSON, MARKDOWN, HTML DASHBOARD)
 # ==============================================================================
 
+def autolink_urls(text: str) -> str:
+    """Tự động chuyển đổi các URL trong văn bản thành hyperlink an toàn chống XSS.
+    
+    Nhận diện URL có scheme (http://, https://), bắt đầu bằng www., hoặc các tên miền
+    thương mại điện tử/mạng xã hội phổ biến (shopee.vn, lazada.vn, tiktok.com, fb.me, zalo.me...).
+    Tất cả các phần văn bản khác đều được escape qua html.escape để đảm bảo an toàn tuyệt đối.
+    """
+    if not text:
+        return ""
+
+    url_pattern = re.compile(
+        r"(https?://[^\s<>\"']+|www\.[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)+(?:/[^\s<>\"']*)?|\b(?:[a-zA-Z0-9\-]+\.)+(?:com\.vn|edu\.vn|gov\.vn|vn|com|net|org|io|me|ly|cc|store|shop|site|online|biz)(?:/[^\s<>\"']*)?)",
+        re.IGNORECASE,
+    )
+
+    result = []
+    last_idx = 0
+    for match in url_pattern.finditer(text):
+        start, end = match.span()
+        result.append(html.escape(text[last_idx:start]))
+
+        raw_url = match.group(0)
+        trailing = ""
+        while raw_url and raw_url[-1] in ".,;:!?)'\"":
+            trailing = raw_url[-1] + trailing
+            raw_url = raw_url[:-1]
+
+        if not raw_url or ("." not in raw_url and not raw_url.startswith(("http://", "https://"))):
+            result.append(html.escape(raw_url + trailing))
+            last_idx = end
+            continue
+
+        href = raw_url
+        if not href.startswith(("http://", "https://")):
+            href = "https://" + href
+
+        if not (href.startswith("http://") or href.startswith("https://")):
+            result.append(html.escape(raw_url + trailing))
+            last_idx = end
+            continue
+
+        safe_href = html.escape(href, quote=True)
+        safe_display = html.escape(raw_url)
+        result.append(
+            f'<a href="{safe_href}" target="_blank" rel="noopener noreferrer" class="post-url-link">{safe_display}</a>'
+            f"{html.escape(trailing)}"
+        )
+        last_idx = end
+
+    result.append(html.escape(text[last_idx:]))
+    return "".join(result)
+
+
 class ReportExporter:
     """Xuất báo cáo đa định dạng: JSON, Markdown và Dashboard HTML bespoke."""
 
@@ -974,7 +1280,7 @@ class ReportExporter:
         return out_path
 
     def export_html(self, report: ScoutReport, filename: str = "scout_dashboard.html", min_days: int = 14) -> Path:
-        """Xuất Dashboard visual độc lập với phong cách Apple Dark Glassmorphism."""
+        """Xuất Dashboard visual độc lập với phong cách Apple Dark Glassmorphism và Media Player tương tác."""
         out_path = self.output_dir / filename
 
         winning_ads = [ad for ad in report.ads if is_winning_ad(ad, min_days=min_days)]
@@ -992,47 +1298,143 @@ class ReportExporter:
 
             # XSS escaping cho các trường dữ liệu text
             safe_page = html.escape(ad.page_name)
-            safe_body = html.escape(ad.body_text)
+            linked_body = autolink_urls(ad.body_text)
             safe_title = html.escape(ad.title or "Xem chi tiết quảng cáo")
             safe_caption = html.escape(ad.caption or "")
             safe_cta = html.escape(ad.cta_text or "Tìm hiểu thêm")
 
-            # URL scheme check
+            # URL scheme check cho snapshot
             if ad.ad_snapshot_url and (ad.ad_snapshot_url.startswith("http://") or ad.ad_snapshot_url.startswith("https://")):
-                safe_snapshot = html.escape(ad.ad_snapshot_url)
+                safe_snapshot = html.escape(ad.ad_snapshot_url, quote=True)
             else:
                 safe_snapshot = "#"
 
             safe_avatar = None
             if ad.page_profile_picture_url and (ad.page_profile_picture_url.startswith("http://") or ad.page_profile_picture_url.startswith("https://")):
-                safe_avatar = html.escape(ad.page_profile_picture_url)
+                safe_avatar = html.escape(ad.page_profile_picture_url, quote=True)
 
             safe_hook_type = html.escape(analysis.hook_type if analysis else "Chưa phân tích")
             safe_angle = html.escape(analysis.marketing_angle if analysis else "N/A")
             safe_offer = html.escape(analysis.primary_offer if analysis else "N/A")
             safe_score = analysis.persuasion_score if analysis else 5
 
-            # Media thumbnail
+            # Xử lý Link đích nổi bật (ad.link_url)
+            safe_link_url = ""
+            destination_html = ""
+            if ad.link_url and (ad.link_url.startswith("http://") or ad.link_url.startswith("https://")):
+                safe_link_url = html.escape(ad.link_url, quote=True)
+                display_link = ad.link_url
+                if len(display_link) > 52:
+                    display_link = display_link[:49] + "..."
+                safe_display_link = html.escape(display_link)
+                destination_html = f"""
+                <div class="ad-destination-row">
+                    <span class="dest-badge">🔗 Link đích:</span>
+                    <a href="{safe_link_url}" target="_blank" rel="noopener noreferrer" class="dest-link" title="{safe_link_url}">{safe_display_link}</a>
+                </div>
+                """
+
+            safe_cta_target = safe_link_url if safe_link_url else safe_snapshot
+
+            # Làm sạch và loại bỏ trùng lặp danh sách media URLs
+            clean_media = []
+            seen_m = set()
+            for u in ad.media_urls:
+                if u and u.strip() and u.strip() not in seen_m:
+                    if u.startswith("http://") or u.startswith("https://"):
+                        seen_m.add(u.strip())
+                        clean_media.append(u.strip())
+
+            # Xử lý Media Player & Gallery
             media_html = ""
-            if ad.media_urls:
-                safe_media_url = html.escape(ad.media_urls[0])
-                if ad.media_type == "video":
+            if ad.media_type == "video":
+                video_url = next((u for u in clean_media if ".mp4" in u.lower() or "video" in u.lower()), None)
+                poster_url = next((u for u in clean_media if u != video_url and any(ext in u.lower() for ext in (".jpg", ".jpeg", ".png", ".webp"))), None)
+
+                if video_url:
+                    safe_v_url = html.escape(video_url, quote=True)
+                    poster_attr = f' poster="{html.escape(poster_url, quote=True)}"' if poster_url else ""
                     media_html = f"""
-                    <div class="ad-media-box">
-                        <img src="{safe_media_url}" alt="Preview" loading="lazy" class="ad-media-img">
-                        <div class="video-play-badge">▶ Video Play</div>
+                    <div class="ad-media-box video-box">
+                        <video controls playsinline preload="metadata" referrerpolicy="no-referrer" class="ad-media-player"{poster_attr}>
+                            <source src="{safe_v_url}" type="video/mp4">
+                            Trình duyệt không hỗ trợ thẻ video HTML5.
+                        </video>
+                        <div class="video-action-strip">
+                            <a href="{safe_v_url}" target="_blank" rel="noopener noreferrer" class="btn-video-tab">▶ Mở Video tab mới ↗</a>
+                            <button type="button" class="btn-zoom-video" onclick="openMediaLightbox('{safe_v_url}', 'video', '{safe_page}')">🔍 Phóng to video</button>
+                        </div>
+                    </div>
+                    """
+                elif clean_media:
+                    safe_preview = html.escape(clean_media[0], quote=True)
+                    media_html = f"""
+                    <div class="ad-media-wrapper">
+                        <div class="ad-media-box image-box" onclick="openLightboxFromCard(this)">
+                            <img src="{safe_preview}" alt="Video Preview" loading="lazy" referrerpolicy="no-referrer" class="ad-media-img main-carousel-img" onerror="handleMediaError(this, '{safe_snapshot}')">
+                            <div class="video-play-badge">▶ Xem Video trên Meta Library ↗</div>
+                            <div class="media-fallback" style="display:none;">
+                                <span class="fallback-icon">⚠️</span>
+                                <span>Video xem trực tiếp trên Meta Ads</span>
+                                <a href="{safe_snapshot}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">Mở Meta Ads Library ↗</a>
+                            </div>
+                        </div>
+                        <div class="video-action-strip">
+                            <a href="{safe_snapshot}" target="_blank" rel="noopener noreferrer" class="btn-video-tab">Mở Meta Ads Library ↗</a>
+                        </div>
                     </div>
                     """
                 else:
                     media_html = f"""
-                    <div class="ad-media-box">
-                        <img src="{safe_media_url}" alt="Preview" loading="lazy" class="ad-media-img">
+                    <div class="ad-media-box placeholder">
+                        <span>🎬 Video quảng cáo (Xem trực tiếp trên Meta Library)</span>
                     </div>
                     """
+            elif clean_media:
+                main_img = clean_media[0]
+                safe_main_img = html.escape(main_img, quote=True)
+
+                thumbnails_strip = ""
+                if len(clean_media) > 1:
+                    thumbs_html = []
+                    for t_idx, t_url in enumerate(clean_media[:16]):
+                        safe_t = html.escape(t_url, quote=True)
+                        active_cls = " active" if t_idx == 0 else ""
+                        thumbs_html.append(
+                            f'<div class="carousel-thumb{active_cls}" onclick="switchCarouselImage(this, \'{safe_t}\')">'
+                            f'<img src="{safe_t}" alt="Thumbnail {t_idx+1}" loading="lazy" referrerpolicy="no-referrer" class="thumb-img" onerror="this.parentElement.style.display=\'none\'">'
+                            f'</div>'
+                        )
+                    thumbnails_strip = f"""
+                    <div class="carousel-strip-container">
+                        <div class="carousel-strip-header">
+                            <span class="carousel-label">📸 Album Carousel ({len(clean_media)} ảnh)</span>
+                            <span class="carousel-hint">Click đổi ảnh</span>
+                        </div>
+                        <div class="carousel-thumbnails-strip">
+                            {''.join(thumbs_html)}
+                        </div>
+                    </div>
+                    """
+
+                media_html = f"""
+                <div class="ad-media-wrapper">
+                    <div class="ad-media-box image-box" onclick="openLightboxFromCard(this)">
+                        <img src="{safe_main_img}" alt="Ad Preview" loading="lazy" referrerpolicy="no-referrer" class="ad-media-img main-carousel-img" onerror="handleMediaError(this, '{safe_snapshot}')">
+                        <div class="zoom-hint-badge">🔍 Click phóng to</div>
+                        <div class="media-fallback" style="display:none;">
+                            <span class="fallback-icon">⚠️</span>
+                            <span>Ảnh không tải được hoặc đã hết hạn trên CDN Facebook</span>
+                            <a href="{safe_snapshot}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">Mở Meta Ads Library ↗</a>
+                        </div>
+                    </div>
+                    {thumbnails_strip}
+                </div>
+                """
             else:
                 media_html = """
                 <div class="ad-media-box placeholder">
-                    <span>🖼️ Quảng cáo bài viết định dạng văn bản / Carousel</span>
+                    <span>📝 Quảng cáo bài viết định dạng văn bản</span>
                 </div>
                 """
 
@@ -1043,7 +1445,7 @@ class ReportExporter:
                 vip_badge = """<span class="badge badge-vip">🔥 ĐANG VÍT KHỦNG</span>"""
 
             if safe_avatar:
-                avatar_html = f"""<img src="{safe_avatar}" class="page-avatar" alt="Avatar">"""
+                avatar_html = f"""<img src="{safe_avatar}" class="page-avatar" alt="Avatar" referrerpolicy="no-referrer">"""
             else:
                 initial = safe_page[0].upper() if safe_page else "F"
                 avatar_html = f"""<div class="page-avatar-placeholder">{initial}</div>"""
@@ -1064,17 +1466,19 @@ class ReportExporter:
                 </div>
 
                 <div class="card-body-text">
-                    <p class="body-content">{safe_body}</p>
+                    <p class="body-content">{linked_body}</p>
                 </div>
 
                 {media_html}
+
+                {destination_html}
 
                 <div class="ad-action-bar">
                     <div class="ad-action-info">
                         <div class="ad-caption-text">{safe_caption}</div>
                         <div class="ad-headline-text">{safe_title}</div>
                     </div>
-                    <a href="{safe_snapshot}" target="_blank" rel="noopener" class="btn btn-cta">{safe_cta}</a>
+                    <a href="{safe_cta_target}" target="_blank" rel="noopener noreferrer" class="btn btn-cta">{safe_cta}</a>
                 </div>
 
                 <div class="ai-analysis-drawer">
@@ -1088,7 +1492,7 @@ class ReportExporter:
 
                 <div class="card-footer-buttons">
                     <button class="btn btn-secondary copy-btn" onclick="copyCardContent(this)">📋 Sao Chép Copy-Ads</button>
-                    <a href="{safe_snapshot}" target="_blank" rel="noopener" class="btn btn-outline">Mở Meta Ads Library ↗</a>
+                    <a href="{safe_snapshot}" target="_blank" rel="noopener noreferrer" class="btn btn-outline">Mở Meta Ads Library ↗</a>
                 </div>
             </div>
             """)
@@ -1104,6 +1508,7 @@ class ReportExporter:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>Meta Ads Scout Dashboard — {html.escape(report.keyword)}</title>
     <style>
         :root {{
@@ -1390,10 +1795,60 @@ class ReportExporter:
             border-radius: 4px;
         }}
 
-        /* Media Box */
+        /* Hyperlinks in body text */
+        .post-url-link {{
+            color: #60a5fa;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            word-break: break-all;
+            transition: color 0.15s ease;
+        }}
+        .post-url-link:hover {{
+            color: #93c5fd;
+        }}
+
+        /* Destination Link Row */
+        .ad-destination-row {{
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }}
+
+        .dest-badge {{
+            color: #93c5fd;
+            font-weight: 600;
+            white-space: nowrap;
+        }}
+
+        .dest-link {{
+            color: #60a5fa;
+            text-decoration: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: color 0.15s ease;
+        }}
+        .dest-link:hover {{
+            color: #bfdbfe;
+            text-decoration: underline;
+        }}
+
+        /* Media Box & Player */
+        .ad-media-wrapper {{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }}
+
         .ad-media-box {{
             width: 100%;
-            height: 240px;
+            min-height: 240px;
             border-radius: 12px;
             overflow: hidden;
             background: #000;
@@ -1404,21 +1859,94 @@ class ReportExporter:
             border: 1px solid var(--border);
         }}
 
+        .ad-media-box.image-box {{
+            cursor: zoom-in;
+            max-height: 380px;
+        }}
+
         .ad-media-img {{
             width: 100%;
             height: 100%;
+            max-height: 380px;
             object-fit: cover;
+            transition: transform 0.25s ease;
         }}
 
-        .ad-media-box.placeholder {{
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text-sub);
-            font-size: 13px;
+        .ad-media-box.image-box:hover .ad-media-img {{
+            transform: scale(1.02);
+        }}
+
+        .zoom-hint-badge {{
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 14px;
+            font-size: 11px;
+            backdrop-filter: blur(8px);
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: none;
+            transition: all 0.2s ease;
+        }}
+
+        .ad-media-box.image-box:hover .zoom-hint-badge {{
+            background: rgba(0, 113, 227, 0.85);
+            border-color: rgba(255, 255, 255, 0.3);
+        }}
+
+        .ad-media-box.video-box {{
+            height: auto;
+            flex-direction: column;
+            background: #000;
+        }}
+
+        .ad-media-player {{
+            width: 100%;
+            max-height: 320px;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }}
+
+        .video-action-strip {{
+            width: 100%;
+            background: rgba(19, 21, 27, 0.95);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid var(--border);
+        }}
+
+        .btn-video-tab, .btn-zoom-video {{
+            background: rgba(255, 255, 255, 0.08);
+            color: #e5e5e7;
+            border: 1px solid var(--border);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }}
+
+        .btn-video-tab:hover, .btn-zoom-video:hover {{
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
         }}
 
         .video-play-badge {{
             position: absolute;
-            background: rgba(0, 0, 0, 0.65);
+            background: rgba(0, 0, 0, 0.75);
             color: #fff;
             padding: 6px 14px;
             border-radius: 20px;
@@ -1426,6 +1954,108 @@ class ReportExporter:
             backdrop-filter: blur(8px);
             font-weight: 600;
             border: 1px solid rgba(255, 255, 255, 0.2);
+        }}
+
+        /* Carousel Strip */
+        .carousel-strip-container {{
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }}
+
+        .carousel-strip-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }}
+
+        .carousel-label {{
+            font-weight: 600;
+            color: #93c5fd;
+        }}
+
+        .carousel-hint {{
+            font-size: 10px;
+            color: var(--text-sub);
+        }}
+
+        .carousel-thumbnails-strip {{
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }}
+
+        .carousel-thumbnails-strip::-webkit-scrollbar {{
+            height: 4px;
+        }}
+
+        .carousel-thumbnails-strip::-webkit-scrollbar-thumb {{
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }}
+
+        .carousel-thumb {{
+            flex: 0 0 52px;
+            height: 52px;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            background: #000;
+        }}
+
+        .carousel-thumb:hover {{
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }}
+
+        .carousel-thumb.active {{
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }}
+
+        .thumb-img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }}
+
+        /* Fallback on error */
+        .media-fallback {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            text-align: center;
+            gap: 8px;
+            color: var(--text-sub);
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            width: 100%;
+            height: 100%;
+        }}
+
+        .fallback-icon {{
+            font-size: 26px;
+        }}
+
+        .ad-media-box.has-error {{
+            cursor: default;
+        }}
+
+        .ad-media-box.placeholder {{
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-sub);
+            font-size: 13px;
+            padding: 20px;
+            text-align: center;
         }}
 
         /* Action Bar */
@@ -1545,6 +2175,106 @@ class ReportExporter:
             border-color: rgba(255, 255, 255, 0.3);
         }}
 
+        .btn-sm {{
+            padding: 4px 10px;
+            font-size: 11px;
+        }}
+
+        /* Lightbox Modal */
+        .media-lightbox {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }}
+
+        .media-lightbox.active {{
+            display: flex;
+            opacity: 1;
+        }}
+
+        .lightbox-dialog {{
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(24, 27, 36, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+        }}
+
+        .lightbox-close {{
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1f232e;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }}
+
+        .lightbox-close:hover {{
+            background: #ff453a;
+            border-color: #ff453a;
+            transform: scale(1.1);
+        }}
+
+        .lightbox-content {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 85vw;
+            max-height: 80vh;
+            overflow: hidden;
+        }}
+
+        .lightbox-media-img {{
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 12px;
+        }}
+
+        .lightbox-media-video {{
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 12px;
+            outline: none;
+        }}
+
+        .lightbox-caption {{
+            margin-top: 10px;
+            color: var(--text-main);
+            font-size: 13px;
+            text-align: center;
+        }}
+
         /* Toast notification */
         #toast {{
             position: fixed;
@@ -1578,7 +2308,7 @@ class ReportExporter:
                 </div>
             </div>
             <div>
-                <a href="{safe_target_url}" target="_blank" rel="noopener" class="btn btn-cta">Mở Trực Tiếp Meta Ads Library ↗</a>
+                <a href="{safe_target_url}" target="_blank" rel="noopener noreferrer" class="btn btn-cta">Mở Trực Tiếp Meta Ads Library ↗</a>
             </div>
         </header>
 
@@ -1608,7 +2338,7 @@ class ReportExporter:
                 <button class="filter-btn active" onclick="filterAds('all', this)">Tất cả ({report.total_found})</button>
                 <button class="filter-btn" onclick="filterAds('winning', this)">🔥 Đang Vít Khủng ({winning_count})</button>
                 <button class="filter-btn" onclick="filterAds('video', this)">🎬 Video Ads</button>
-                <button class="filter-btn" onclick="filterAds('image', this)">🖼️ Ảnh Tĩnh</button>
+                <button class="filter-btn" onclick="filterAds('image', this)">🖼️ Ảnh & Carousel</button>
             </div>
             <input type="text" class="search-box" id="searchInput" placeholder="Tìm Fanpage, Hook, Offer..." oninput="searchAds(this.value)">
         </nav>
@@ -1617,6 +2347,15 @@ class ReportExporter:
         <main class="ads-grid" id="adsGrid">
             {"".join(cards_html)}
         </main>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="mediaLightbox" class="media-lightbox" onclick="closeMediaLightbox(event)">
+        <div class="lightbox-dialog" onclick="event.stopPropagation()">
+            <button type="button" class="lightbox-close" onclick="closeMediaLightbox()" title="Đóng (Phím ESC)">✕</button>
+            <div id="lightboxContent" class="lightbox-content"></div>
+            <div id="lightboxCaption" class="lightbox-caption"></div>
+        </div>
     </div>
 
     <div id="toast">✅ Đã sao chép nội dung quảng cáo!</div>
@@ -1660,7 +2399,7 @@ class ReportExporter:
                 }} else if (type === 'video') {{
                     card.style.display = (media === 'video') ? 'flex' : 'none';
                 }} else if (type === 'image') {{
-                    card.style.display = (media === 'image') ? 'flex' : 'none';
+                    card.style.display = (media === 'image' || media === 'carousel') ? 'flex' : 'none';
                 }}
             }});
         }}
@@ -1672,6 +2411,100 @@ class ReportExporter:
                 const text = card.innerText.toLowerCase();
                 card.style.display = text.includes(q) ? 'flex' : 'none';
             }});
+        }}
+
+        // Đổi ảnh chính Carousel khi click thumbnail
+        function switchCarouselImage(thumbElem, imgUrl) {{
+            const card = thumbElem.closest('.ad-card');
+            if (!card) return;
+            const mainImg = card.querySelector('.main-carousel-img');
+            if (mainImg) {{
+                mainImg.src = imgUrl;
+                mainImg.style.display = 'block';
+                const fallback = card.querySelector('.media-fallback');
+                if (fallback) fallback.style.display = 'none';
+            }}
+            const strip = thumbElem.closest('.carousel-thumbnails-strip');
+            if (strip) {{
+                strip.querySelectorAll('.carousel-thumb').forEach(t => t.classList.remove('active'));
+            }}
+            thumbElem.classList.add('active');
+        }}
+
+        // Lightbox phóng to ảnh / video
+        function openMediaLightbox(url, type, title) {{
+            const lightbox = document.getElementById('mediaLightbox');
+            const container = document.getElementById('lightboxContent');
+            const caption = document.getElementById('lightboxCaption');
+            if (!lightbox || !container) return;
+
+            container.innerHTML = '';
+            if (type === 'video') {{
+                const video = document.createElement('video');
+                video.src = url;
+                video.controls = true;
+                video.autoplay = true;
+                video.playsInline = true;
+                video.setAttribute('referrerpolicy', 'no-referrer');
+                video.className = 'lightbox-media-video';
+                container.appendChild(video);
+            }} else {{
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Enlarged Preview';
+                img.setAttribute('referrerpolicy', 'no-referrer');
+                img.className = 'lightbox-media-img';
+                container.appendChild(img);
+            }}
+
+            if (caption) {{
+                caption.innerHTML = title ? `<strong>${{title}}</strong>` : '';
+            }}
+
+            lightbox.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }}
+
+        function openLightboxFromCard(mediaBox) {{
+            if (mediaBox.classList.contains('has-error')) return;
+            const img = mediaBox.querySelector('.main-carousel-img');
+            if (!img || !img.src) return;
+            const card = mediaBox.closest('.ad-card');
+            const pageTitle = card ? (card.querySelector('.page-title')?.innerText || '') : '';
+            openMediaLightbox(img.src, 'image', pageTitle);
+        }}
+
+        function closeMediaLightbox(e) {{
+            const lightbox = document.getElementById('mediaLightbox');
+            if (!lightbox) return;
+            const container = document.getElementById('lightboxContent');
+            if (container) {{
+                const video = container.querySelector('video');
+                if (video) video.pause();
+                container.innerHTML = '';
+            }}
+            lightbox.classList.remove('active');
+            document.body.style.overflow = '';
+        }}
+
+        // Phím ESC đóng Lightbox
+        document.addEventListener('keydown', function(e) {{
+            if (e.key === 'Escape') {{
+                closeMediaLightbox();
+            }}
+        }});
+
+        // Xử lý lỗi tải ảnh từ CDN Facebook
+        function handleMediaError(imgElem, snapshotUrl) {{
+            imgElem.style.display = 'none';
+            const parentBox = imgElem.closest('.ad-media-box');
+            if (parentBox) {{
+                parentBox.classList.add('has-error');
+                const fallback = parentBox.querySelector('.media-fallback');
+                if (fallback) fallback.style.display = 'flex';
+                const zoomBadge = parentBox.querySelector('.zoom-hint-badge');
+                if (zoomBadge) zoomBadge.style.display = 'none';
+            }}
         }}
     </script>
 </body>
@@ -1698,6 +2531,7 @@ def run_meta_ad_scout(
     seed_mode: bool = False,
     no_analyze: bool = False,
     min_days: int = 14,
+    cdp_port: Optional[int] = None,
 ) -> ScoutReport:
     """Điều phối toàn bộ quy trình trinh sát Meta Ads Library."""
     if not (1 <= limit <= 100):
@@ -1713,6 +2547,7 @@ def run_meta_ad_scout(
         active_only=active_only,
         media_type=media_type,
         use_seed_only=seed_mode,
+        cdp_port=cdp_port,
     )
 
     analyses = {}
@@ -1820,6 +2655,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
         help="Tắt module phân tích AI Hook / Offer / Angle.",
     )
     parser.add_argument(
+        "--cdp-port",
+        type=int,
+        default=None,
+        help="Cổng Chrome DevTools Protocol (ví dụ: 9222) để gắn vào Chrome đang chạy sẵn với --remote-debugging-port.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -1857,6 +2698,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             seed_mode=args.seed,
             no_analyze=args.no_analyze,
             min_days=args.min_days,
+            cdp_port=args.cdp_port,
         )
     except ValueError as e:
         logger.error(f"Lỗi tham số đầu vào: {e}")

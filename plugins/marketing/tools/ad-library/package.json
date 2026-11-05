@@ -1,0 +1,18 @@
+{
+  "name": "meta-ads-library-tool",
+  "version": "1.0.0",
+  "description": "Tool cho AI agent: soi quảng cáo đối thủ trên Meta Ad Library, xếp hạng ad thắng",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "postinstall": "playwright install chromium",
+    "scrape": "node scrape.js",
+    "rank": "node rank.js"
+  },
+  "dependencies": {
+    "playwright": "1.59.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -32,13 +32,17 @@ from scripts.meta_ads_scout import (
     ScoutReport,
     SEED_ADS,
     _parse_ad_start_date,
+    autolink_urls,
     build_cli_parser,
     build_meta_ads_url,
     compute_coverage,
     is_winning_ad,
     main,
+    kill_process_tree,
+    map_scrape_js_item_to_ad_creative,
     normalize_raw_ad,
     run_meta_ad_scout,
+    run_node_scrape_subprocess,
 )
 
 
@@ -64,6 +68,7 @@ def test_cli_help_and_defaults():
     assert args.seed is False
     assert args.no_analyze is False
     assert args.json is False
+    assert args.cdp_port is None
 
     # 2. Kiểm tra BooleanOptionalAction cho --active-only
     args_inactive = parser.parse_args(["--no-active-only"])
@@ -83,6 +88,7 @@ def test_cli_help_and_defaults():
         "--format", "json",
         "--seed",
         "--no-analyze",
+        "--cdp-port", "9222",
     ])
     assert custom_args.keyword == "thực phẩm chức năng"
     assert custom_args.country == "US"
@@ -93,6 +99,7 @@ def test_cli_help_and_defaults():
     assert custom_args.format == "json"
     assert custom_args.seed is True
     assert custom_args.no_analyze is True
+    assert custom_args.cdp_port == 9222
 
 
 # ==============================================================================
@@ -517,6 +524,7 @@ def test_parse_ad_start_date_formats():
 def test_fetch_strictly_forbids_silent_fallback_when_live_fails(monkeypatch):
     """Khi không truyền cờ --seed, nếu Playwright và API thất bại, BẮT BUỘC ném RuntimeError thay vì tự ý fallback về Seed."""
     engine = MetaScraperEngine()
+    monkeypatch.setattr(engine, "_fetch_tier1_node", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("Node unavailable")))
 
     # 1. Chế độ có cờ seed (--seed / use_seed_only=True) -> Nạp seed bình thường
     ads_seed, cov_seed, tier_seed = engine.fetch("sơ sinh", use_seed_only=True)
@@ -546,4 +554,337 @@ def test_fetch_strictly_forbids_silent_fallback_when_live_fails(monkeypatch):
     err_msg = str(exc_info.value)
     assert "Không thể cào dữ liệu trực tiếp từ Meta Ads Library" in err_msg
     assert "--seed" in err_msg
+
+
+
+# ==============================================================================
+# TEST 11: MAP SCRAPE.JS ITEM TO AD_CREATIVE (ADAPTER PATTERN)
+# ==============================================================================
+
+def test_map_scrape_js_item_to_ad_creative():
+    """Kiểm tra mapping chính xác 100% schema từ scrape.js sang AdCreative."""
+    raw_item = {
+        "ad_id": "987654321",
+        "library_url": "https://www.facebook.com/ads/library/?id=987654321",
+        "page_id": "11223344",
+        "page_name": "Nhãn hàng Mẹ & Bé",
+        "is_active": True,
+        "start_date": "2026-04-01",
+        "end_date": None,
+        "days_running": 35,
+        "variants": 6,
+        "collation_id": "coll_99",
+        "platforms": ["facebook", "instagram"],
+        "format": "VIDEO",
+        "body": "Bỉm tã hữu cơ công nghệ Nhật Bản...",
+        "title": "Ưu đãi combo sơ sinh",
+        "cta": "MUA NGAY",
+        "link_url": "https://brand.vn/bim-ta",
+        "link_caption": "brand.vn",
+        "images": ["https://cdn.brand.vn/thumb.jpg"],
+        "videos": ["https://cdn.brand.vn/video.mp4"],
+        "video_preview": "https://cdn.brand.vn/preview.jpg",
+        "card_count": 1,
+    }
+
+    ad = map_scrape_js_item_to_ad_creative(raw_item)
+    assert isinstance(ad, AdCreative)
+    assert ad.id == "987654321"
+    assert ad.ad_archive_id == "987654321"
+    assert ad.page_id == "11223344"
+    assert ad.page_name == "Nhãn hàng Mẹ & Bé"
+    assert ad.is_active is True
+    assert ad.start_date == "2026-04-01"
+    assert ad.days_active == 35
+    assert ad.variant_count == 6
+    assert "facebook" in ad.publisher_platforms
+    assert "instagram" in ad.publisher_platforms
+    assert ad.media_type == "video"
+    assert "https://cdn.brand.vn/video.mp4" in ad.media_urls
+    assert "https://cdn.brand.vn/thumb.jpg" in ad.media_urls
+    assert ad.body_text == "Bỉm tã hữu cơ công nghệ Nhật Bản..."
+    assert ad.title == "Ưu đãi combo sơ sinh"
+    assert ad.caption == "brand.vn"
+    assert ad.cta_text == "MUA NGAY"
+    assert ad.link_url == "https://brand.vn/bim-ta"
+    assert ad.ad_snapshot_url == "https://www.facebook.com/ads/library/?id=987654321"
+
+    # Kiểm tra static method AdNormalizer.normalize_scrape_js_item
+    ad2 = AdNormalizer.normalize_scrape_js_item(raw_item)
+    assert ad2.id == ad.id
+
+    # Test carousel detection
+    carousel_item = {
+        "ad_id": "223344",
+        "format": "MULTI_IMAGES",
+        "images": ["https://cdn.brand.vn/img1.jpg", "https://cdn.brand.vn/img2.jpg"],
+        "card_count": 2,
+    }
+    ad_carousel = map_scrape_js_item_to_ad_creative(carousel_item)
+    assert ad_carousel.media_type == "carousel"
+    assert len(ad_carousel.media_urls) == 2
+
+    # Test image detection
+    image_item = {
+        "ad_id": "334455",
+        "format": "IMAGE",
+        "images": ["https://cdn.brand.vn/single.jpg"],
+    }
+    ad_image = map_scrape_js_item_to_ad_creative(image_item)
+    assert ad_image.media_type == "image"
+
+    # Test text_only detection
+    text_item = {
+        "ad_id": "445566",
+        "body": "Chỉ có bài viết text",
+    }
+    ad_text = map_scrape_js_item_to_ad_creative(text_item)
+    assert ad_text.media_type == "text_only"
+
+
+# ==============================================================================
+# TEST 12: NODE SCRAPER SUBPROCESS EXECUTION & MOCK
+# ==============================================================================
+
+def test_node_scraper_subprocess_success(monkeypatch, tmp_path):
+    """Giả lập subprocess node scrape.js chạy thành công và tạo JSON."""
+    fake_payload = {
+        "query": {"q": "kem dưỡng", "country": "VN"},
+        "scraped_at": "2026-11-05T00:00:00Z",
+        "total": 1,
+        "ads": [{
+            "ad_id": "node_999",
+            "page_name": "Node Cosmetics",
+            "body": "Kem chống nắng kiềm dầu",
+            "start_date": "2026-04-10",
+            "days_running": 20,
+            "variants": 5,
+            "format": "IMAGE",
+            "images": ["https://cdn.example.com/kcn.jpg"],
+        }]
+    }
+
+    class DummyProc:
+        def __init__(self, cmd):
+            self.pid = 99999
+            self.returncode = 0
+            out_idx = cmd.index("--out")
+            self.out_path = Path(cmd[out_idx + 1])
+
+        def communicate(self, timeout=None):
+            self.out_path.write_text(json.dumps(fake_payload, ensure_ascii=False), encoding="utf-8")
+            return ("OK 1 ads -> out.json", "")
+
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr("shutil.which", lambda cmd: "C:\\Program Files\\nodejs\\node.exe")
+    monkeypatch.setattr("subprocess.Popen", lambda cmd, **kwargs: DummyProc(cmd))
+
+    fake_script = tmp_path / "scrape.js"
+    fake_script.write_text("// dummy", encoding="utf-8")
+
+    ads = run_node_scrape_subprocess("kem dưỡng", limit=10, scrape_script_path=fake_script)
+    assert len(ads) == 1
+    assert ads[0].id == "node_999"
+    assert ads[0].page_name == "Node Cosmetics"
+    assert ads[0].days_active == 20
+    assert ads[0].variant_count == 5
+
+
+# ==============================================================================
+# TEST 13: NODE SCRAPER TIMEOUT & PROCESS HYGIENE
+# ==============================================================================
+
+def test_node_scraper_timeout_and_process_hygiene(monkeypatch, tmp_path):
+    """Khi subprocess bị TimeoutExpired, phải kích hoạt kill_process_tree và ném TimeoutError."""
+    import subprocess
+
+    killed_pids = []
+    monkeypatch.setattr("scripts.meta_ads_scout.kill_process_tree", lambda pid: killed_pids.append(pid))
+
+    class TimeoutProc:
+        def __init__(self, cmd):
+            self.pid = 12345
+            self.returncode = None
+
+        def communicate(self, timeout=None):
+            raise subprocess.TimeoutExpired(cmd="node scrape.js", timeout=timeout)
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr("shutil.which", lambda cmd: "node")
+    monkeypatch.setattr("subprocess.Popen", lambda cmd, **kwargs: TimeoutProc(cmd))
+
+    fake_script = tmp_path / "scrape.js"
+    fake_script.write_text("// dummy", encoding="utf-8")
+
+    with pytest.raises(TimeoutError) as exc_info:
+        run_node_scrape_subprocess("sơ sinh", timeout=2, scrape_script_path=fake_script)
+
+    assert "bị timeout sau 2 giây" in str(exc_info.value)
+    assert 12345 in killed_pids
+
+
+# ==============================================================================
+# TEST 14: MULTI-TIER ENGINE INTEGRATION & FALLBACK
+# ==============================================================================
+
+def test_engine_tier1_node_scraper_and_fallback(monkeypatch):
+    """Engine ưu tiên Tier 1 (Node Scraper). Nếu Node Scraper lỗi, graceful fallback sang Tier 2 (Playwright)."""
+    engine = MetaScraperEngine()
+    fake_node_ad = AdNormalizer.normalize_node({
+        "id": "node_winner_1",
+        "page_name": "Top Brand",
+        "start_date": "2026-04-01",
+        "body_text": "Node scraper victory",
+    })
+    fake_pw_ad = AdNormalizer.normalize_node({
+        "id": "pw_winner_2",
+        "page_name": "Fallback Brand",
+        "start_date": "2026-04-01",
+        "body_text": "Playwright fallback victory",
+    })
+
+    # Case 1: Node scraper thành công -> engine_used == "tier1_node_scraper"
+    monkeypatch.setattr(engine, "_fetch_tier1_node", lambda **kwargs: [fake_node_ad])
+    ads1, cov1, tier1 = engine.fetch("sơ sinh", use_seed_only=False)
+    assert len(ads1) == 1
+    assert ads1[0].id == "node_winner_1"
+    assert tier1 == "tier1_node_scraper"
+
+    # Case 2: Node scraper thất bại -> Fallback sang Playwright Python
+    monkeypatch.setattr(engine, "_fetch_tier1_node", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("Node not available")))
+    monkeypatch.setattr(engine, "_fetch_tier1_playwright", lambda url, limit: [fake_pw_ad])
+    ads2, cov2, tier2 = engine.fetch("sơ sinh", use_seed_only=False)
+    assert len(ads2) == 1
+    assert ads2[0].id == "pw_winner_2"
+    assert tier2 == "tier1_playwright_live"
+
+
+# ==============================================================================
+# TEST 15: AUTOLINK URLS & XSS PREVENTION
+# ==============================================================================
+
+def test_autolink_urls_and_xss_prevention():
+    """Kiểm tra nhận diện hyperlink an toàn, bóc tách dấu câu, và chống XSS."""
+    # 1. URL có scheme https://
+    text1 = "Sản phẩm tốt ghé https://s.shopee.vn/123xyz nhé!"
+    linked1 = autolink_urls(text1)
+    assert '<a href="https://s.shopee.vn/123xyz" target="_blank" rel="noopener noreferrer" class="post-url-link">https://s.shopee.vn/123xyz</a>' in linked1
+    assert linked1.endswith(" nhé!")
+
+    # 2. Domain không có scheme (shopee.vn, zalo.me)
+    text2 = "Mua ngay tại shopee.vn/deal-hot hoặc zalo.me/0988776655."
+    linked2 = autolink_urls(text2)
+    assert 'href="https://shopee.vn/deal-hot"' in linked2
+    assert 'href="https://zalo.me/0988776655"' in linked2
+    assert linked2.endswith(".</a>") is False
+    assert linked2.endswith(".")
+
+    # 3. Viết tắt như TP.HCM không bị nhận diện nhầm thành link
+    text3 = "Giao hàng hỏa tốc tại TP.HCM trong 2h."
+    linked3 = autolink_urls(text3)
+    assert '<a href=' not in linked3
+    assert "TP.HCM" in linked3
+
+    # 4. Chống XSS trong URL và văn bản
+    text4 = "<script>alert('xss')</script> ghé https://example.com/test?a=1&b=2"
+    linked4 = autolink_urls(text4)
+    assert "<script>" not in linked4
+    assert "&lt;script&gt;" in linked4
+    assert 'href="https://example.com/test?a=1&amp;b=2"' in linked4
+
+
+# ==============================================================================
+# TEST 16: HTML DASHBOARD MEDIA INTERACTION & NO-REFERRER
+# ==============================================================================
+
+def test_html_dashboard_media_interaction_and_no_referrer(tmp_path: Path):
+    """Kiểm tra Dashboard HTML có meta no-referrer, referrerpolicy, video player, carousel và link_url."""
+    video_ad = AdCreative(
+        id="vid1",
+        ad_archive_id="vid1",
+        page_id="pvid",
+        page_name="Video Brand",
+        page_profile_picture_url="https://fbcdn.net/avatar.jpg",
+        start_date="2026-10-01",
+        end_date=None,
+        is_active=True,
+        days_active=20,
+        variant_count=2,
+        publisher_platforms=["facebook"],
+        body_text="Video ad demo: ghé https://shopee.vn/vid để mua!",
+        title="Tiêu đề video",
+        caption="Caption",
+        cta_text="Mua ngay",
+        link_url="https://shopee.vn/landing-page",
+        media_type="video",
+        media_urls=["https://video.fbcdn.net/clip.mp4", "https://fbcdn.net/poster.jpg"],
+        ad_snapshot_url="https://facebook.com/ads/library/?id=vid1",
+    )
+
+    carousel_ad = AdCreative(
+        id="car1",
+        ad_archive_id="car1",
+        page_id="pcar",
+        page_name="Carousel Brand",
+        page_profile_picture_url="https://fbcdn.net/avatar2.jpg",
+        start_date="2026-10-05",
+        end_date=None,
+        is_active=True,
+        days_active=10,
+        variant_count=1,
+        publisher_platforms=["instagram"],
+        body_text="Bộ sưu tập sơ sinh cho bé.",
+        title="BST Sơ sinh",
+        caption="BST",
+        cta_text="Xem ngay",
+        link_url=None,
+        media_type="carousel",
+        media_urls=["https://fbcdn.net/img1.jpg", "https://fbcdn.net/img2.jpg", "https://fbcdn.net/img3.jpg"],
+        ad_snapshot_url="https://facebook.com/ads/library/?id=car1",
+    )
+
+    report = ScoutReport(
+        keyword="sơ sinh",
+        country="VN",
+        scouted_at="2026-11-05 10:00:00",
+        target_url="https://facebook.com/ads/library/?q=test",
+        total_found=2,
+        coverage=CoverageMetrics(2, 2, 0, True, []),
+        ads=[video_ad, carousel_ad],
+        analyses={},
+    )
+
+    exporter = ReportExporter(tmp_path)
+    html_file = exporter.export_html(report, min_days=14)
+    content = html_file.read_text(encoding="utf-8")
+
+    # 1. Meta no-referrer trong thẻ head
+    assert '<meta name="referrer" content="no-referrer">' in content
+
+    # 2. Thuộc tính referrerpolicy="no-referrer" trên media
+    assert 'referrerpolicy="no-referrer"' in content
+
+    # 3. Video player và nút mở video tab mới
+    assert '<video controls playsinline preload="metadata" referrerpolicy="no-referrer"' in content
+    assert '<source src="https://video.fbcdn.net/clip.mp4" type="video/mp4">' in content
+    assert 'Mở Video tab mới ↗' in content
+
+    # 4. Carousel thumbnail strip và hàm switchCarouselImage
+    assert 'carousel-thumbnails-strip' in content
+    assert 'switchCarouselImage(this' in content
+    assert 'Album Carousel (3 ảnh)' in content
+
+    # 5. Link đích nổi bật (link_url)
+    assert '🔗 Link đích:' in content
+    assert 'href="https://shopee.vn/landing-page"' in content
+
+    # 6. Lightbox phóng to và ESC listener
+    assert 'id="mediaLightbox"' in content
+    assert 'openMediaLightbox' in content
+    assert 'closeMediaLightbox' in content
+    assert "handleMediaError" in content
 

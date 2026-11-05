@@ -22,3 +22,8 @@ pytest-cache-files*
 
 .vscode/
 reports/
+output/
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
