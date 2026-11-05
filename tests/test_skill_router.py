@@ -101,6 +101,7 @@ def test_skill_routing_specific_skills():
     ("audit paid media và hiệu quả chiến dịch", "paid-media-auditor"),
     ("viết integration test với Testcontainers PostgreSQL", "testcontainers"),
     ("gợi ý từ khóa YouTube autocomplete", "youtube-suggest"),
+    ("viết kịch bản video ngắn cho TikTok", "short-video-storytelling"),
 ])
 def test_routes_previously_unmapped_skills(user_text, expected):
     skill, _branch = SkillRouter().route(user_text)
@@ -127,6 +128,11 @@ def test_skill_loader():
     assert content_boc_phot is not None
     assert "name: boc-phot-storytelling" in content_boc_phot
 
+    # Test loading short-video-storytelling skill from plugins/marketing/skills
+    content_short_video = loader.load_instructions("short-video-storytelling")
+    assert content_short_video is not None
+    assert "name: short-video-storytelling" in content_short_video
+
     # Test loading second-brain skill from plugins/second-brain/skills
     content_query_wiki = loader.load_instructions("query-wiki")
     assert content_query_wiki is not None
@@ -140,6 +146,11 @@ def test_skill_loader():
     assert mkt_path is not None and os.path.isabs(mkt_path)
     assert mkt_path.replace("\\", "/").endswith(
         "plugins/marketing/skills/boc-phot-storytelling/SKILL.md")
+    sv_path = loader.find_skill_path("short-video-storytelling")
+    assert sv_path is not None and os.path.isabs(sv_path)
+    assert sv_path.replace("\\", "/").endswith(
+        "plugins/marketing/skills/short-video-storytelling/SKILL.md")
+
     sb_path = loader.find_skill_path("query-wiki")
     assert sb_path is not None and os.path.isabs(sb_path)
     assert sb_path.replace("\\", "/").endswith(

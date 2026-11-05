@@ -75,6 +75,7 @@ Khi gõ `/<tên_skill>` hoặc yêu cầu liên quan, kích hoạt kỹ năng t�
 | `/youtube-keyword-intelligence` | YouTube Keyword Intelligence & SERP Audit Engine (VKOS v3.0) |
 | `/flowkit` | AI Video Production Studio (Google Flow / Veo 3) |
 | `/us-finance-script-auditor` | US Finance Script Auditor & Compliance Gatekeeper |
+| `/short-video-storytelling` | Short Video Psychology Storytelling (20-60s) |
 
 ---
 

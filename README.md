@@ -316,6 +316,7 @@ Toàn bộ 15 kỹ năng của nhánh Marketing đã được tích hợp đầy
 | `/social-reach` | Social Reach Scout | Trinh sát đa nền tảng mạng xã hội và web (Twitter/X, Reddit, YouTube, Bilibili, XiaoHongShu, Facebook, Instagram, Podcast, Jina Reader) |
 | `/youtube-suggest` | YouTube Autocomplete & Keyword Scout | Thu thập từ khóa gợi ý tự động trên thanh tìm kiếm YouTube (Google Suggest API), mở rộng Alphabet Soup (A-Z, 0-9) và Modifiers câu hỏi/so sánh, xuất file CSV/JSON |
 | `/youtube-keyword-intelligence` | YouTube Keyword Intelligence & SERP Audit (VKOS v3.0) | Nghiên cứu, phân cụm 5 ý định tìm kiếm, thẩm định sâu SERP video dài YouTube, bộ lọc Yellow Dollar Guardrail và chấm điểm cơ hội VKOS v3.0 chọn Top 1 kèm Actionable Briefing |
+| `/short-video-storytelling` | Short Video Psychology Storytelling (20-60s) | Soạn thảo kịch bản video ngắn (TikTok, Reels, Shorts) kịch tính chuẩn tâm lý học 4 trụ cột |
 
 ---
 
