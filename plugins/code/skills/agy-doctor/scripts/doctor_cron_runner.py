@@ -20,9 +20,83 @@ DEFAULT_VAULT_PATH = Path(
 )
 
 
-def send_windows_notification(title: str, message: str) -> None:
-    """Gửi Windows Balloon/Toast notification nhẹ không cần admin."""
+def send_windows_notification(
+    title: str, message: str, report_file: Path | None = None
+) -> None:
+    """Gửi Windows Toast notification hỗ trợ click để mở file qua WinRT protocol activation."""
+    if report_file and report_file.exists():
+        file_uri = report_file.resolve().as_uri()
+    else:
+        file_uri = ""
+
+    # Chuẩn bị XML an toàn
+    safe_title = (
+        title.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+    safe_message = (
+        message.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+    if file_uri:
+        xml_content = f"""<toast launch="{file_uri}" activationType="protocol">
+    <visual>
+        <binding template="ToastGeneric">
+            <text>{safe_title}</text>
+            <text>{safe_message}</text>
+        </binding>
+    </visual>
+    <actions>
+        <action content="Mở Báo Cáo (.md)" activationType="protocol" arguments="{file_uri}" />
+    </actions>
+</toast>"""
+    else:
+        xml_content = f"""<toast>
+    <visual>
+        <binding template="ToastGeneric">
+            <text>{safe_title}</text>
+            <text>{safe_message}</text>
+        </binding>
+    </visual>
+</toast>"""
+
+    # Gọi Windows.UI.Notifications qua PowerShell WinRT API
     ps_cmd = (
+        f"$xmlText = @'\n{xml_content}\n'@;\n"
+        f"$appId = '{{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}}\\WindowsPowerShell\\v1.0\\powershell.exe';\n"
+        f"$xmlDoc = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]::New();\n"
+        f"$xmlDoc.LoadXml($xmlText);\n"
+        f"$toast = [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime]::New($xmlDoc);\n"
+        f"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]::CreateToastNotifier($appId).Show($toast);\n"
+    )
+
+    try:
+        res = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ps_cmd,
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+        if res.returncode == 0:
+            return
+    except Exception:
+        pass
+
+    # Fallback dự phòng sang System.Windows.Forms.NotifyIcon nếu WinRT không khả dụng
+    ps_fallback = (
         f"[void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); "
         f"$notify = New-Object System.Windows.Forms.NotifyIcon; "
         f"$notify.Icon = [System.Drawing.SystemIcons]::Warning; "
@@ -35,7 +109,7 @@ def send_windows_notification(title: str, message: str) -> None:
     )
     try:
         subprocess.run(
-            ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
+            ["powershell.exe", "-NoProfile", "-Command", ps_fallback],
             stdin=subprocess.DEVNULL,
             capture_output=True,
             timeout=15,
@@ -113,7 +187,8 @@ def run_doctor_audit() -> int:
     if result.returncode != 0:
         send_windows_notification(
             title="⚠️ Antigravity Doctor: Cần Chú Ý!",
-            message="Phát hiện chỉ số cần lưu ý trong Antigravity 2.0. Vui lòng mở wiki/agy-doctor-latest.md để xem chi tiết.",
+            message="Phát hiện chỉ số cần lưu ý trong Antigravity 2.0. Nhấn vào đây để xem chi tiết.",
+            report_file=report_file,
         )
 
     return result.returncode
