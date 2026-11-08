@@ -31,10 +31,14 @@ Khi khôi phục phiên sau compaction: Đọc trực tiếp sổ cái `progress
 
 ## Quy Trình Vận Hành Từng Task (The Task Loop)
 
-1. **Bẻ nhỏ & Đóng gói Task Brief:**
+1. **Bẻ nhỏ & Đóng gói Task Brief (Chuẩn hóa Prefix Caching):**
    - Trích xuất yêu cầu cụ thể, giá trị hằng số, chữ ký hàm và ca kiểm thử cho từng task.
    - Giao việc cho Implementer kèm đường dẫn brief và file báo cáo (report path).
    - Implementer không tự ý spawn subagent khác.
+   - **Cấu trúc Prompt Dispatch chuẩn Prefix Caching:** Khi gọi `invoke_subagent`, sắp xếp prompt theo 3 tầng để tối đa hóa tỷ lệ Cache Hit (tiết kiệm 50%–90% token đọc):
+     + *Prefix Cố Định (Đầu):* Role định danh + Ràng buộc quy chuẩn + Định nghĩa hoàn thành (DoD).
+     + *Context Tĩnh (Giữa):* Specification trích lục, API Contracts, Constants.
+     + *Suffix Biến Đổi (Cuối):* Task Brief cụ thể, mã code diff hiện tại, log lỗi bài test, tham số runtime.
 
 2. **Thực thi & Tự kiểm thử (Implementation & Self-Testing):**
    - Implementer viết mã nguồn, viết test tương ứng, chạy test chứng minh xanh và commit.

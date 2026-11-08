@@ -266,6 +266,38 @@ if (response.functionCalls && response.functionCalls.length > 0) {
 }
 ```
 
+### Mẫu 5: Context Caching & Prefix Optimization
+
+Tối ưu hóa chi phí token đọc (Input Tokens) từ 50% đến 90% khi làm việc với tài liệu lớn, codebase hoặc multi-agent loops bằng cơ chế Prefix Caching:
+
+1. **Nguyên tắc Prefix:** Giữ cố định `system_instruction` và tài liệu tham khảo tĩnh ở đầu. Mọi biến số (câu hỏi mới, code diff, log lỗi) đẩy xuống cuối cùng trong `contents`.
+2. **Explicit Context Caching (`client.caches.create`):** Dùng khi tài liệu/codebase vượt ngưỡng 32,768 tokens và được truy vấn lặp lại nhiều lần:
+
+```python
+from google import genai
+from google.genai import types
+
+client = genai.Client()
+
+# 1. Tạo cache cho phần dữ liệu tĩnh (tài liệu/codebase lớn)
+cache = client.caches.create(
+    model="gemini-2.5-flash",
+    config=types.CreateCachedContentConfig(
+        contents=[large_reference_doc],
+        system_instruction="Bạn là Chuyên gia Kiến trúc, phân tích theo chuẩn Clean Code.",
+        ttl="300s", # Time-to-live 5 phút
+    ),
+)
+
+# 2. Truy vấn tái sử dụng cache (chỉ tính phí đọc cache siêu rẻ cho phần tài liệu)
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Phân tích hàm parse_ast trong file đính kèm.",
+    config=types.GenerateContentConfig(cached_content=cache.name),
+)
+print(response.text)
+```
+
 ---
 
 ## 5. Tài Liệu Tham Chiếu Chi Tiết (Deep References)
