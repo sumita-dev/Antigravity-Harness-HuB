@@ -7,7 +7,10 @@ from harness.validators.hallucination_detector import (
     AuditResult,
     audit_response,
     detect_speculative_language,
+    detect_sycophancy,
     extract_symbols_from_code,
+    verify_api_and_investigation_claims,
+    verify_evidence_table,
     verify_execution_claims,
     verify_file_paths,
     verify_symbol_grounding,
@@ -57,6 +60,91 @@ def test_detect_speculative_language_violations():
     assert len(violations_vi) >= 2
     assert any("chắc là" in v for v in violations_vi)
     assert any("dường như" in v for v in violations_vi)
+
+
+def test_detect_sycophancy_clean():
+    """Văn bản khách quan, không chứa cụm từ hùa theo người dùng."""
+    text = "Kết quả điều tra thực nghiệm cho thấy module hoạt động theo đúng tài liệu API."
+    violations = detect_sycophancy(text)
+    assert len(violations) == 0
+
+
+def test_detect_sycophancy_violations():
+    """Phát hiện chính xác các câu hùa theo giả định người dùng (EN & VI)."""
+    text_vi = (
+        "Giả thuyết của anh hoàn toàn đúng, họ sử dụng shared voices.\n"
+        "Đúng như sếp nghi ngờ, giả thuyết đúng 90% và hoàn toàn trùng khớp với giả định."
+    )
+    violations_vi = detect_sycophancy(text_vi)
+    assert len(violations_vi) >= 3
+    assert any("giả thuyết" in v for v in violations_vi)
+    assert any("đúng như" in v for v in violations_vi)
+
+    text_en = (
+        "Your hypothesis is correct and confirms your suspicion.\n"
+        "Exactly as you suspected, this proves your theory."
+    )
+    violations_en = detect_sycophancy(text_en)
+    assert len(violations_en) >= 3
+    assert any("hypothesis is correct" in v for v in violations_en)
+    assert any("suspected" in v for v in violations_en)
+
+
+def test_verify_api_claims_without_raw_http():
+    """Tuyên bố quyền hạn API nhưng thiếu raw HTTP status code -> REJECT / invalid."""
+    text = "Tài khoản free tier có thể gọi được API ElevenLabs shared voices mà không cần trả phí."
+    res = verify_api_and_investigation_claims(text, execution_logs=None)
+    assert res["valid"] is False
+    assert len(res["unverified_api_claims"]) >= 1
+    assert res["has_raw_http_evidence"] is False
+
+    # Có log nhưng không chứa raw HTTP status code
+    invalid_log = "Running test script... done with success."
+    res2 = verify_api_and_investigation_claims(text, execution_logs=invalid_log)
+    assert res2["valid"] is False
+
+
+def test_verify_api_claims_with_raw_http():
+    """Tuyên bố quyền hạn API có raw HTTP status code đi kèm -> Valid."""
+    text = "Tài khoản free tier gọi API ElevenLabs báo lỗi paid_plan_required."
+    raw_log = "curl -i https://api.elevenlabs.io/v1/voices -> HTTP 402 Payment Required\nstatus_code=402"
+    res = verify_api_and_investigation_claims(text, execution_logs=raw_log)
+    assert res["valid"] is True
+    assert len(res["unverified_api_claims"]) == 0
+    assert res["has_raw_http_evidence"] is True
+
+    # Test với danh sách dict log chứa status code HTTP
+    dict_log = [{"command": "curl ...", "status_code": 402, "output": "paid_plan_required"}]
+    res_dict = verify_api_and_investigation_claims(text, execution_logs=dict_log)
+    assert res_dict["valid"] is True
+
+
+def test_verify_evidence_table():
+    """Kiểm tra định dạng bảng 3 cột thực chứng (Evidence Table)."""
+    valid_table_text = """
+## Báo Cáo Thực Nghiệm
+| Vấn đề nghi vấn | Lệnh thực nghiệm & Raw Response | Kết luận thực chứng |
+| :--- | :--- | :--- |
+| Free tier có gọi được shared voice không? | `curl -s ...` -> HTTP 402 paid_plan_required | Sai, API chặn mã 402 bắt buộc trả phí |
+"""
+    res_valid = verify_evidence_table(valid_table_text)
+    assert res_valid["valid"] is True
+    assert res_valid["has_table"] is True
+    assert res_valid["headers_valid"] is True
+    assert res_valid["row_count"] == 1
+
+    # Bảng thiếu cột hoặc tiêu đề sai
+    invalid_table_text = """
+| Cột 1 | Cột 2 |
+| --- | --- |
+| Dữ liệu 1 | Dữ liệu 2 |
+"""
+    res_invalid = verify_evidence_table(invalid_table_text)
+    assert res_invalid["valid"] is False
+
+    # Văn bản không có bảng
+    res_no_table = verify_evidence_table("Chỉ có văn bản thuần túy không có bảng nào.")
+    assert res_no_table["valid"] is False
 
 
 def test_verify_execution_claims_without_log():
@@ -150,3 +238,56 @@ def test_audit_response_symbol_rejection():
     audit = audit_response(text, base_dir=REPO_DIR, source_code=code)
     assert audit.verdict == "REJECT"
     assert any("Ảo giác ký hiệu" in v for v in audit.violations)
+
+
+def test_audit_response_with_sycophancy_rejection():
+    """Kiểm toán phát hiện câu hùa theo (Sycophancy) dẫn tới REJECT."""
+    text = (
+        "Giả thuyết của anh hoàn toàn đúng, họ chắc chắn là họ dùng proxy.\n"
+        "Tất cả test đã pass."
+    )
+    logs = "pytest tests/ -> 10 passed, exited with code 0"
+    audit = audit_response(text, base_dir=REPO_DIR, execution_logs=logs)
+    assert audit.verdict == "REJECT"
+    assert audit.is_approved is False
+    assert any("Sycophancy" in v for v in audit.violations)
+    assert len(audit.sycophancy_phrases) >= 1
+
+
+def test_audit_response_with_api_claim_rejection():
+    """Kiểm toán tuyên bố API thiếu mã raw HTTP dẫn tới REJECT."""
+    text = (
+        "Gói cước free tier có thể gọi được API ElevenLabs shared voices.\n"
+        "Tất cả test đã pass."
+    )
+    # Log chỉ có exit code 0 nhưng thiếu raw HTTP status code
+    logs = "pytest tests/ -> 10 passed, exited with code 0"
+    audit = audit_response(text, base_dir=REPO_DIR, execution_logs=logs)
+    assert audit.verdict == "REJECT"
+    assert audit.is_approved is False
+    assert any("raw HTTP" in v for v in audit.violations)
+    assert len(audit.unverified_api_claims) >= 1
+
+
+def test_audit_response_all_valid_with_evidence_table():
+    """Kiểm toán hoàn chỉnh với Evidence Table, API log raw HTTP và exit code 0 -> APPROVE."""
+    text = """
+Đã xác minh cấu hình tại `configs/harness_config.json`.
+Tất cả test đã pass.
+
+| Vấn đề nghi vấn | Lệnh thực nghiệm & Raw Response | Kết luận thực chứng |
+| :--- | :--- | :--- |
+| Tài khoản free tier gọi được API không? | `curl -i ...` -> HTTP 402 Payment Required | Không gọi được, bắt buộc gói trả phí |
+"""
+    logs = "curl https://... -> HTTP 402 Payment Required\npytest tests/ -> 10 passed, exited with code 0"
+    audit = audit_response(
+        text,
+        base_dir=REPO_DIR,
+        execution_logs=logs,
+        require_evidence_table=True,
+    )
+    assert audit.verdict == "APPROVE"
+    assert audit.is_approved is True
+    assert audit.has_evidence_table is True
+    assert audit.score == 1.0
+    assert len(audit.violations) == 0

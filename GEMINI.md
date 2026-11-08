@@ -35,8 +35,12 @@ Cổng hỏi/chốt ý định, Architect → Design Reviewer → Sếp duyệt 
     - **Strict 2-Tier Definition of Done (DoD):** CẤM tuyên bố hoàn thành nếu chỉ dựa vào cú pháp AST tĩnh (`node --check`, `py_compile`, `tsc --noEmit`). Bắt buộc 2 tầng bằng chứng:
       + *Tầng 1 (State/Persistence):* File/Storage/DB ghi nhận dữ liệu thật (chỉ rõ key, value hoặc state dump).
       + *Tầng 2 (Lifecycle & Event Triggers):* Điểm kích hoạt chạy ngầm (startup, background service worker, event listeners, network hook) kết nối và kích hoạt thực tế kèm log runtime.
+    - **Sycophancy Ban:** CẤM TUYỆT ĐỐI hùa theo giả định/câu hỏi gợi ý của người dùng ("giả thuyết của anh đúng", "đúng như anh nghi ngờ"); bắt buộc kiểm tra đối kháng 2 chiều (Falsification Test) độc lập.
+    - **Empirical API Execution Gate:** CẤM kết luận về quyền hạn tài khoản API (Free tier vs Paid plan), quota, endpoint hoặc hạ tầng proxy nếu thiếu log chạy lệnh thực tế chứa raw HTTP status code (`HTTP 200/401/402`...).
+    - **Full-Scope Context Invariant:** CẤM trích vài từ khóa để suy diễn cục bộ; bắt buộc đọc tối thiểu 50 dòng trước và sau; phân biệt rạch ròi ranh giới hiển thị Frontend UI vs logic thực thi Backend Worker.
+    - **Evidence Table Invariant:** Khi điều tra kỹ thuật/phân tích nghi vấn, bắt buộc trình bày theo Bảng 3 Cột Thực Chứng (`Vấn đề nghi vấn | Lệnh thực nghiệm & Raw Response | Kết luận thực chứng`).
     - Pre-Flight Symbol Grounding: Maker gọi GitNexus `impact()` & `context()` trước khi sửa hàm/class; kèm log thật (`exit code == 0`) và file vật lý.
-    - Strict Evidence Filter: Critic & QA REJECT ngay nếu thiếu bằng chứng 2 tầng, bỏ sót lifecycle/event listener gốc, hoặc dùng Red Flag Phrases (`should work`, `probably`, `chắc là`...).
+    - Strict Evidence Filter: Critic & QA REJECT ngay nếu thiếu bằng chứng 2 tầng, vi phạm Sycophancy, thiếu raw HTTP API log, bỏ sót lifecycle/event listener gốc, hoặc dùng Red Flag Phrases (`should work`, `probably`, `chắc là`...).
     - Physical Path & Exit Code 0: QA kiểm tra 100% file tồn tại (`Path.exists()`) và rerun test bắt buộc `exit code == 0`.
     - Hard AST Constraints — Dune Invariant: Mọi quy chuẩn kiến trúc cốt lõi phải được mã hóa thành luật cứng của Compiler/Linter xác định (Ruff, Biome, ESLint, TypeScript). Maker bắt buộc chạy script linter/check tất định đạt `exit code == 0` trước khi chuyển giao mã nguồn cho Critic. Cấm dựa vào prompt mềm để kiểm soát ranh giới module hoặc cú pháp kiến trúc.
 15. **Kinh Tế Học Ngữ Cảnh & Thứ Bậc Scaffolding (Context Budget Economics):**
