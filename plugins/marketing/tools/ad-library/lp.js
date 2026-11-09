@@ -86,6 +86,7 @@ if (!targetUrls.length) {
     isMobile: true,
     hasTouch: true,
     locale: 'vi-VN',
+    ignoreHTTPSErrors: true,
   });
 
   const page = await context.newPage();
