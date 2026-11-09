@@ -58,6 +58,8 @@ class AdCreative:
     media_type: str  # 'image' | 'video' | 'carousel' | 'text_only'
     media_urls: List[str]
     ad_snapshot_url: str
+    landing_page_data: Optional[Dict[str, Any]] = None
+    local_media_paths: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -106,25 +108,37 @@ def build_meta_ads_url(
     sort: str = "total_impressions",
     active_only: bool = True,
     media_type: str = "all",
+    loose: bool = False,
 ) -> str:
     """Tạo URL truy vấn Meta Ads Library chính xác 100%.
 
     Mã hóa UTF-8 từ khóa có dấu, kèm dấu nháy kép \"\" để kích hoạt
-    chế độ tìm kiếm chính xác keyword_exact_phrase.
+    chế độ tìm kiếm chính xác keyword_exact_phrase (trừ khi bật loose).
     """
     cleaned_country = country.strip().upper()
     if not re.match(r"^[A-Z]{2}$", cleaned_country):
         raise ValueError(f"Mã quốc gia không hợp lệ (phải là 2 ký tự ISO Alpha-2): {country}")
 
-    # Bọc từ khóa trong dấu nháy kép cho tìm kiếm chính xác
     raw_kw = keyword.strip()
-    if not (raw_kw.startswith('"') and raw_kw.endswith('"')):
-        exact_kw = f'"{raw_kw}"'
+    if loose:
+        exact_kw = raw_kw.replace('"', '')
+        search_type = "keyword_unordered"
     else:
-        exact_kw = raw_kw
+        # Bọc từ khóa trong dấu nháy kép cho tìm kiếm chính xác
+        if not (raw_kw.startswith('"') and raw_kw.endswith('"')):
+            exact_kw = f'"{raw_kw}"'
+        else:
+            exact_kw = raw_kw
+        search_type = "keyword_exact_phrase"
 
     quoted_query = urllib.parse.quote_plus(exact_kw)
     active_val = "active" if active_only else "all"
+
+    # Chuẩn hóa sort mode
+    if sort in ("new", "relevance"):
+        sort_mode = "relevancy_monthly_grouped"
+    else:
+        sort_mode = sort
 
     # Xây dựng URL đúng chuẩn Meta Ads Library
     base_url = "https://www.facebook.com/ads/library/"
@@ -135,9 +149,9 @@ def build_meta_ads_url(
         "is_targeted_country=false",
         f"media_type={media_type}",
         f"q={quoted_query}",
-        "search_type=keyword_exact_phrase",
+        f"search_type={search_type}",
         "sort_data[direction]=desc",
-        f"sort_data[mode]={sort}",
+        f"sort_data[mode]={sort_mode}",
     ]
     return f"{base_url}?{'&'.join(params)}"
 
@@ -748,6 +762,8 @@ def run_node_scrape_subprocess(
     cdp_port: Optional[int] = None,
     timeout: int = 120,
     scrape_script_path: Optional[Path] = None,
+    sort: str = "total_impressions",
+    loose: bool = False,
 ) -> List[AdCreative]:
     """Khởi chạy node scrape.js qua subprocess an toàn với STDIN DevNull Guard và Process Hygiene."""
     node_bin = shutil.which("node")
@@ -775,6 +791,12 @@ def run_node_scrape_subprocess(
 
     status_val = "active" if active_only else "all"
     cmd.extend(["--status", status_val])
+
+    sort_mode = "top" if sort in ("top", "total_impressions") else ("new" if sort == "new" else "relevance")
+    cmd.extend(["--sort", sort_mode])
+
+    if loose:
+        cmd.append("--loose")
 
     if media_type in ("image", "video"):
         cmd.extend(["--media", media_type])
@@ -833,6 +855,220 @@ def run_node_scrape_subprocess(
                 pass
 
 
+def run_node_lp_subprocess(
+    ads: List[AdCreative],
+    top: int = 5,
+    timeout: int = 60,
+    lp_script_path: Optional[Path] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Chạy node lp.js để trích xuất thông tin landing page an toàn với STDIN DevNull Guard."""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        logger.warning("Không tìm thấy Node.js để chạy lp.js.")
+        return {}
+
+    if lp_script_path is None:
+        project_root = Path(__file__).resolve().parent.parent
+        lp_script_path = project_root / "plugins" / "marketing" / "tools" / "ad-library" / "lp.js"
+
+    if not lp_script_path.is_file():
+        logger.warning(f"Không tìm thấy script lp.js tại {lp_script_path}")
+        return {}
+
+    eligible_ads = [ad for ad in ads if ad.link_url and ad.link_url.startswith("http")]
+    if not eligible_ads:
+        return {}
+
+    temp_dir = Path(tempfile.gettempdir())
+    input_file = temp_dir / f"meta_lp_in_{uuid.uuid4().hex[:8]}.json"
+    output_file = temp_dir / f"meta_lp_out_{uuid.uuid4().hex[:8]}.json"
+
+    proc = None
+    try:
+        raw_payload = {
+            "ads": [
+                {
+                    "ad_id": a.id,
+                    "page_name": a.page_name,
+                    "link_url": a.link_url,
+                }
+                for a in eligible_ads
+            ]
+        }
+        input_file.write_text(json.dumps(raw_payload, ensure_ascii=False), encoding="utf-8")
+
+        cmd = [
+            node_bin,
+            str(lp_script_path),
+            str(input_file),
+            "--top", str(top),
+            "--out", str(output_file),
+        ]
+
+        logger.info(f"Bắt đầu soi Landing Page ({len(eligible_ads)} ads)...")
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_process_tree(proc.pid)
+            logger.warning(f"lp.js bị timeout sau {timeout}s.")
+            return {}
+
+        if proc.returncode != 0:
+            logger.warning(f"lp.js exit code {proc.returncode}: {stderr[:200]}")
+            return {}
+
+        if not output_file.exists():
+            return {}
+
+        lp_results = json.loads(output_file.read_text(encoding="utf-8"))
+        res_map = {}
+        for r in lp_results:
+            ad_id = str(r.get("ad_id") or "")
+            req_url = str(r.get("requested_url") or "")
+            if ad_id and ad_id != "manual":
+                res_map[ad_id] = r
+            elif req_url:
+                res_map[req_url] = r
+        return res_map
+    except Exception as e:
+        logger.warning(f"Lỗi khi chạy lp.js: {e}")
+        return {}
+    finally:
+        if proc and proc.poll() is None:
+            kill_process_tree(proc.pid)
+        for f in (input_file, output_file):
+            if f.exists():
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
+
+
+def run_node_download_subprocess(
+    ads: List[AdCreative],
+    output_dir: Path,
+    top: int = 5,
+    timeout: int = 120,
+    download_script_path: Optional[Path] = None,
+) -> Dict[str, List[str]]:
+    """Chạy node download.js để tải media cục bộ an toàn với STDIN DevNull Guard."""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        logger.warning("Không tìm thấy Node.js để chạy download.js.")
+        return {}
+
+    if download_script_path is None:
+        project_root = Path(__file__).resolve().parent.parent
+        download_script_path = project_root / "plugins" / "marketing" / "tools" / "ad-library" / "download.js"
+
+    if not download_script_path.is_file():
+        logger.warning(f"Không tìm thấy script download.js tại {download_script_path}")
+        return {}
+
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    target_dl_dir = output_dir / "creative" / today
+
+    temp_dir = Path(tempfile.gettempdir())
+    input_file = temp_dir / f"meta_dl_in_{uuid.uuid4().hex[:8]}.json"
+
+    proc = None
+    try:
+        raw_payload = {
+            "ads": [
+                {
+                    "ad_id": a.id,
+                    "page_name": a.page_name,
+                    "page_id": a.page_id,
+                    "library_url": a.ad_snapshot_url,
+                    "link_url": a.link_url,
+                    "cta": a.cta_text,
+                    "format": a.media_type,
+                    "start_date": a.start_date,
+                    "days_running": a.days_active,
+                    "variants": a.variant_count,
+                    "platforms": a.publisher_platforms,
+                    "title": a.title,
+                    "link_caption": a.caption,
+                    "body": a.body_text,
+                    "images": [u for u in a.media_urls if not any(ext in u.lower() for ext in (".mp4", ".webm"))],
+                    "videos": [u for u in a.media_urls if any(ext in u.lower() for ext in (".mp4", ".webm"))],
+                    "video_preview": next((u for u in a.media_urls if any(ext in u.lower() for ext in (".jpg", ".jpeg", ".png"))), None),
+                }
+                for a in ads
+            ]
+        }
+        input_file.write_text(json.dumps(raw_payload, ensure_ascii=False), encoding="utf-8")
+
+        cmd = [
+            node_bin,
+            str(download_script_path),
+            str(input_file),
+            "--top", str(top),
+            "--out-dir", str(target_dl_dir),
+            "--json",
+        ]
+
+        logger.info(f"Bắt đầu tải media offline (Top {top} ads)...")
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_process_tree(proc.pid)
+            logger.warning(f"download.js bị timeout sau {timeout}s.")
+            return {}
+
+        if proc.returncode != 0:
+            logger.warning(f"download.js exit code {proc.returncode}: {stderr[:200]}")
+            return {}
+
+        res_map = {}
+        try:
+            dl_reports = json.loads(stdout)
+            for item in dl_reports:
+                ad_id = str(item.get("ad_id") or "")
+                files = item.get("files") or []
+                if ad_id:
+                    res_map[ad_id] = files
+        except Exception:
+            if target_dl_dir.exists():
+                for subfolder in target_dl_dir.iterdir():
+                    if subfolder.is_dir():
+                        parts = subfolder.name.split("-")
+                        if len(parts) >= 3:
+                            folder_ad_id = parts[-1]
+                            files = [str(f.resolve()) for f in subfolder.iterdir() if f.is_file() and f.name != "info.txt"]
+                            res_map[folder_ad_id] = files
+        return res_map
+    except Exception as e:
+        logger.warning(f"Lỗi khi chạy download.js: {e}")
+        return {}
+    finally:
+        if proc and proc.poll() is None:
+            kill_process_tree(proc.pid)
+        if input_file.exists():
+            try:
+                input_file.unlink()
+            except OSError:
+                pass
+
+
 # ==============================================================================
 # 7. MULTI-TIER SCRAPING ENGINE
 # ==============================================================================
@@ -851,6 +1087,8 @@ class MetaScraperEngine:
         active_only: bool,
         media_type: str,
         cdp_port: Optional[int] = None,
+        sort: str = "total_impressions",
+        loose: bool = False,
     ) -> List[AdCreative]:
         """Cào qua Node.js Scraper Adapter."""
         return run_node_scrape_subprocess(
@@ -860,6 +1098,8 @@ class MetaScraperEngine:
             active_only=active_only,
             media_type=media_type,
             cdp_port=cdp_port,
+            sort=sort,
+            loose=loose,
         )
 
     def fetch(
@@ -872,8 +1112,9 @@ class MetaScraperEngine:
         media_type: str = "all",
         use_seed_only: bool = False,
         cdp_port: Optional[int] = None,
+        loose: bool = False,
     ) -> tuple[List[AdCreative], CoverageMetrics, str]:
-        target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type)
+        target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type, loose=loose)
 
         if use_seed_only:
             logger.info("Chế độ --seed / --seed-only được kích hoạt. Nạp bộ dữ liệu mẫu tức thì.")
@@ -889,6 +1130,8 @@ class MetaScraperEngine:
                 active_only=active_only,
                 media_type=media_type,
                 cdp_port=cdp_port,
+                sort=sort,
+                loose=loose,
             )
             if ads:
                 coverage = compute_coverage(ads, requested=limit)
@@ -1272,6 +1515,19 @@ class ReportExporter:
             lines.append(f"- **Hook:** \"{analysis.hook_text}\"")
             lines.append(f"- **Góc tiếp cận:** {analysis.marketing_angle}")
             lines.append(f"- **Nỗi đau khách hàng:** {', '.join(analysis.pain_points)}")
+            if ad.landing_page_data:
+                lpd = ad.landing_page_data
+                prices = ", ".join(lpd.get("prices", []))
+                offers = " | ".join(lpd.get("offers", []))
+                lines.append(f"- **Landing Page Spy:** {lpd.get('final_url') or ad.link_url}")
+                if prices:
+                    lines.append(f"  + Giá trích xuất: {prices}")
+                if offers:
+                    lines.append(f"  + Ưu đãi: {offers}")
+                if lpd.get("has_phone_form"):
+                    lines.append("  + Phương thức chốt đơn: Form số điện thoại")
+            if ad.local_media_paths:
+                lines.append(f"- **Media offline:** {len(ad.local_media_paths)} tệp đã lưu cục bộ")
             lines.append(f"- **Đề xuất phản đòn:** {analysis.recommendations[0] if analysis.recommendations else 'Tối ưu lại Hook video'}")
             lines.append("")
 
@@ -1336,24 +1592,44 @@ class ReportExporter:
 
             safe_cta_target = safe_link_url if safe_link_url else safe_snapshot
 
+            # Ưu tiên sử dụng local media đã tải về nếu có
+            local_video = None
+            local_images = []
+            if ad.local_media_paths:
+                for lp in ad.local_media_paths:
+                    p = Path(lp)
+                    try:
+                        rel_p = os.path.relpath(p, self.output_dir).replace("\\", "/")
+                    except Exception:
+                        rel_p = str(p).replace("\\", "/")
+                    if p.suffix.lower() in (".mp4", ".webm"):
+                        local_video = rel_p
+                    elif p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp"):
+                        local_images.append(rel_p)
+
             # Làm sạch và loại bỏ trùng lặp danh sách media URLs
             clean_media = []
             seen_m = set()
+            for li in local_images:
+                if li not in seen_m:
+                    seen_m.add(li)
+                    clean_media.append(li)
             for u in ad.media_urls:
                 if u and u.strip() and u.strip() not in seen_m:
-                    if u.startswith("http://") or u.startswith("https://"):
+                    if u.startswith("http://") or u.startswith("https://") or "/" in u or "\\" in u:
                         seen_m.add(u.strip())
                         clean_media.append(u.strip())
 
             # Xử lý Media Player & Gallery
             media_html = ""
             if ad.media_type == "video":
-                video_url = next((u for u in clean_media if ".mp4" in u.lower() or "video" in u.lower()), None)
+                video_url = local_video or next((u for u in clean_media if ".mp4" in u.lower() or "video" in u.lower()), None)
                 poster_url = next((u for u in clean_media if u != video_url and any(ext in u.lower() for ext in (".jpg", ".jpeg", ".png", ".webp"))), None)
 
                 if video_url:
                     safe_v_url = html.escape(video_url, quote=True)
                     poster_attr = f' poster="{html.escape(poster_url, quote=True)}"' if poster_url else ""
+                    offline_badge = '<span class="local-badge">💾 Offline MP4</span>' if local_video else ""
                     media_html = f"""
                     <div class="ad-media-box video-box">
                         <video controls playsinline preload="metadata" referrerpolicy="no-referrer" class="ad-media-player"{poster_attr}>
@@ -1362,6 +1638,7 @@ class ReportExporter:
                         </video>
                         <div class="video-action-strip">
                             <a href="{safe_v_url}" target="_blank" rel="noopener noreferrer" class="btn-video-tab">▶ Mở Video tab mới ↗</a>
+                            {offline_badge}
                             <button type="button" class="btn-zoom-video" onclick="openMediaLightbox('{safe_v_url}', 'video', '{safe_page}')">🔍 Phóng to video</button>
                         </div>
                     </div>
@@ -1438,6 +1715,38 @@ class ReportExporter:
                 </div>
                 """
 
+            # Xử lý Landing Page Spy Insights nếu có
+            lp_html = ""
+            if ad.landing_page_data:
+                lpd = ad.landing_page_data
+                prices = lpd.get("prices") or []
+                offers = lpd.get("offers") or []
+                has_form = lpd.get("has_phone_form") or False
+                buttons = lpd.get("buttons") or []
+                lp_title = html.escape(lpd.get("title") or "")
+
+                prices_str = html.escape(", ".join(prices[:5])) if prices else ""
+                offers_str = html.escape(" | ".join(offers[:4])) if offers else ""
+                buttons_str = html.escape(" | ".join(buttons[:4])) if buttons else ""
+
+                form_badge = '<span class="lp-tag form-tag">📋 Chốt đơn Form SĐT</span>' if has_form else ''
+                price_badge = f'<div class="lp-info-row"><strong>💰 Giá:</strong> <span class="lp-price-val">{prices_str}</span></div>' if prices_str else ''
+                offer_badge = f'<div class="lp-info-row"><strong>🎁 Ưu đãi:</strong> <span>{offers_str}</span></div>' if offers_str else ''
+                cta_badge = f'<div class="lp-info-row"><strong>⚡ Nút CTA:</strong> <span>{buttons_str}</span></div>' if buttons_str else ''
+
+                lp_html = f"""
+                <div class="ad-lp-box">
+                    <div class="lp-box-title">
+                        <span>🎯 Landing Page Spy Insights</span>
+                        {form_badge}
+                    </div>
+                    {f'<div class="lp-page-title">{lp_title}</div>' if lp_title else ''}
+                    {price_badge}
+                    {offer_badge}
+                    {cta_badge}
+                </div>
+                """
+
             vip_badge = ""
             card_class = "ad-card"
             if is_vip:
@@ -1472,6 +1781,8 @@ class ReportExporter:
                 {media_html}
 
                 {destination_html}
+
+                {lp_html}
 
                 <div class="ad-action-bar">
                     <div class="ad-action-info">
@@ -1836,6 +2147,61 @@ class ReportExporter:
         .dest-link:hover {{
             color: #bfdbfe;
             text-decoration: underline;
+        }}
+
+        /* Landing Page Spy Box */
+        .ad-lp-box {{
+            background: rgba(0, 113, 227, 0.08);
+            border: 1px solid rgba(0, 113, 227, 0.25);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 6px 16px;
+            font-size: 13px;
+        }}
+        .lp-box-title {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            color: #5ac8fa;
+            margin-bottom: 4px;
+        }}
+        .lp-page-title {{
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        .lp-info-row {{
+            margin-top: 3px;
+            line-height: 1.4;
+            color: #d1d1d6;
+        }}
+        .lp-price-val {{
+            color: #ff9f0a;
+            font-weight: 600;
+        }}
+        .lp-tag.form-tag {{
+            background: rgba(48, 209, 88, 0.2);
+            color: #30d158;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }}
+        .local-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(48, 209, 88, 0.15);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            color: #30d158;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
         }}
 
         /* Media Box & Player */
@@ -2532,12 +2898,15 @@ def run_meta_ad_scout(
     no_analyze: bool = False,
     min_days: int = 14,
     cdp_port: Optional[int] = None,
+    loose: bool = False,
+    scrape_lp: bool = False,
+    download_media: bool = False,
 ) -> ScoutReport:
     """Điều phối toàn bộ quy trình trinh sát Meta Ads Library."""
     if not (1 <= limit <= 100):
         raise ValueError(f"Tham số --limit phải nằm trong khoảng từ 1 đến 100 (nhận được: {limit}).")
 
-    target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type)
+    target_url = build_meta_ads_url(keyword, country, sort, active_only, media_type, loose=loose)
     engine = MetaScraperEngine()
     ads, coverage, engine_used = engine.fetch(
         keyword=keyword,
@@ -2548,7 +2917,24 @@ def run_meta_ad_scout(
         media_type=media_type,
         use_seed_only=seed_mode,
         cdp_port=cdp_port,
+        loose=loose,
     )
+
+    # 1. Soi Landing Page nếu bật cờ --scrape-lp
+    if scrape_lp and ads:
+        lp_data_map = run_node_lp_subprocess(ads, top=min(limit, 10))
+        for ad in ads:
+            if ad.id in lp_data_map:
+                ad.landing_page_data = lp_data_map[ad.id]
+            elif ad.link_url and ad.link_url in lp_data_map:
+                ad.landing_page_data = lp_data_map[ad.link_url]
+
+    # 2. Tải media offline nếu bật cờ --download-media
+    if download_media and ads:
+        dl_map = run_node_download_subprocess(ads, output_dir=Path(output_dir), top=min(limit, 10))
+        for ad in ads:
+            if ad.id in dl_map:
+                ad.local_media_paths = dl_map[ad.id]
 
     analyses = {}
     if not no_analyze:
@@ -2606,7 +2992,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "--sort",
         type=str,
         default="total_impressions",
-        choices=["total_impressions", "relevance", "start_date"],
+        choices=["total_impressions", "new", "relevance", "start_date"],
         help="Tiêu chí sắp xếp Meta Ads Library (mặc định: total_impressions).",
     )
     parser.add_argument(
@@ -2661,6 +3047,24 @@ def build_cli_parser() -> argparse.ArgumentParser:
         help="Cổng Chrome DevTools Protocol (ví dụ: 9222) để gắn vào Chrome đang chạy sẵn với --remote-debugging-port.",
     )
     parser.add_argument(
+        "--loose",
+        action="store_true",
+        default=False,
+        help="Tìm kiếm mở rộng không ép cụm từ chính xác (keyword_unordered).",
+    )
+    parser.add_argument(
+        "--scrape-lp",
+        action="store_true",
+        default=False,
+        help="Bật tính năng tự động soi Landing Page bằng Playwright Mobile.",
+    )
+    parser.add_argument(
+        "--download-media",
+        action="store_true",
+        default=False,
+        help="Tự động tải toàn bộ hình ảnh và video về ổ cứng để xem offline tránh link CDN chết.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -2699,6 +3103,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             no_analyze=args.no_analyze,
             min_days=args.min_days,
             cdp_port=args.cdp_port,
+            loose=args.loose,
+            scrape_lp=args.scrape_lp,
+            download_media=args.download_media,
         )
     except ValueError as e:
         logger.error(f"Lỗi tham số đầu vào: {e}")

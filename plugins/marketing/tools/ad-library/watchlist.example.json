@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "country": "VN",
+    "status": "active",
+    "media": "all",
+    "delay_seconds": 15,
+    "discord_webhook": "",
+    "telegram": {
+      "bot_token": "",
+      "chat_id": ""
+    }
+  },
+  "targets": [
+    {
+      "page_id": "100064829182341",
+      "page_name": "Sữa Hạt Dinh Dưỡng Ovisure",
+      "note": "Top đối thủ ngành sữa hạt",
+      "last_checked": null
+    },
+    {
+      "keyword": "sữa hạt xương khớp",
+      "note": "Từ khóa ngách trọng điểm",
+      "last_checked": null
+    }
+  ]
+}

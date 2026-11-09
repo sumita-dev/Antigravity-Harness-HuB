@@ -1,42 +1,70 @@
 #!/usr/bin/env node
 /**
- * Xếp hạng ad thắng từ file của scrape.js: chạy lâu + nhiều biến thể = đang được đầu tư tiền.
- *   node tools/ad-library/rank.js output/<file>.json [--top 15] [--min-days 7] [--match "chống nắng|spf"]
+ * Xếp hạng ad thắng từ 1 hoặc nhiều file JSON của scrape.js:
+ * Chạy lâu + nhiều biến thể = đang được đầu tư ngân sách lớn.
+ *
+ * Dùng:
+ *   node plugins/marketing/tools/ad-library/rank.js output/<file>.json [--top 15] [--min-days 7] [--test-variants 3] [--match "chống nắng"]
+ *   node plugins/marketing/tools/ad-library/rank.js output/file1.json output/file2.json --top 20
  */
-const fs = require('fs');
-const f = process.argv[2];
-const opt = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const top = parseInt(opt('top', '15'), 10);
-const minDays = parseInt(opt('min-days', '7'), 10);           // ad mới < N ngày chưa đủ tín hiệu thắng
-const match = opt('match') && new RegExp(opt('match'), 'i');  // lọc theo tên page / tiêu đề / nội dung
-if (!f || f.startsWith('--')) { console.error('Thiếu file json, vd: node tools/ad-library/rank.js output/<file>.json'); process.exit(1); }
-const all = JSON.parse(fs.readFileSync(f, 'utf8')).ads;
-const ads = match ? all.filter(a => match.test(`${a.page_name} ${a.title} ${a.body}`)) : all;
+const { parseArgs, loadAds, rankAds } = require('./lib');
 
-// gộp theo collation (cùng creative nhân bản) để không đếm trùng
-const groups = new Map();
-for (const a of ads) {
-  const k = a.collation_id || a.ad_id;
-  const g = groups.get(k);
-  if (!g || (a.days_running || 0) > (g.days_running || 0)) groups.set(k, { ...a, variants: Math.max(a.variants || 1, g ? g.variants : 1) });
-}
-const score = a => (a.days_running || 0) + Math.min(a.variants || 1, 30) * 2;
-const list = [...groups.values()];
-const ranked = list.filter(a => (a.days_running || 0) >= minDays).sort((a, b) => score(b) - score(a)).slice(0, top);
-// ad mới nhân bản nhiều = đối thủ đang test, chưa phải ad thắng
-const testing = list.filter(a => (a.days_running || 0) < minDays && (a.variants || 1) >= 5).sort((a, b) => b.variants - a.variants).slice(0, 5);
-
-console.log(`# Top ad (điểm = ngày chạy + 2×biến thể, từ ${minDays} ngày trở lên)\n`);
-if (!ranked.length) console.log('(Chưa có ad nào đủ ngày chạy. Thử --min-days nhỏ hơn hoặc lấy nhiều ad hơn.)');
-ranked.forEach((a, i) => {
-  console.log(`${i + 1}. [${a.page_name}] ${a.format} | ${a.days_running}d | ${a.variants} biến thể | CTA: ${a.cta || '-'}`);
-  console.log(`   Hook: ${(a.body || '').replace(/\s+/g, ' ').slice(0, 160)}`);
-  console.log(`   ${a.library_url}`);
+const args = parseArgs({
+  top: 15,
+  'min-days': 7,
+  'test-variants': 3,
 });
-if (testing.length) {
-  console.log('\n# Đang test (mới < ' + minDays + ' ngày, nhiều biến thể)');
-  testing.forEach(a => console.log(`- [${a.page_name}] ${a.format} | ${a.days_running}d | ${a.variants} biến thể | ${(a.body || '').replace(/\s+/g, ' ').slice(0, 100)}\n  ${a.library_url}`));
+
+const files = args.files;
+const top = parseInt(args.top, 10) || 15;
+const minDays = parseInt(args['min-days'], 10) || 7;
+const testVariants = parseInt(args['test-variants'], 10) || 3;
+const matchStr = args.match;
+const matchRegex = matchStr ? new RegExp(matchStr, 'i') : null;
+
+if (!files || files.length === 0) {
+  console.error('Thiếu file json đầu vào.');
+  console.error('Cách dùng: node rank.js output/file1.json [output/file2.json ...] [--top 15] [--min-days 7] [--test-variants 3]');
+  process.exit(1);
 }
-const fmt = {}; ads.forEach(a => fmt[a.format] = (fmt[a.format] || 0) + 1);
-const cta = {}; ads.forEach(a => a.cta && (cta[a.cta] = (cta[a.cta] || 0) + 1));
-console.log('\nFormat:', JSON.stringify(fmt), '\nCTA:', JSON.stringify(cta));
+
+const allAds = loadAds(files, matchRegex);
+if (!allAds.length) {
+  console.error('Không tìm thấy quảng cáo nào trong các tệp đã cung cấp.');
+  process.exit(0);
+}
+
+const result = rankAds(allAds, {
+  top,
+  minDays,
+  match: matchRegex,
+  testVariants,
+});
+
+if (args.json) {
+  console.log(JSON.stringify(result, null, 2));
+  process.exit(0);
+}
+
+console.log(`# Top ad (điểm = ngày chạy + 2×biến thể, từ ${minDays} ngày trở lên) [Tổng: ${result.total} ads, ${result.collapsedCount} creative gốc]\n`);
+
+if (!result.ranked.length) {
+  console.log(`(Chưa có ad nào đủ ${minDays} ngày chạy. Thử --min-days nhỏ hơn hoặc lấy nhiều ad hơn.)\n`);
+} else {
+  result.ranked.forEach((a, i) => {
+    console.log(`${i + 1}. [${a.page_name}] ${a.format || 'MEDIA'} | ${a.days_running || 0}d | ${a.variants || 1} biến thể | CTA: ${a.cta || '-'}`);
+    console.log(`   Hook: ${(a.body || '').replace(/\s+/g, ' ').slice(0, 160)}`);
+    console.log(`   ${a.library_url}`);
+  });
+}
+
+if (result.testing.length) {
+  console.log(`\n# Đang test (mới < ${minDays} ngày, >= ${testVariants} biến thể)`);
+  result.testing.forEach((a, i) => {
+    console.log(`${i + 1}. [${a.page_name}] ${a.format || 'MEDIA'} | ${a.days_running || 0}d | ${a.variants || 1} biến thể | ${(a.body || '').replace(/\s+/g, ' ').slice(0, 120)}`);
+    console.log(`   ${a.library_url}`);
+  });
+}
+
+console.log('\nPhân bổ Format:', JSON.stringify(result.stats.fmt));
+console.log('Phân bổ CTA:', JSON.stringify(result.stats.cta));

@@ -888,3 +888,90 @@ def test_html_dashboard_media_interaction_and_no_referrer(tmp_path: Path):
     assert 'closeMediaLightbox' in content
     assert "handleMediaError" in content
 
+
+def test_url_builder_loose_and_sort_modes():
+    """Kiểm tra build_meta_ads_url với cờ --loose và các mode sort mới."""
+    # 1. Mode loose: không bọc ngoặc kép, search_type=keyword_unordered
+    url_loose = build_meta_ads_url("sữa hạt dinh dưỡng", loose=True)
+    assert "search_type=keyword_unordered" in url_loose
+    assert "%22" not in url_loose
+
+    # 2. Sort new và relevance
+    url_new = build_meta_ads_url("sữa hạt", sort="new")
+    assert "sort_data%5Bmode%5D=relevancy_monthly_grouped" in url_new or "sort_data[mode]=relevancy_monthly_grouped" in url_new
+
+    url_rel = build_meta_ads_url("sữa hạt", sort="relevance")
+    assert "sort_data%5Bmode%5D=relevancy_monthly_grouped" in url_rel or "sort_data[mode]=relevancy_monthly_grouped" in url_rel
+
+
+def test_cli_parser_new_flags():
+    """Kiểm tra các cờ CLI mới: --sort, --loose, --scrape-lp, --download-media."""
+    parser = build_cli_parser()
+    args = parser.parse_args([
+        "--keyword", "sữa hạt",
+        "--sort", "new",
+        "--loose",
+        "--scrape-lp",
+        "--download-media",
+    ])
+    assert args.sort == "new"
+    assert args.loose is True
+    assert args.scrape_lp is True
+    assert args.download_media is True
+
+
+def test_html_dashboard_landing_page_insights_and_local_media(tmp_path: Path):
+    """Kiểm tra Dashboard HTML hiển thị Landing Page Insights và Local Media Offline."""
+    ad_with_lp = AdCreative(
+        id="lp1",
+        ad_archive_id="arc_lp1",
+        page_id="112233",
+        page_name="Ovisure Gold",
+        page_profile_picture_url=None,
+        start_date="2026-10-01",
+        end_date=None,
+        is_active=True,
+        days_active=35,
+        variant_count=8,
+        publisher_platforms=["facebook"],
+        body_text="Sữa hạt Ovisure Gold chính hãng.",
+        title="Ovisure Gold",
+        caption="ovisuregold.vn",
+        cta_text="Đặt hàng ngay",
+        link_url="https://ovisuregold.vn/landing",
+        media_type="image",
+        media_urls=["https://fbcdn.net/sample.jpg"],
+        ad_snapshot_url="https://facebook.com/ads/library/?id=arc_lp1",
+        landing_page_data={
+            "title": "Ovisure Gold - Sữa hạt chuyên biệt cho xương khớp",
+            "prices": ["550.000đ", "990.000đ"],
+            "offers": ["Mua 2 tặng 1", "Miễn phí vận chuyển toàn quốc"],
+            "has_phone_form": True,
+            "buttons": ["Đặt hàng ngay", "Nhận ưu đãi"],
+        },
+        local_media_paths=[str(tmp_path / "creative" / "sample_img.jpg")],
+    )
+
+    report = ScoutReport(
+        keyword="sữa hạt",
+        country="VN",
+        scouted_at="2026-11-06 12:00:00",
+        target_url="https://facebook.com/ads/library/?q=test",
+        total_found=1,
+        coverage=CoverageMetrics(1, 1, 0, True, []),
+        ads=[ad_with_lp],
+        analyses={},
+    )
+
+    exporter = ReportExporter(tmp_path)
+    html_file = exporter.export_html(report, min_days=14)
+    content = html_file.read_text(encoding="utf-8")
+
+    # Kiểm tra Landing Page Spy box
+    assert "Landing Page Spy Insights" in content
+    assert "Chốt đơn Form SĐT" in content
+    assert "550.000đ" in content
+    assert "Mua 2 tặng 1" in content
+    assert "ad-lp-box" in content
+
+
