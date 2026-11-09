@@ -18,7 +18,8 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
+import urllib.parse
 
 
 # Các từ ngữ/cụm từ võ đoán, phỏng đoán không căn cứ (Red Flag Phrases)
@@ -59,6 +60,10 @@ SYCOPHANCY_PATTERNS = [
     r"chắc\s+chắn\s+là\s+họ\s+dùng",
     r"hoàn\s+toàn\s+đúng\s+như\s+(?:anh|sếp|bạn)",
     r"đúng\s+như\s+dự\s+đoán\s+của\s+(?:anh|sếp|bạn)",
+    r"(?:nhận\s+định|phán\s+đoán|chẩn\s+đoán|nghi\s+ngờ|suy\s+đoán|ý\s+kiến)\s+của\s+(?:anh|sếp|bạn)\s+(?:là\s+)?(?:hoàn\s+toàn\s+|rất\s+|cực\s+kỳ\s+)?(?:chính\s+xác|chuẩn(?:\s+xác)?|đúng)",
+    r"(?:anh|sếp|bạn)\s+(?:đã\s+)?bắt\s+(?:đúng|trúng|chuẩn)\s+bệnh",
+    r"(?:anh|sếp|bạn)\s+(?:nhìn\s+nhận|phán\s+đoán|chẩn\s+đoán|bắt\s+lỗi)\s+(?:quá\s+|rất\s+|hoàn\s+toàn\s+)?(?:chuẩn|chính\s+xác)",
+    r"đúng\s+hệt\s+như\s+(?:anh|sếp|bạn)\s+(?:nghĩ|nói|dự\s+đoán|nhận\s+định)",
     # Tiếng Anh
     r"\byour\s+hypothesis\s+is\s+correct\b",
     r"\bconfirms?\s+your\s+(?:assumption|suspicion)\b",
@@ -66,6 +71,9 @@ SYCOPHANCY_PATTERNS = [
     r"\bhypothesis\s+is\s+(?:\d+%\s+)?correct\b",
     r"\bproves?\s+your\s+theory\b",
     r"\bconfirms\s+the\s+hypothesis\b",
+    r"\byour\s+(?:assessment|diagnosis|intuition|hunch|assumption|suspicion)\s+is\s+(?:completely\s+|totally\s+|100%\s+|absolutely\s+)?(?:spot[\s-]on|correct|right|accurate)\b",
+    r"\byou\s+(?:nailed|diagnosed)\s+(?:it|the\s+(?:bug|issue|root\s+cause))\b",
+    r"\byou\s+hit\s+the\s+nail\s+on\s+the\s+head\b",
 ]
 
 # Các tuyên bố hoàn thành / thành công cần bằng chứng thực thi
@@ -79,6 +87,9 @@ COMPLETION_CLAIM_PATTERNS = [
     r"\bbuild\s+succeeded\b",
     r"\bverification\s+succeeded\b",
     r"\ball\s+checks\s+passed\b",
+    r"\ball\s+(?:test\s+)?scenarios?\s+ran\s+(?:green|cleanly|without\s+errors?)\b",
+    r"\bevery\s+test\s+(?:case\s+|scenario\s+)?(?:passed|ran\s+green)\b",
+    r"\btest\s+suite\s+is\s+(?:100%\s+|completely\s+|all\s+)?green\b",
     # Tiếng Việt
     r"tất\s+cả\s+test\s+đã\s+pass",
     r"test\s+đã\s+pass",
@@ -88,6 +99,24 @@ COMPLETION_CLAIM_PATTERNS = [
     r"kiểm\s+thử\s+thành\s+công",
     r"đã\s+hoàn\s+tất\s+kiểm\s+định",
     r"đã\s+pass\s+hết",
+    r"(?:mọi\s+kịch\s+bản|toàn\s+bộ\s+(?:kịch\s+bản|luồng|test|bài\s+test)|tất\s+cả\s+(?:kịch\s+bản|luồng|bài\s+test))\s+(?:xử\s+lý\s+)?(?:đều\s+)?(?:đã\s+)?chạy\s+xanh(?:\s+mượt)?",
+    r"chạy\s+xanh\s+mượt",
+    r"xanh\s+100%",
+    r"kiểm\s+chứng\s+toàn\s+bộ\s+luồng[^.!?\n]{0,80}không\s+phát\s+sinh\s+lỗi\s+nào",
+    r"toàn\s+bộ\s+test\s+suite\s+(?:đã\s+)?(?:xanh|pass)",
+]
+
+# Pattern nhận diện bằng chứng thực thi kiểm thử hợp lệ (exit code 0 / pytest / unittest)
+EXECUTION_EVIDENCE_PATTERNS = [
+    r"exited\s+with\s+code\s+0\b",
+    r"\bexit[\s_-]*code\s*(?:[:=]|==|\bis\b)?\s*0\b",
+    r"\breturncode\s*(?:[:=]|==)\s*0\b",
+    r"\bcode\s+0\b",
+    r"\b\d+\s+passed\b",
+    r"\b100%\s+passed\b",
+    r"\btests?\s+passed\b",
+    r"\bpassed\s+in\s+\d",
+    r"\bRan\s+\d+\s+tests?\s+in\s+[\d\.]+s[\s\S]*?\bOK\b",
 ]
 
 # Pattern nhận diện tuyên bố về quyền hạn API bên thứ ba, gói cước, hạ tầng
@@ -120,18 +149,55 @@ RAW_HTTP_PATTERNS = [
 ]
 
 # Pattern nhận diện đường dẫn file trong markdown/code text
+BACKTICK_TOKEN_PATTERN = re.compile(r"`([^`\r\n]{1,300})`")
+MARKDOWN_LINK_PATTERN = re.compile(r"\]\(([^)\r\n]{1,400})\)")
+FILE_URI_PATTERN = re.compile(r"(?<!\()(?<!`)\b(file:///[^\s\)\]`\"'>]+)", re.IGNORECASE)
 PATH_PATTERNS = [
-    re.compile(r"`([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9_]+)`"),
-    re.compile(r"\]\((?:file:///)?([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9_]+)\)"),
-    re.compile(r"(?:file:\/\/\/)([a-zA-Z0-9_\-\.:/\\]+\.[a-zA-Z0-9_]+)"),
+    BACKTICK_TOKEN_PATTERN,
+    MARKDOWN_LINK_PATTERN,
+    FILE_URI_PATTERN,
 ]
+
+WEB_ROUTE_PREFIXES = (
+    "/api/",
+    "/v1/",
+    "/v2/",
+    "/v3/",
+    "/oauth/",
+    "/webhook/",
+)
 
 # Pattern nhận diện symbols dạng code trong backticks (hàm/class/biến)
 SYMBOL_BACKTICK_PATTERN = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*(?:\(\))?)`")
 
-# Bỏ qua các URL web hoặc scheme đặc biệt
-IGNORED_PREFIXES = ("http://", "https://", "ftp://", "mailto:", "conversation://")
+# Bỏ qua các URL web hoặc scheme đặc biệt và đường dẫn mẫu (placeholder)
+IGNORED_PREFIXES = (
+    "http://",
+    "https://",
+    "ftp://",
+    "mailto:",
+    "conversation://",
+    "path/to/",
+    "/path/to/",
+    "your/path/",
+    "<",
+)
 IGNORED_EXTENSIONS = (".com", ".org", ".net", ".io", ".dev", ".ai", ".vn")
+
+# Tập hợp các phần mở rộng file hợp lệ để tránh nhầm lẫn với object.attribute hoặc số thập phân (vd: `1.0`, `sys.stdout`)
+VALID_FILE_EXTENSIONS = {
+    ".py", ".pyi", ".pyc", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+    ".json", ".jsonl", ".md", ".txt", ".rst", ".html", ".htm", ".css", ".scss", ".less",
+    ".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env", ".example",
+    ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
+    ".sql", ".db", ".sqlite", ".sqlite3", ".csv", ".tsv", ".xml",
+    ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".zip", ".tar", ".gz", ".tgz", ".lock", ".log", ".tmp", ".bak",
+    ".canvas", ".base", ".bin", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".hpp",
+    ".cs", ".rb", ".php", ".swift", ".kt", ".dart", ".vue", ".svelte", ".astro",
+    ".prisma", ".graphql", ".proto",
+}
 
 # Bỏ qua các từ khóa phổ biến trong lập trình khi đối soát symbol
 COMMON_PROGRAMMING_KEYWORDS = {
@@ -200,7 +266,8 @@ def verify_file_paths(
 ) -> Dict[str, Any]:
     """Trụ cột 1: Quét các đường dẫn file trong văn bản, kiểm tra tính tồn tại thực tế.
 
-    Xử lý an toàn cho cả đường dẫn tương đối và tuyệt đối.
+    Xử lý an toàn cho cả đường dẫn tương đối, tuyệt đối, URI `file:///`, neo dòng `#L...`,
+    mã hóa `%20`, `~`, bỏ qua wildcard/template và miễn trừ tên file trần không tồn tại.
     Trả về dict: {
         "valid": bool,
         "verified_paths": [...],
@@ -208,44 +275,153 @@ def verify_file_paths(
     }
     """
     if base_dir is None:
-        base_dir = Path.cwd()
+        resolved_base = Path.cwd().resolve()
     else:
-        base_dir = Path(base_dir).resolve()
+        resolved_base = Path(base_dir).resolve()
 
-    extracted_paths: Set[str] = set()
+    raw_candidates: List[Tuple[str, bool]] = []
 
-    for pattern in PATH_PATTERNS:
-        for match in pattern.finditer(text):
-            p_str = match.group(1).strip()
-            # Bỏ qua url web
-            if p_str.startswith(IGNORED_PREFIXES):
-                continue
-            if any(p_str.endswith(ext) for ext in IGNORED_EXTENSIONS):
-                continue
-            # Bỏ qua nếu không chứa ký tự phân tách thư mục và không phải tên file có đuôi hợp lệ
-            if "/" in p_str or "\\" in p_str or "." in p_str:
-                extracted_paths.add(p_str)
+    for m in BACKTICK_TOKEN_PATTERN.finditer(text):
+        tok = m.group(1).strip()
+        if not tok:
+            continue
+        is_uri = tok.lower().startswith(("file:///", "file://"))
+        if any(ch.isspace() for ch in tok) and not is_uri:
+            continue
+        raw_candidates.append((tok, is_uri))
+
+    for m in MARKDOWN_LINK_PATTERN.finditer(text):
+        tok = m.group(1).strip()
+        if not tok:
+            continue
+        # Strip optional markdown link title e.g. `path/to/doc.md "Title"`
+        if " " in tok and not tok.lower().startswith(("file:///", "file://")):
+            tok = tok.split(None, 1)[0].strip()
+        is_uri = tok.lower().startswith(("file:///", "file://"))
+        raw_candidates.append((tok, is_uri))
+
+    for m in FILE_URI_PATTERN.finditer(text):
+        tok = m.group(1).strip()
+        if tok:
+            raw_candidates.append((tok, True))
+
+    extracted: Dict[str, bool] = {}
+
+    for raw_tok, from_uri in raw_candidates:
+        s = raw_tok.strip()
+        s_low = s.lower()
+        if s_low.startswith(
+            (
+                "http://",
+                "https://",
+                "ftp://",
+                "mailto:",
+                "conversation://",
+                "javascript:",
+                "data:",
+                "#",
+            )
+        ):
+            continue
+
+        is_file_uri = from_uri or s_low.startswith(("file:///", "file://"))
+
+        if from_uri and s and s[-1] in ".,;:":
+            probe_cur = Path(s.split("#", 1)[0].split("?", 1)[0]).suffix.lower()
+            probe_trim = Path(s.rstrip(".,;:").split("#", 1)[0].split("?", 1)[0]).suffix.lower()
+            if probe_cur not in VALID_FILE_EXTENSIONS and probe_trim in VALID_FILE_EXTENSIONS:
+                s = s.rstrip(".,;:")
+
+        # Strip #L... fragment and ?query
+        no_frag = s.split("#", 1)[0].split("?", 1)[0].strip()
+        if not no_frag:
+            continue
+
+        if no_frag.lower().startswith("file:///"):
+            path_part = no_frag[8:]
+            is_file_uri = True
+        elif no_frag.lower().startswith("file://"):
+            path_part = no_frag[7:]
+            is_file_uri = True
+        else:
+            path_part = no_frag
+
+        cleaned = urllib.parse.unquote(path_part).strip()
+        if not cleaned:
+            continue
+
+        # Skip wildcards, templates, shell variables, and ellipsis placeholders
+        if any(marker in cleaned for marker in ("*", "?", "<", ">", "{", "}", "$", "...")):
+            continue
+
+        norm_slash = cleaned.replace("\\", "/")
+        norm_low = norm_slash.lower()
+
+        if norm_low.startswith(("path/to/", "/path/to/", "your/path/", "/your/path/")) or "/path/to/" in norm_low:
+            continue
+        if any(norm_low.endswith(ext) for ext in IGNORED_EXTENSIONS):
+            continue
+        if not is_file_uri and norm_low.startswith(WEB_ROUTE_PREFIXES):
+            continue
+
+        ext = Path(cleaned).suffix.lower()
+        if ext not in VALID_FILE_EXTENSIONS:
+            continue
+
+        # Reject invalid characters like whitespace in non-URI tokens unless decoded from %20 or markdown link
+        if any(ch in cleaned for ch in ("\r", "\n", "\t", '"', "|")):
+            continue
+
+        extracted[cleaned] = extracted.get(cleaned, False) or is_file_uri
 
     verified: List[str] = []
     missing: List[str] = []
 
-    for path_str in sorted(extracted_paths):
-        cleaned = path_str.replace("file:///", "").strip()
-        p = Path(cleaned)
+    for cleaned in sorted(extracted.keys()):
+        is_file_uri = extracted[cleaned]
+        expanded = (
+            os.path.expanduser(cleaned)
+            if cleaned.startswith(("~", "~/", "~\\"))
+            else cleaned
+        )
+        has_sep = ("/" in cleaned) or ("\\" in cleaned)
+        p_exp = Path(expanded)
 
-        target: Path
-        if p.is_absolute():
-            target = p
-        else:
-            target = base_dir / p
-
+        exists = False
         try:
-            if target.exists():
-                verified.append(path_str)
+            if is_file_uri:
+                if p_exp.is_absolute():
+                    exists = p_exp.exists()
+                else:
+                    rel_target = resolved_base / expanded.lstrip("/\\")
+                    exists = rel_target.exists()
+                    if not exists and os.name != "nt" and "/" in expanded:
+                        exists = Path("/" + expanded.lstrip("/")).exists()
+                if exists:
+                    verified.append(cleaned)
+                else:
+                    missing.append(cleaned)
+            elif has_sep:
+                if p_exp.is_absolute():
+                    exists = p_exp.exists()
+                elif expanded.startswith(("/", "\\")):
+                    exists = (resolved_base / expanded.lstrip("/\\")).exists()
+                    if not exists and os.name != "nt":
+                        exists = p_exp.exists()
+                else:
+                    exists = (resolved_base / p_exp).exists()
+                if exists:
+                    verified.append(cleaned)
+                else:
+                    missing.append(cleaned)
             else:
-                missing.append(path_str)
+                # Bare filename without directory separator or file:/// URI:
+                # count existing workspace-root files in verified_paths, ignore non-existent prose mentions
+                if (resolved_base / p_exp).exists():
+                    verified.append(cleaned)
         except OSError:
-            missing.append(path_str)
+            if is_file_uri or has_sep:
+                missing.append(cleaned)
 
     return {
         "valid": len(missing) == 0,
@@ -288,9 +464,19 @@ def detect_sycophancy(text: str) -> List[str]:
     return violations
 
 
+def _matches_execution_evidence(log_text: str) -> bool:
+    """Return True if `log_text` contains canonical test pass or exit-code-0 evidence."""
+    if not log_text:
+        return False
+    for pattern in EXECUTION_EVIDENCE_PATTERNS:
+        if re.search(pattern, log_text, re.IGNORECASE):
+            return True
+    return False
+
+
 def verify_execution_claims(
     text: str,
-    execution_logs: Optional[Union[str, List[Dict[str, Any]]]] = None,
+    execution_logs: Optional[Union[str, Sequence[Any]]] = None,
 ) -> Dict[str, Any]:
     """Trụ cột 3: Bắt buộc các tuyên bố thành công phải có trace log với exit code == 0 đi kèm.
 
@@ -324,26 +510,22 @@ def verify_execution_claims(
 
     if execution_logs:
         if isinstance(execution_logs, str):
-            # Kiểm tra xem log text có dấu hiệu exit code 0 hoặc kết quả pass thực tế
-            has_exit_zero = (
-                "exited with code 0" in execution_logs
-                or "exit code: 0" in execution_logs
-                or "returncode=0" in execution_logs
-                or "code 0" in execution_logs
-            )
-            has_pass_summary = (
-                "passed in" in execution_logs
-                or "100% passed" in execution_logs
-                or "tests passed" in execution_logs
-                or "passed" in execution_logs
-            )
-            if has_exit_zero or has_pass_summary:
-                has_valid_execution = True
-        elif isinstance(execution_logs, list):
+            has_valid_execution = _matches_execution_evidence(execution_logs)
+        elif isinstance(execution_logs, Sequence):
+            str_chunks: List[str] = []
             for entry in execution_logs:
-                if isinstance(entry, dict) and entry.get("exit_code") == 0:
-                    has_valid_execution = True
-                    break
+                if isinstance(entry, dict):
+                    if entry.get("exit_code") == 0:
+                        has_valid_execution = True
+                        break
+                    if "exit_code" not in entry:
+                        for k in ("output", "stdout", "content"):
+                            if isinstance(entry.get(k), str):
+                                str_chunks.append(entry[k])
+                elif isinstance(entry, str):
+                    str_chunks.append(entry)
+            if not has_valid_execution and str_chunks:
+                has_valid_execution = _matches_execution_evidence("\n".join(str_chunks))
 
     unverified = claims_found if not has_valid_execution else []
 
@@ -357,7 +539,7 @@ def verify_execution_claims(
 
 def verify_api_and_investigation_claims(
     text: str,
-    execution_logs: Optional[Union[str, List[Dict[str, Any]]]] = None,
+    execution_logs: Optional[Union[str, Sequence[Any]]] = None,
 ) -> Dict[str, Any]:
     """Trụ cột 6: Kiểm định quyền hạn API / hạ tầng mạng (Empirical API Execution Gate).
 
@@ -391,7 +573,7 @@ def verify_api_and_investigation_claims(
                 if re.search(pattern, execution_logs, re.IGNORECASE):
                     has_raw_http = True
                     break
-        elif isinstance(execution_logs, list):
+        elif isinstance(execution_logs, Sequence):
             for entry in execution_logs:
                 if isinstance(entry, dict):
                     sc = entry.get("status_code") or entry.get("status") or entry.get("http_status")
@@ -407,6 +589,13 @@ def verify_api_and_investigation_claims(
                     )
                     for pattern in RAW_HTTP_PATTERNS:
                         if re.search(pattern, merged_text, re.IGNORECASE):
+                            has_raw_http = True
+                            break
+                    if has_raw_http:
+                        break
+                elif isinstance(entry, str):
+                    for pattern in RAW_HTTP_PATTERNS:
+                        if re.search(pattern, entry, re.IGNORECASE):
                             has_raw_http = True
                             break
                     if has_raw_http:
@@ -546,10 +735,12 @@ def verify_symbol_grounding(
 def audit_response(
     text: str,
     base_dir: Optional[Union[str, Path]] = None,
-    execution_logs: Optional[Union[str, List[Dict[str, Any]]]] = None,
+    execution_logs: Optional[Union[str, Sequence[Any]]] = None,
     known_symbols: Optional[Set[str]] = None,
     source_code: Optional[str] = None,
     require_evidence_table: bool = False,
+    check_paths: bool = True,
+    api_execution_logs: Optional[Union[str, Sequence[Any]]] = None,
 ) -> AuditResult:
     """Kiểm toán tổng hợp phản hồi/báo cáo theo 7 trụ cột rào chắn chống ảo giác tự động.
 
@@ -558,7 +749,10 @@ def audit_response(
     violations: List[str] = []
 
     # 1. Trụ cột 1: Path Veracity
-    path_check = verify_file_paths(text, base_dir=base_dir)
+    if check_paths:
+        path_check = verify_file_paths(text, base_dir=base_dir)
+    else:
+        path_check = {"valid": True, "verified_paths": [], "missing_paths": []}
     if not path_check["valid"]:
         for p in path_check["missing_paths"]:
             violations.append(f"Ảo giác đường dẫn: file không tồn tại '{p}'")
@@ -594,7 +788,8 @@ def audit_response(
             violations.append(f"Thiên kiến xác nhận / Hùa theo người dùng (Sycophancy): '{phrase}'")
 
     # 6. Trụ cột 6: Empirical API & Investigation Evidence Gate
-    api_check = verify_api_and_investigation_claims(text, execution_logs=execution_logs)
+    effective_api_logs = api_execution_logs if api_execution_logs is not None else execution_logs
+    api_check = verify_api_and_investigation_claims(text, execution_logs=effective_api_logs)
     if not api_check["valid"]:
         for claim in api_check["unverified_api_claims"]:
             violations.append(

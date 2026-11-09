@@ -7,14 +7,20 @@ $ErrorActionPreference = "Stop"
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $targetDir = [IO.Path]::GetFullPath($TargetDirectory)
 $separator = [IO.Path]::DirectorySeparatorChar
+$script:sha256Provider = [Security.Cryptography.SHA256]::Create()
+$script:verifiedNoReparseDirs = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
 function Assert-NoReparsePoint([string]$Path) {
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
+        if ($script:verifiedNoReparseDirs.Contains($current)) { break }
         if (Test-Path -LiteralPath $current) {
             $item = Get-Item -LiteralPath $current -Force
             if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
                 throw "Symlink or junction is not allowed: $current"
+            }
+            if (($item.Attributes -band [IO.FileAttributes]::Directory) -ne 0) {
+                [void]$script:verifiedNoReparseDirs.Add($current)
             }
         }
         $parent = [IO.Directory]::GetParent($current)
@@ -57,7 +63,12 @@ function Merge-Defaults([hashtable]$Existing, [hashtable]$Defaults) {
 }
 
 function Get-ContentHash([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        return [BitConverter]::ToString($script:sha256Provider.ComputeHash($stream)).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+    }
 }
 
 function Get-RelativeFileMap([string]$SourceRoot, [string]$DestinationPrefix) {
@@ -117,6 +128,7 @@ if (Test-Path -LiteralPath $manifestPath) {
     }
 }
 $previousFiles = $previousManifest.files
+$sourceHashes = @{}
 $nextFiles = @{}
 $staleFiles = @()
 foreach ($relative in $sourceFiles.Keys) {
@@ -124,11 +136,19 @@ foreach ($relative in $sourceFiles.Keys) {
     Assert-TargetChild $destination
     if (Test-Path -LiteralPath $destination -PathType Container) { throw "File/directory conflict: $relative" }
     $sourceHash = Get-ContentHash $sourceFiles[$relative]
+    $sourceHashes[$relative] = $sourceHash
     $unownedIdentical = $false
     if (Test-Path -LiteralPath $destination -PathType Leaf) {
         if (-not $previousFiles.ContainsKey($relative)) {
-            if ((Get-ContentHash $destination) -ne $sourceHash) { throw "Unowned file conflict: $relative" }
-            $unownedIdentical = $true
+            $destHash = Get-ContentHash $destination
+            $legacyOwnedHooks = ($relative -eq "hooks.json" -and (
+                ($previousFiles.ContainsKey(".agent/hooks.json") -and $destHash -eq [string]$previousFiles[".agent/hooks.json"]) -or
+                ($previousFiles.ContainsKey(".agents/hooks.json") -and $destHash -eq [string]$previousFiles[".agents/hooks.json"])
+            ))
+            if (-not $legacyOwnedHooks) {
+                if ($destHash -ne $sourceHash) { throw "Unowned file conflict: $relative" }
+                $unownedIdentical = $true
+            }
         }
     }
     if (-not $unownedIdentical) { $nextFiles[$relative] = $sourceHash }
@@ -153,13 +173,13 @@ if (Test-Path -LiteralPath $targetFile) {
 Merge-Defaults $merged $defaults
 $configBytes = [Text.UTF8Encoding]::new($false).GetBytes(($merged | ConvertTo-Json -Depth 100))
 $newManifest = @{ schemaVersion = 1; files = $nextFiles } | ConvertTo-Json -Depth 20
-$stageRoot = Join-Path $targetDir (".harness-hub-stage-" + [Guid]::NewGuid().ToString("N"))
+$stageRoot = Join-Path $targetDir (".hhs-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
 $backupRoot = Join-Path $stageRoot "backup"
 $stageFilesRoot = Join-Path $stageRoot "files"
 $changed = @()
 foreach ($relative in $sourceFiles.Keys) {
     $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
-    if (-not (Test-Path -LiteralPath $destination -PathType Leaf) -or (Get-ContentHash $destination) -ne (Get-ContentHash $sourceFiles[$relative])) {
+    if (-not (Test-Path -LiteralPath $destination -PathType Leaf) -or (Get-ContentHash $destination) -ne $sourceHashes[$relative]) {
         $changed += $relative
     }
 }
@@ -167,8 +187,8 @@ New-Item -ItemType Directory -Force -Path $stageFilesRoot, $backupRoot | Out-Nul
 try {
     foreach ($relative in $sourceFiles.Keys) {
         $staged = Join-Path $stageFilesRoot ($relative.Replace('/', [string]$separator))
-        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $staged) | Out-Null
-        Copy-Item -LiteralPath $sourceFiles[$relative] -Destination $staged
+        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $staged))
+        [IO.File]::Copy($sourceFiles[$relative], $staged, $true)
     }
     $manifestStaged = Join-Path $stageRoot "manifest.json"
     [IO.File]::WriteAllText($manifestStaged, $newManifest, [Text.UTF8Encoding]::new($false))
@@ -182,8 +202,8 @@ try {
         $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
         if (Test-Path -LiteralPath $destination -PathType Leaf) {
             $backup = Join-Path $backupRoot ($relative.Replace('/', [string]$separator))
-            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $backup) | Out-Null
-            Copy-Item -LiteralPath $destination -Destination $backup
+            [void][IO.Directory]::CreateDirectory((Split-Path -Parent $backup))
+            [IO.File]::Copy($destination, $backup, $true)
             $rollback[$relative] = $backup
         } elseif (Test-Path -LiteralPath $destination) { throw "File/directory conflict during commit: $relative" }
     }
@@ -198,7 +218,7 @@ try {
         $committedCopies = 0
         foreach ($relative in $changed) {
             $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
-            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
             Copy-Item -LiteralPath (Join-Path $stageFilesRoot ($relative.Replace('/', [string]$separator))) -Destination $destination -Force
             $committedCopies++
             if ($failureThreshold -gt 0 -and $committedCopies -ge $failureThreshold) {
@@ -212,7 +232,7 @@ try {
         foreach ($relative in ($changed + $staleFiles + @("config.json", ".harness-hub-managed.json"))) {
             $destination = Join-Path $targetDir ($relative.Replace('/', [string]$separator))
             if ($rollback.ContainsKey($relative)) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+                [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
                 Copy-Item -LiteralPath $rollback[$relative] -Destination $destination -Force
             } elseif (Test-Path -LiteralPath $destination -PathType Leaf) { Remove-Item -LiteralPath $destination -Force }
         }

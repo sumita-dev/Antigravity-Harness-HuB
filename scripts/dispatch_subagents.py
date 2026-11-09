@@ -21,7 +21,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-def parse_agent_file(filepath, *, stage=None, stack="", risk="low"):
+def parse_agent_file(filepath, *, stage=None, stack="", risk="low", task_description=""):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -61,9 +61,28 @@ def parse_agent_file(filepath, *, stage=None, stack="", risk="low"):
         data["model_preference"] = policy["model_preference"]
         data["runtime_policy"] = policy
         selected_stage = stage or ALL_STAGES.get(agent_id, "AUDIT")
+        router = SkillRouter()
+        routed_skill, routed_branch = router.route(task_description) if task_description else (None, metadata.get("branch"))
+        if task_description:
+            data["routed_skill"] = routed_skill
+            data["routed_branch"] = routed_branch
         try:
-            selection = SkillRouter().compose(selected_stage, agent_id, stack, risk)
-            data["skill_selection"] = dict(selection, stage=selected_stage, role=agent_id, stack=stack, risk=risk)
+            selection = router.compose(
+                selected_stage,
+                agent_id,
+                stack,
+                risk,
+                task_description=task_description,
+            )
+            data["skill_selection"] = dict(
+                selection,
+                stage=selected_stage,
+                role=agent_id,
+                stack=stack,
+                risk=risk,
+                routed_skill=routed_skill,
+                routed_branch=routed_branch,
+            )
         except Exception:
             data["skill_selection"] = {
                 "skills": [],
@@ -73,16 +92,24 @@ def parse_agent_file(filepath, *, stage=None, stack="", risk="low"):
                 "role": agent_id,
                 "stack": stack,
                 "risk": risk,
+                "routed_skill": routed_skill,
+                "routed_branch": routed_branch,
             }
     return data
 
 
-def get_all_agents(agents_dir="agents", *, stage=None, stack="", risk="low"):
+def get_all_agents(agents_dir="agents", *, stage=None, stack="", risk="low", task_description=""):
     agents = {}
     for subdir in ["app", "marketing"]:
         search_path = os.path.join(agents_dir, subdir, "**", "*.md")
         for filepath in glob.glob(search_path, recursive=True):
-            agent_data = parse_agent_file(filepath, stage=stage, stack=stack, risk=risk)
+            agent_data = parse_agent_file(
+                filepath,
+                stage=stage,
+                stack=stack,
+                risk=risk,
+                task_description=task_description,
+            )
             agents[agent_data["name"]] = agent_data
     return agents
 
@@ -94,6 +121,7 @@ def main():
     parser.add_argument("--stage", choices=sorted(set(ALL_STAGES.values())), help="Authoritative workflow stage for skill composition")
     parser.add_argument("--stack", default="", help="Configured skill stack profile, e.g. database or ui")
     parser.add_argument("--risk", default="low", choices=["low", "medium", "high", "critical"])
+    parser.add_argument("--task", default="", help="Task description for automatic task-specific skill routing and composition")
     args = parser.parse_args()
 
     project_root = Path(__file__).parent.parent
@@ -101,9 +129,23 @@ def main():
     # Compose only requested export; unrelated role profiles must not consume its budget.
     if args.export_schema:
         matches = list(agents_dir.glob(f"*/{args.export_schema}.md")) if args.export_schema.isidentifier() else []
-        agents = {args.export_schema: parse_agent_file(matches[0], stage=args.stage, stack=args.stack, risk=args.risk)} if matches else {}
+        agents = {
+            args.export_schema: parse_agent_file(
+                matches[0],
+                stage=args.stage,
+                stack=args.stack,
+                risk=args.risk,
+                task_description=args.task,
+            )
+        } if matches else {}
     else:
-        agents = get_all_agents(str(agents_dir), stage=args.stage, stack=args.stack, risk=args.risk)
+        agents = get_all_agents(
+            str(agents_dir),
+            stage=args.stage,
+            stack=args.stack,
+            risk=args.risk,
+            task_description=args.task,
+        )
 
     if args.list:
         for name in sorted(agents.keys()):

@@ -222,3 +222,41 @@ def test_install_preserves_vietnamese_unicode_in_custom_instructions(tmp_path):
     assert updated_config["userSettings"]["customInstructions"] == custom_vietnamese
 
 
+
+def test_install_adopts_legacy_hooks_json_matching_agent_manifest_and_rejects_foreign_hooks(tmp_path):
+    """VULN-06 regression: Adopt legacy top-level hooks.json when SHA256 matches .agent/hooks.json in manifest."""
+    import hashlib
+
+    # 1. Legacy install where hooks.json was copied from an older .agent/hooks.json without manifest entry
+    target = tmp_path / "portable_legacy_hooks"
+    assert install(target, extra_args=["-SkipWatcher"]).returncode == 0
+
+    legacy_bytes = b'{"auto-code-harvester":{"Stop":[{"type":"command","command":"python scripts/auto_harvest_global.py","timeout":30}]}}\n'
+    legacy_hash = hashlib.sha256(legacy_bytes).hexdigest()
+
+    (target / "hooks.json").write_bytes(legacy_bytes)
+    (target / ".agent" / "hooks.json").write_bytes(legacy_bytes)
+
+    manifest_path = target / ".harness-hub-managed.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"].pop("hooks.json", None)
+    manifest["files"][".agent/hooks.json"] = legacy_hash
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    res_adopt = install(target, extra_args=["-SkipWatcher"])
+    assert res_adopt.returncode == 0, res_adopt.stdout + res_adopt.stderr
+
+    updated_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "hooks.json" in updated_manifest["files"]
+    assert (target / "hooks.json").read_bytes() == (REPO / ".agent/hooks.json").read_bytes()
+
+    # 2. Genuinely foreign/unowned hooks.json with mismatching hash still fails closed
+    target_foreign = tmp_path / "portable_foreign_hooks"
+    target_foreign.mkdir()
+    foreign_bytes = b'{"custom-user-hook": true}\n'
+    (target_foreign / "hooks.json").write_bytes(foreign_bytes)
+
+    res_foreign = install(target_foreign, extra_args=["-SkipWatcher"])
+    assert res_foreign.returncode != 0
+    assert "unowned file conflict: hooks.json" in (res_foreign.stdout + res_foreign.stderr).lower()
+    assert (target_foreign / "hooks.json").read_bytes() == foreign_bytes

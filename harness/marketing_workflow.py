@@ -61,9 +61,31 @@ def _safe_path(value):
 
 
 class MarketingWorkflowStore:
+    SCHEMA_VERSION = 1
     NEXT_AGENT = {'RESEARCH': 'web_researcher', 'CREATION': 'creator',
                   'AUDIT': 'compliance_critic', 'APPROVED': None, 'ESCALATED': None}
     REQUIRED_CHECKS = ['source_accuracy', 'policy', 'integrity', 'task_quality']
+
+    @classmethod
+    def audit_artifact_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = False) -> dict:
+        """Audit marketing draft or compliance report text via hallucination_detector."""
+        from harness.validators.hallucination_detector import audit_response
+        res = audit_response(
+            text or '',
+            base_dir=base_dir,
+            execution_logs=execution_logs,
+            check_paths=check_paths,
+        )
+        return {
+            'verdict': res.verdict,
+            'score': res.score,
+            'violations': list(res.violations),
+            'speculative_phrases': list(res.speculative_phrases),
+            'sycophancy_phrases': list(res.sycophancy_phrases),
+            'unverified_claims': list(res.unverified_claims),
+            'unverified_api_claims': list(res.unverified_api_claims),
+            'missing_paths': list(res.missing_paths),
+        }
 
     def __init__(self, root=None):
         self.brain = _safe_path(root or os.environ.get('HARNESS_BRAIN_DIR',
@@ -299,6 +321,7 @@ class MarketingWorkflowStore:
             keys += ['dossier', 'dossier_sha256']
         for key in keys:
             state[key] = None
+        state.pop('hallucination_audit', None)
         # Invalidating approval must not erase an uncertain external side effect.
         state['publish_history'].extend({**row, 'invalidated': True} for row in state['publishing'].values())
         state['publishing'] = {}
@@ -388,11 +411,23 @@ class MarketingWorkflowStore:
                 if label != 'excluded' and location not in Path(artifact).read_text(encoding='utf-8'):
                     raise WorkflowError('Claim excerpt must occur in the artifact')
                 normalized.append({'claim_id': row['claim_id'], 'artifact': artifact, 'location': location, 'label': label})
+            content_ahg = []
+            for record in artifacts:
+                art_path = Path(record['path'])
+                art_text = art_path.read_text(encoding='utf-8', errors='replace')
+                ahg_res = self.audit_artifact_text(art_text, base_dir=self.brain, check_paths=False)
+                if ahg_res['verdict'] == 'REJECT':
+                    raise WorkflowError(
+                        f"Anti-Hallucination Guard rejected content artifact ({art_path.name}): "
+                        f"{'; '.join(ahg_res['violations'])}"
+                    )
+                content_ahg.append({'path': record['path'], **ahg_res})
             self._clear(state)
             content = {'dossier_sha256': state['dossier_sha256'], 'baseline_sha256': state['baseline_sha256'],
                        'artifacts': artifacts, 'claim_checks': normalized}
             state.update(content=content, content_sha256=_hash(_canonical(content)),
-                         artifacts_sha256=_hash(_canonical(artifacts)), stage='AUDIT')
+                         artifacts_sha256=_hash(_canonical(artifacts)), stage='AUDIT',
+                         hallucination_audit={'content': content_ahg})
             state['actors']['creator'] = actor
             return self._save(path, state, 'content', actor)
 
@@ -438,8 +473,26 @@ class MarketingWorkflowStore:
             if verdict not in {'APPROVE', 'REJECT', 'ESCALATE'}:
                 raise WorkflowError('Invalid verdict')
             report = self._evidence(payload.get('report'))
+            audit_ahg = None
             if verdict == 'APPROVE':
                 self._validate_approval(state, payload)
+                for record in (state.get('content') or {}).get('artifacts', []):
+                    art_path = Path(record['path'])
+                    art_text = art_path.read_text(encoding='utf-8', errors='replace')
+                    ahg_art = self.audit_artifact_text(art_text, base_dir=self.brain, check_paths=False)
+                    if ahg_art['verdict'] == 'REJECT':
+                        raise WorkflowError(
+                            f"Anti-Hallucination Guard rejected content artifact ({art_path.name}): "
+                            f"{'; '.join(ahg_art['violations'])}"
+                        )
+                rep_path = Path(report['path'])
+                rep_text = rep_path.read_text(encoding='utf-8', errors='replace')
+                audit_ahg = self.audit_artifact_text(rep_text, base_dir=self.brain, check_paths=False)
+                if audit_ahg['verdict'] == 'REJECT':
+                    raise WorkflowError(
+                        f"Anti-Hallucination Guard rejected audit report ({rep_path.name}): "
+                        f"{'; '.join(audit_ahg['violations'])}"
+                    )
             audit = {'verdict': verdict, 'report': report, 'dossier_sha256': state['dossier_sha256'],
                      'artifacts_sha256': state.get('artifacts_sha256'), 'baseline_sha256': state['baseline_sha256'],
                      'claim_checks': [], 'checklist': []}
@@ -448,6 +501,15 @@ class MarketingWorkflowStore:
                     audit[key] = [{**row, 'evidence': self._evidence(row['evidence'])} for row in payload[key]]
             state['actors']['checker'] = actor
             state['audit'], state['audit_sha256'] = audit, _hash(_canonical(audit))
+            existing_ahg = dict(state.get('hallucination_audit') or {})
+            if audit_ahg is not None:
+                existing_ahg['audit'] = {'path': report['path'], **audit_ahg}
+            else:
+                existing_ahg.pop('audit', None)
+            if existing_ahg:
+                state['hallucination_audit'] = existing_ahg
+            else:
+                state.pop('hallucination_audit', None)
             state['publishing'] = {}
             if verdict == 'REJECT':
                 state['reject_counts']['audit'] += 1

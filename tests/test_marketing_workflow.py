@@ -413,3 +413,131 @@ def test_legacy_or_tampered_prepared_authorization_is_revalidated(tmp_path, raw)
     with pytest.raises(error):
         workflow.validate_publish('task', record['publish_id'], request)
     assert workflow.status('task')['publishing'][record['publish_id']]['status'] == 'PREPARED'
+
+
+def test_anti_hallucination_guard_blocks_polluted_draft_and_audit_report_without_corrupting_hashes(
+    tmp_path: Path,
+) -> None:
+    """VULN-06 regression: MarketingWorkflowStore blocks speculative/sycophantic artifacts and preserves SHA256."""
+    workflow, error = store(tmp_path)
+    workflow.create('mkt-ahg', 'Marketing brief', 'content')
+    src = tmp_path / 'source.txt'
+    src.write_text('Source confirms 12 customers.', encoding='utf-8')
+    dossier = {
+        'schema_version': 1,
+        'brief': 'Marketing brief',
+        'sources': [
+            {
+                'id': 's1',
+                'reference': 'https://example.org/report',
+                'retrieved_at': '2026-10-08',
+                'evidence': str(src),
+            }
+        ],
+        'claims': [
+            {
+                'id': 'c1',
+                'statement': '12 customers',
+                'source_ids': ['s1'],
+                'status': 'verified',
+                'units': 'customers',
+                'timeframe': '2026',
+            }
+        ],
+        'limitations': ['Small sample'],
+    }
+    state = workflow.submit_dossier('mkt-ahg', 'researcher', dossier)
+
+    # 1. Polluted draft is rejected in submit_content BEFORE mutating state
+    bad_draft = tmp_path / 'bad_draft.txt'
+    bad_draft.write_text(
+        '12 customers. Chắc là kịch bản này ổn, giả thuyết của anh hoàn toàn đúng!',
+        encoding='utf-8',
+    )
+    rev_before = state['revision']
+    with pytest.raises(error, match='Anti-Hallucination Guard rejected content artifact'):
+        workflow.submit_content(
+            'mkt-ahg',
+            'creator',
+            {
+                'dossier_sha256': state['dossier_sha256'],
+                'artifacts': [{'path': str(bad_draft)}],
+                'claim_checks': [
+                    {
+                        'claim_id': 'c1',
+                        'artifact': str(bad_draft),
+                        'location': '12 customers',
+                        'label': 'factual',
+                    }
+                ],
+            },
+        )
+    assert workflow.status('mkt-ahg')['revision'] == rev_before
+    assert workflow.status('mkt-ahg')['stage'] == 'CREATION'
+
+    # 2. Clean draft succeeds and records top-level hallucination_audit
+    clean_draft = tmp_path / 'clean_draft.txt'
+    clean_draft.write_text('Báo cáo ghi nhận 12 customers trong quý 1.', encoding='utf-8')
+    state = workflow.submit_content(
+        'mkt-ahg',
+        'creator',
+        {
+            'dossier_sha256': state['dossier_sha256'],
+            'artifacts': [{'path': str(clean_draft)}],
+            'claim_checks': [
+                {
+                    'claim_id': 'c1',
+                    'artifact': str(clean_draft),
+                    'location': '12 customers',
+                    'label': 'factual',
+                }
+            ],
+        },
+    )
+    assert state['schema_version'] == 1
+    assert state['hallucination_audit']['content'][0]['verdict'] == 'APPROVE'
+
+    # 3. Polluted compliance audit report is rejected on APPROVE before mutating state
+    bad_report = tmp_path / 'bad_audit.txt'
+    bad_report.write_text('Giả thuyết của anh hoàn toàn đúng, tất cả test đã pass!', encoding='utf-8')
+    with pytest.raises(error, match='Anti-Hallucination Guard rejected audit report'):
+        workflow.audit(
+            'mkt-ahg',
+            'checker',
+            {
+                'verdict': 'APPROVE',
+                'report': str(bad_report),
+                'dossier_sha256': state['dossier_sha256'],
+                'artifacts_sha256': state['artifacts_sha256'],
+                'baseline_sha256': state['baseline_sha256'],
+                'claim_checks': [{'claim_id': 'c1', 'status': 'PASS', 'evidence': str(bad_report)}],
+                'checklist': [
+                    {'id': ck, 'status': 'PASS', 'evidence': str(bad_report)}
+                    for ck in state['required_checks']
+                ],
+            },
+        )
+    assert workflow.status('mkt-ahg')['stage'] == 'AUDIT'
+
+    # 4. Clean compliance audit report succeeds and passes _load() SHA256 verification
+    clean_report = tmp_path / 'clean_audit.txt'
+    clean_report.write_text('Đã kiểm định độc lập 4 trụ cột tuân thủ.', encoding='utf-8')
+    approved = workflow.audit(
+        'mkt-ahg',
+        'checker',
+        {
+            'verdict': 'APPROVE',
+            'report': str(clean_report),
+            'dossier_sha256': state['dossier_sha256'],
+            'artifacts_sha256': state['artifacts_sha256'],
+            'baseline_sha256': state['baseline_sha256'],
+            'claim_checks': [{'claim_id': 'c1', 'status': 'PASS', 'evidence': str(clean_report)}],
+            'checklist': [
+                {'id': ck, 'status': 'PASS', 'evidence': str(clean_report)}
+                for ck in state['required_checks']
+            ],
+        },
+    )
+    assert approved['stage'] == 'APPROVED'
+    assert approved['hallucination_audit']['audit']['verdict'] == 'APPROVE'
+    assert workflow.status('mkt-ahg')['stage'] == 'APPROVED'

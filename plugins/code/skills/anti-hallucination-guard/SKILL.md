@@ -155,3 +155,23 @@ Mọi báo cáo bàn giao của SubAgent tự động đối soát qua `harness/
 3. **QA Auditor (Checker):**
    - Rà soát 100% đường dẫn vật lý trên đĩa.
    - Rerun độc lập toàn bộ các test commands và chỉ duyệt (`VERDICT: APPROVE`) khi có kết quả `exit code 0` thật và bằng chứng đối chứng 2 chiều đầy đủ.
+
+---
+
+## Kiến Trúc Thực Thi Tự Động (Runtime Enforcement Architecture)
+
+Rào chắn chống ảo giác được cưỡng chế thực thi tự động qua 3 tầng vật lý:
+
+1. **Antigravity 2.0 Lifecycle `Stop` Hook (`scripts/enforce_anti_hallucination_hook.py`):**
+   - Được đăng ký trực tiếp trong `.agents/hooks.json` và `.agent/hooks.json` tại sự kiện `Stop`.
+   - Đọc `transcriptPath` (JSONL) từ payload `stdin` của Antigravity, trích xuất toàn bộ các bước sau `USER_INPUT` mới nhất, thu thập execution logs từ các bước chạy tool/command (`Command exited with code 0`, HTTP status code) và kiểm toán phản hồi `PLANNER_RESPONSE` cuối cùng thông qua `audit_response` (`harness/validators/hallucination_detector.py`).
+   - Nếu phát hiện ngôn ngữ võ đoán, câu hùa theo người dùng (Sycophancy), hoặc tuyên bố hoàn thành/API thiếu bằng chứng thực thi, hook trả về `{"decision": "continue", "reason": "[ANTI-HALLUCINATION-GUARD] ..."}` buộc tác tử sửa lại câu trả lời kèm bằng chứng thật.
+   - Tích hợp **Circuit Breaker (`max_retries = 2`)**: Tự động đếm số lần `[ANTI-HALLUCINATION-GUARD]` đã kích hoạt trong lượt hiện tại (hoặc `executionNum > 2`) để trả về `{"decision": "allow"}`, ngăn chặn vòng lặp vô hạn.
+
+2. **Chốt Chặn Bàn Giao SubAgent (`harness/app_workflow.py`):**
+   - `AppWorkflowStore.audit_handoff_text()` tích hợp trực tiếp `harness/validators/hallucination_detector.py` vào các bước chuyển giao `submit_implementation`, `review_code`, và `audit`.
+   - Lưu biên lai `hallucination_audit` vào trạng thái workflow và tự động bác bỏ (`WorkflowError` / `REJECT`) nếu báo cáo bàn giao chứa ngôn ngữ võ đoán, thiên kiến xác nhận hoặc tuyên bố thiếu bằng chứng thực thi.
+
+3. **Always-On Invariants (`GEMINI.md` Mục 14):**
+   - Quy chuẩn Rào Chắn Chống Ảo Giác Tự Động & Kỷ Luật Phạm Vi luôn được nạp trong ngữ cảnh hệ thống của Quản đốc và toàn bộ SubAgents.
+

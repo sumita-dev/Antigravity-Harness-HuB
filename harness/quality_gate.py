@@ -52,11 +52,50 @@ class AdversarialQualityGate:
             task_context.transition(HarnessState.ESCALATED)
             return Verdict.ESCALATE
 
+    def _check_latest_execution_step(self, task_context) -> Tuple[bool, Optional[int], Optional[Dict[str, Any]]]:
+        """Kiểm tra bước EXECUTE mới nhất trong trace_steps xem có exit_code != 0 chưa được khắc phục hay không."""
+        trace_steps = getattr(task_context, "trace_steps", None)
+        if not isinstance(trace_steps, list):
+            return False, None, None
+        execute_steps = [
+            s for s in trace_steps
+            if isinstance(s, dict) and s.get("step") == "EXECUTE"
+        ]
+        if not execute_steps:
+            return False, None, None
+        latest_exec = execute_steps[-1]
+        payload = latest_exec.get("payload")
+        if isinstance(payload, dict) and "exit_code" in payload:
+            exit_code = payload.get("exit_code")
+            expected = payload.get("expected_exit_code", 0)
+            if exit_code != expected:
+                return True, exit_code, payload
+        return False, None, payload if isinstance(payload, dict) else None
+
     def evaluate_audit(self, task_context, checker_output: str, direct_to_qa: bool = True) -> Verdict:
         """Đánh giá kiểm định từ QA Auditor (test thật, security scan, health check)."""
+        has_exec_fail, exec_exit_code, exec_payload = self._check_latest_execution_step(task_context)
+        if "VERDICT: APPROVE" in checker_output and has_exec_fail:
+            reason = f"Rejected: latest EXECUTE step has non-zero exit_code ({exec_exit_code})"
+            task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200], "reason": reason})
+            already_counted = bool(exec_payload and exec_payload.get("_qa_counted") and not exec_payload.get("_audit_checked"))
+            if exec_payload is not None:
+                exec_payload["_audit_checked"] = True
+            if not already_counted:
+                if not task_context.increment_qa(self.max_qa_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+            elif getattr(task_context, "state", None) == HarnessState.ESCALATED:
+                return Verdict.ESCALATE
+            task_context.safe_transition(HarnessState.REJECTED)
+            task_context.safe_transition(HarnessState.IMPLEMENTATION)
+            return Verdict.REJECT
+
         task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200]})
         if "VERDICT: APPROVE" in checker_output:
-            task_context.transition(HarnessState.APPROVED)
+            if getattr(task_context, "state", None) != HarnessState.APPROVED:
+                task_context.transition(HarnessState.APPROVED)
             return Verdict.APPROVE
         elif "VERDICT: REJECT" in checker_output:
             # Lỗi kỹ thuật / test fail -> tăng qa_rounds
@@ -77,9 +116,28 @@ class AdversarialQualityGate:
 
     def evaluate(self, task_context, checker_output: str):
         """Giữ tương thích ngược với luồng evaluate cũ."""
+        has_exec_fail, exec_exit_code, exec_payload = self._check_latest_execution_step(task_context)
+        if "VERDICT: APPROVE" in checker_output and has_exec_fail:
+            reason = f"Rejected: latest EXECUTE step has non-zero exit_code ({exec_exit_code})"
+            task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200], "reason": reason})
+            already_counted = bool(exec_payload and exec_payload.get("_qa_counted") and not exec_payload.get("_audit_checked"))
+            if exec_payload is not None:
+                exec_payload["_audit_checked"] = True
+            if not already_counted:
+                if not task_context.increment_critique(self.max_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+            elif getattr(task_context, "state", None) == HarnessState.ESCALATED:
+                return Verdict.ESCALATE
+            task_context.safe_transition(HarnessState.REJECTED)
+            task_context.safe_transition(HarnessState.IMPLEMENTATION)
+            return Verdict.REJECT
+
         task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200]})
         if "VERDICT: APPROVE" in checker_output:
-            task_context.transition(HarnessState.APPROVED)
+            if getattr(task_context, "state", None) != HarnessState.APPROVED:
+                task_context.transition(HarnessState.APPROVED)
             return Verdict.APPROVE
         elif "VERDICT: REJECT" in checker_output:
             if not task_context.increment_critique(self.max_rounds):
@@ -100,7 +158,14 @@ class AdversarialQualityGate:
 
     def evaluate_execution(self, context, test_command: str, timeout: int = 60, expected_exit_code: int = 0) -> Verdict:
         try:
-            result = subprocess.run(test_command, shell=True, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(
+                test_command,
+                shell=True,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
             exit_code = result.returncode
             stdout_str = result.stdout[:500] if result.stdout else ""
             stderr_str = result.stderr[:500] if result.stderr else ""
@@ -116,9 +181,20 @@ class AdversarialQualityGate:
             stdout_str = ""
             stderr_str = str(e)[:500]
 
-        context.record_step("EXECUTE", {"command": test_command, "exit_code": exit_code, "stdout": stdout_str, "stderr": stderr_str})
+        exec_payload = {
+            "command": test_command,
+            "exit_code": exit_code,
+            "expected_exit_code": expected_exit_code,
+            "stdout": stdout_str,
+            "stderr": stderr_str,
+        }
+        if exit_code != expected_exit_code:
+            exec_payload["_qa_counted"] = True
+        context.record_step("EXECUTE", exec_payload)
 
         if exit_code == expected_exit_code:
+            if getattr(context, "state", None) == HarnessState.IMPLEMENTATION:
+                context.safe_transition(HarnessState.AUDIT)
             context.safe_transition(HarnessState.APPROVED)
             return Verdict.APPROVE
         else:

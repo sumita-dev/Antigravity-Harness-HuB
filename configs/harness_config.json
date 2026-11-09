@@ -31,6 +31,7 @@
     "boc-phot-storytelling": {
       "branch": "marketing",
       "keywords": [
+        "boc-phot-storytelling",
         "bóc phốt",
         "boc phot storytelling",
         "boc phot",
@@ -49,6 +50,7 @@
     "check-youtube-policy": {
       "branch": "marketing",
       "keywords": [
+        "check-youtube-policy",
         "chính sách youtube",
         "check youtube policy",
         "vi phạm youtube",
@@ -67,6 +69,7 @@
     "yt-competitor-analyzer": {
       "branch": "marketing",
       "keywords": [
+        "yt-competitor-analyzer",
         "phân tích đối thủ youtube",
         "yt competitor analyzer",
         "kênh đối thủ",
@@ -81,6 +84,7 @@
     "alex-hormozi-offer-builder": {
       "branch": "marketing",
       "keywords": [
+        "alex-hormozi-offer-builder",
         "grand slam offer",
         "alex hormozi offer builder",
         "value stack",
@@ -103,6 +107,7 @@
     "alex-hormozi-money-models": {
       "branch": "marketing",
       "keywords": [
+        "alex-hormozi-money-models",
         "money models",
         "alex hormozi money models",
         "mô hình định giá",
@@ -123,6 +128,7 @@
     "kahneman-creative-ads": {
       "branch": "marketing",
       "keywords": [
+        "kahneman-creative-ads",
         "kahneman",
         "kahneman creative ads",
         "creative strategy",
@@ -144,6 +150,7 @@
     "traffic-secrets-playbook": {
       "branch": "marketing",
       "keywords": [
+        "traffic-secrets-playbook",
         "traffic secrets",
         "traffic secrets playbook",
         "kế hoạch traffic",
@@ -164,6 +171,7 @@
     "cong-thuc-viet-content-by-noti-v4": {
       "branch": "marketing",
       "keywords": [
+        "cong-thuc-viet-content-by-noti-v4",
         "viết content",
         "cong thuc viet content by noti v4",
         "viết copy",
@@ -199,6 +207,7 @@
     "viet-content-seo-geo-v5": {
       "branch": "marketing",
       "keywords": [
+        "viet-content-seo-geo-v5",
         "tối ưu bài viết",
         "viet content seo geo v5",
         "tối ưu seo",
@@ -220,6 +229,7 @@
     "meta-ads-analyzer-mod-by-noti": {
       "branch": "marketing",
       "keywords": [
+        "meta-ads-analyzer-mod-by-noti",
         "meta ads analysis",
         "meta ads analyzer mod by noti",
         "phân tích quảng cáo meta",
@@ -243,6 +253,7 @@
     "fb-admin": {
       "branch": "marketing",
       "keywords": [
+        "fb-admin",
         "fb admin",
         "quản lý fanpage",
         "đăng bài fanpage",
@@ -258,6 +269,7 @@
     "framework-marketing-da-kenh": {
       "branch": "marketing",
       "keywords": [
+        "framework-marketing-da-kenh",
         "framework marketing đa kênh",
         "framework marketing da kenh",
         "marketing đa kênh",
@@ -300,6 +312,7 @@
     "meta-ad-scout": {
       "branch": "marketing",
       "keywords": [
+        "meta-ad-scout",
         "meta ads",
         "facebook ads",
         "thư viện quảng cáo",
@@ -341,7 +354,11 @@
         "chăm sóc máy tính",
         "dọn cache windows",
         "tối ưu máy tính windows",
-        "bảo dưỡng máy tính"
+        "bảo dưỡng máy tính",
+        "bảo dưỡng pc",
+        "tối ưu pc",
+        "dọn dẹp và tối ưu máy tính",
+        "dọn rác máy tính"
       ]
     },
     "doc-to-markdown": {
@@ -431,6 +448,7 @@
     "app": {
       "branch": "app",
       "keywords": [
+        "/app",
         "build app",
         "làm app",
         "tạo ứng dụng",
@@ -452,6 +470,7 @@
     "karpathy-coder": {
       "branch": "app",
       "keywords": [
+        "karpathy-coder",
         "karpathy",
         "karpathy coder",
         "surgical",
@@ -737,6 +756,7 @@
     "apple-inspired-design": {
       "branch": "app",
       "keywords": [
+        "apple-inspired-design",
         "apple-inspired",
         "apple inspired design",
         "apple design",
@@ -1037,6 +1057,7 @@
     "short-video-storytelling": {
       "branch": "marketing",
       "keywords": [
+        "short-video-storytelling",
         "short video storytelling",
         "kịch bản reels",
         "kịch bản tiktok",

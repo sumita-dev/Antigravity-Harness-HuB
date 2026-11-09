@@ -1,5 +1,12 @@
 {
   "auto-code-harvester": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python scripts/auto_skill_router_hook.py",
+        "timeout": 15
+      }
+    ],
     "Stop": [
       {
         "type": "command",
@@ -8,8 +15,18 @@
       },
       {
         "type": "command",
-        "command": "pytest -q",
-        "timeout": 60
+        "command": "python scripts/enforce_anti_hallucination_hook.py",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "python scripts/verify_before_handoff_hook.py",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "python scripts/enforce_triad_process_hook.py",
+        "timeout": 30
       }
     ]
   }

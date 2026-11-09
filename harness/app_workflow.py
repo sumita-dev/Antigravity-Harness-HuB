@@ -106,7 +106,28 @@ class AppWorkflowStore:
     EXCLUDED_DIRS = {".git", ".gitnexus", ".brain", "node_modules", ".venv", "venv", ".pytest_cache", ".cache"}
     DOWNSTREAM = {"execution_runs", "code_review", "manifest", "manifest_sha256", "implementation_report", "audit", "evidence",
                   "overall_verdict", "browser_status", "functional_status", "http_status", "qa_actor_id",
-                  "browser_verification", "browser_verification_request"}
+                  "browser_verification", "browser_verification_request", "hallucination_audit"}
+
+    @classmethod
+    def audit_handoff_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = False) -> dict:
+        """Audit handoff/review/audit report text via hallucination_detector."""
+        from harness.validators.hallucination_detector import audit_response
+        res = audit_response(
+            text or "",
+            base_dir=base_dir,
+            execution_logs=execution_logs,
+            check_paths=check_paths,
+        )
+        return {
+            "verdict": res.verdict,
+            "score": res.score,
+            "violations": list(res.violations),
+            "speculative_phrases": list(res.speculative_phrases),
+            "sycophancy_phrases": list(res.sycophancy_phrases),
+            "unverified_claims": list(res.unverified_claims),
+            "unverified_api_claims": list(res.unverified_api_claims),
+            "missing_paths": list(res.missing_paths),
+        }
 
     @classmethod
     def get_stage_gate(cls, stage: str) -> dict:
@@ -580,9 +601,12 @@ class AppWorkflowStore:
             if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor"), state["actors"].get("code_critic")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             self._binding(state, state.get("sign_off", {}).get("spec_sha256"), "spec_sha256")
+            h_audit = self.audit_handoff_text(report, base_dir=Path(state["project_root"]))
+            if h_audit["verdict"] == "REJECT":
+                raise WorkflowError(f"Anti-Hallucination Guard rejected implementation report: {'; '.join(h_audit['violations'])}")
             manifest, digest = self._manifest(state)
             self._clear_downstream(state)
-            state.update(manifest=manifest, manifest_sha256=digest, implementation_report=report, stage="AUDIT" if state["spec"].get("fast_track") else "CRITIQUE", evidence=[])
+            state.update(manifest=manifest, manifest_sha256=digest, implementation_report=report, hallucination_audit=h_audit, stage="AUDIT" if state["spec"].get("fast_track") else "CRITIQUE", evidence=[])
             state["actors"]["builder"] = actor
             return self._save(path, state, "implementation", actor)
 
@@ -627,8 +651,12 @@ class AppWorkflowStore:
                 raise WorkflowError("Implementation changed since submission")
             if actor in {state["actors"].get("architect"), state["actors"].get("builder")}:
                 raise WorkflowError("Maker and Checker actor must differ")
+            h_audit = self.audit_handoff_text(report, base_dir=Path(state["project_root"]))
+            if verdict == "APPROVE" and h_audit["verdict"] == "REJECT":
+                raise WorkflowError(f"Anti-Hallucination Guard rejected code review report: {'; '.join(h_audit['violations'])}")
             state["actors"]["code_critic"] = actor
-            state["code_review"] = dict(verdict=verdict, actor=actor, report=report, spec_sha256=spec_sha256, manifest_sha256=manifest_sha256, provenance="DECLARED native actor; identity not authenticated")
+            state["code_review"] = dict(verdict=verdict, actor=actor, report=report, spec_sha256=spec_sha256, manifest_sha256=manifest_sha256, hallucination_audit=h_audit, provenance="DECLARED native actor; identity not authenticated")
+            state["hallucination_audit"] = h_audit
             self._round_decision(state, "critic", verdict, "AUDIT")
             return self._save(path, state, "code-review", actor)
 
@@ -830,6 +858,21 @@ class AppWorkflowStore:
             if actor in {state["actors"].get("builder"), state["actors"].get("architect")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             evidence_map, pending, statuses = {}, set(), {}
+            has_exec = bool(state.get("execution_runs") or payload.get("commands"))
+            h_audit = self.audit_handoff_text(
+                payload.get("report", ""),
+                base_dir=Path(state["project_root"]),
+                execution_logs=[{"exit_code": 0}] if has_exec else None,
+            )
+            if verdict in {"APPROVE", "PARTIAL_APPROVE"} and h_audit["verdict"] == "REJECT":
+                verdict = "REJECT"
+                payload = dict(
+                    payload,
+                    report=(
+                        (payload.get("report") or "")
+                        + f"\n[Anti-Hallucination Guard Rejected: {'; '.join(h_audit['violations'])}]"
+                    ),
+                )
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 from harness.validators.clean_state_verifier import CleanStateVerifier, DimensionStatus
                 cs_verifier = CleanStateVerifier(project_root=Path(state["project_root"]))
@@ -846,7 +889,8 @@ class AppWorkflowStore:
             state["actors"]["qa_auditor"] = actor
             state["qa_actor_id"] = actor
             state["audit"] = json.loads(json.dumps(payload))
-            state["audit"].update(verdict=verdict, actor=actor)
+            state["audit"].update(verdict=verdict, actor=actor, hallucination_audit=h_audit)
+            state["hallucination_audit"] = h_audit
             state["evidence"] = list(evidence_map.values())
             state["overall_verdict"] = verdict
             state["functional_status"] = statuses.get("functional", "NOT_VERIFIED")
