@@ -24,6 +24,8 @@ required_gates: []
 Giúp user xây dựng **chuỗi offer hoàn chỉnh** để tối đa doanh thu theo framework của Alex Hormozi:
 > *"Kiếm được nhiều hơn chi phí thu hút + phục vụ 1 khách hàng trong 30 ngày đầu tiên"*
 
+Kết hợp kỷ luật **Ma trận Tập trung 2x2 (Focus = Saying No)** và **Khóa chặt Hệ sinh thái (Ecosystem Lock-in)** của Steve Jobs để tránh đẻ ra quá nhiều SKU gây đứt gãy vận hành.
+
 ## AWF Truthfulness Boundary
 - Không tự bịa số liệu doanh thu, CAC/LTV, testimonial, case study, số lượng khách, deadline, hoặc scarcity.
 - Mọi mô hình tiền tệ phải tách rõ dữ liệu user cung cấp, giả định, và khuyến nghị.
@@ -46,11 +48,11 @@ Bạn tuyệt đối không cung cấp tất cả các giai đoạn cùng một 
 
 ---
 
-### 🔍 BƯỚC 0: Thu thập thông tin & Đánh giá tính khả thi (Unit Economics Check)
+### 🔍 BƯỚC 0: Thu thập thông tin, Rà soát Ma trận 2x2 (Steve Jobs Focus) & Đánh giá tính khả thi (Unit Economics Check)
 
-**Hành động của AI:** Hỏi Sếp 5 câu hỏi sau và **chờ phản hồi**:
+**Hành động của AI:** Hỏi Sếp 6 câu hỏi sau và **chờ phản hồi**:
 ```
-1. Sản phẩm/dịch vụ của Sếp là gì? (Mô tả ngắn gọn)
+1. Sản phẩm/dịch vụ của Sếp là gì? (Mô tả ngắn gọn và liệt kê các gói hiện có nếu có)
 2. Khách hàng mục tiêu là ai? (Profile cụ thể)
 3. Giá bán hiện tại là bao nhiêu?
 4. Hiện Sếp đang ở giai đoạn nào trong kinh doanh?
@@ -62,10 +64,13 @@ Bạn tuyệt đối không cung cấp tất cả các giai đoạn cùng một 
 6. Biên lợi nhuận gộp hoặc chi phí giao hàng/phục vụ trung bình là bao nhiêu? Nếu chưa có, đánh dấu là giả định cần Sếp xác nhận.
 ```
 
-**Sau khi Sếp trả lời, AI BẮT BUỘC thực hiện kiểm tra tính khả thi (Unit Economics Sanity Check):**
-1. Lấy Mục tiêu doanh thu 90 ngày ($T) chia cho Giá bán hiện tại ($P) để ra Số lượng đơn hàng cần bán ($N = T / P$).
-2. Giả định tỷ lệ chuyển đổi trung bình là 1% (cho khách lạnh) và 5% (cho khách ấm). Tính ra số lượng Leads/Traffic cần thiết để đạt mục tiêu đó.
-3. Nếu số lượng Leads vượt quá khả năng thực tế của giai đoạn kinh doanh hiện tại của Sếp, hãy đưa ra cảnh báo:
+**Sau khi Sếp trả lời, AI BẮT BUỘC thực hiện 2 bài kiểm tra:**
+1. **Kiểm tra Ma trận Tập trung Steve Jobs (2x2 SKU Pruning):**
+   - Nếu Sếp đang bán dàn trải quá 4 dòng sản phẩm độc lập, áp dụng bài học năm 1997 của Steve Jobs (*cắt bỏ 70% danh mục sản phẩm rườm rà, gom về ma trận 2x2: Phổ thông/Chuyên sâu x Ngắn hạn/Dài hạn*). Khuyên Sếp chọn đúng 1 dòng chủ lực để xây Money Model.
+2. **Kiểm tra tính khả thi (Unit Economics Sanity Check):**
+   - Lấy Mục tiêu doanh thu 90 ngày ($T) chia cho Giá bán hiện tại ($P) để ra Số lượng đơn hàng cần bán ($N = T / P$).
+   - Giả định tỷ lệ chuyển đổi trung bình là 1% (cho khách lạnh) và 5% (cho khách ấm). Tính ra số lượng Leads/Traffic cần thiết để đạt mục tiêu đó.
+   - Nếu số lượng Leads vượt quá khả năng thực tế của giai đoạn kinh doanh hiện tại của Sếp, hãy đưa ra cảnh báo:
    > ⚠️ **CẢNH BÁO TÍNH KHẢ THI (Unit Economics Gap)**
    > Để đạt mục tiêu doanh thu **[T]** với giá bán hiện tại **[P]**, Sếp cần có **[N]** khách hàng mới trong 90 ngày. Điều này đòi hỏi khoảng **[N * 100]** leads (khách hàng tiềm năng).
    > Nếu chưa có kênh traffic lớn, con số này rất rủi ro. Em đề xuất điều chỉnh:
@@ -156,17 +161,17 @@ Dựa trên câu trả lời, đề xuất **1 mô hình Upsell phù hợp**:
 
 ---
 
-### 🔁 BƯỚC 4: Thiết kế Continuity Offer (Thu tiền định kỳ)
+### 🔁 BƯỚC 4: Thiết kế Continuity Offer & Khóa Chặt Hệ Sinh Thái (Jobsian Ecosystem Lock-in)
 
-**Hành động của AI:** Thiết kế mô hình giữ chân khách hàng lâu dài để tạo doanh thu lặp lại ổn định:
+**Hành động của AI:** Thiết kế mô hình giữ chân khách hàng lâu dài để tạo doanh thu lặp lại ổn định, tích hợp bài học **Hệ sinh thái khép kín (iPod + iTunes / iPhone + iCloud)** của Steve Jobs — biến sản phẩm đầu phễu thành "thiết bị gốc" và gói Continuity thành "nhiên liệu/hệ sinh thái" mà khách hàng càng dùng lâu càng có chi phí chuyển đổi (Switching Cost) cao:
 
-#### 🟢 Continuity Bonus Offer (Tặng quà để duy trì membership)
-- **Công thức:** Đăng ký membership hàng tháng để nhận liên tục các cập nhật mới, tài liệu mới hoặc sản phẩm tiêu dùng định kỳ kèm quà tặng hàng tháng.
+#### 🟢 Continuity Bonus & Ecosystem Offer (Tặng quà & lưu trữ tài sản khách hàng để duy trì membership)
+- **Công thức:** Đăng ký membership hàng tháng để nhận liên tục các cập nhật mới, tài liệu mới, sản phẩm tiêu dùng định kỳ hoặc nơi lưu trữ dữ liệu/lịch sử cá nhân hóa của khách (như iCloud/iTunes).
 
 #### 🟢 Waived Fee Offer (Miễn phí setup để cam kết dài hạn)
 - **Công thức:** Miễn phí hoàn toàn chi phí khởi tạo ban đầu nếu cam kết đồng hành tối thiểu 12 tháng.
 
-**→ Output Bước 4:** Mô hình Subscription + Quyền lợi + Định giá định kỳ (khuyến nghị chu kỳ 4 tuần thay vì 1 tháng để tăng thêm 8.3% doanh thu/năm).
+**→ Output Bước 4:** Mô hình Subscription + Cơ chế khóa hệ sinh thái (Ecosystem Lock-in) + Quyền lợi + Định giá định kỳ (khuyến nghị chu kỳ 4 tuần thay vì 1 tháng để tăng thêm 8.3% doanh thu/năm).
 **Hỏi Sếp:** *"Đây là Continuity Offer của Sếp. Em tiến hành lắp ghép toàn bộ mô hình và chạy dự phóng doanh thu nhé?"* (Chờ phản hồi).
 
 ---
@@ -177,6 +182,10 @@ Dựa trên câu trả lời, đề xuất **1 mô hình Upsell phù hợp**:
 
 ```markdown
 # Money Model Hoàn Chỉnh: [Tên Business]
+
+## Giai Đoạn 0: Ma Trận Tập Trung 2x2 (Steve Jobs SKU Focus)
+- **Dòng sản phẩm giữ lại:** [Tối đa 2-4 gói cốt lõi]
+- **Các sản phẩm/tính năng rườm rà cắt bỏ ("Saying No"):** [Danh sách cắt giảm để dồn nguồn lực]
 
 ## Giai Đoạn 1: Get Cash (Attraction Offer)
 - **Tên Offer:** [Tên]
@@ -193,8 +202,8 @@ Dựa trên câu trả lời, đề xuất **1 mô hình Upsell phù hợp**:
 - **Trường hợp đắt quá:** [Gói trả góp / Chia nhỏ thanh toán]
 - **Trường hợp chưa tin:** [Gói rút gọn tính năng]
 
-## Giai Đoạn 4: Get Most Cash (Continuity Offer)
-- **Mô Hình:** [Membership/Cam kết dài hạn]
+## Giai Đoạn 4: Get Most Cash (Continuity & Ecosystem Lock-in)
+- **Mô Hình:** [Membership/Cam kết dài hạn + Khóa hệ sinh thái kiểu iPod/iTunes]
 - **Giá Định Kỳ:** [Giá bán / chu kỳ 4 tuần]
 - **Quyền Lợi Duy Trì:** [Giá trị nhận được hàng tháng]
 
@@ -284,8 +293,8 @@ Stage III: Continuity
 
 ---
 
-*Skill này được xây dựng dựa trên "$100M Money Models" của Alex Hormozi*
-*Phiên bản: 1.0 | Antigravity AI | 2026-03*
+*Skill này được xây dựng dựa trên "$100M Money Models" của Alex Hormozi kết hợp kỷ luật Ma trận 2x2 & Ecosystem của Steve Jobs*
+*Phiên bản: 1.1 | Antigravity AI | 2026-11*
 
 ## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
 

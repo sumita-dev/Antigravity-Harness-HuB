@@ -14,6 +14,13 @@ Kỹ năng điều phối sản xuất video AI hoàn chỉnh từ kịch bản 
 
 ---
 
+## AWF Truthfulness Boundary
+- Không tự bịa số liệu, thông số kỹ thuật, chứng nhận, kết quả kiểm định, hoặc case study khi người dùng chưa cung cấp.
+- Trong kịch bản phân cảnh storyboard, prompt và lời thuyết minh (narrator text): không tự nghĩ ra các chứng chỉ, cam kết hiệu quả giả mạo hoặc số liệu giật gân không có căn cứ.
+- Thiếu thông tin hoặc dữ liệu sản phẩm → yêu cầu người dùng cung cấp hoặc dùng placeholder `[THÔNG SỐ THỰC TẾ]`, tuyệt đối không tự suy diễn thành sự thật hiển nhiên.
+
+---
+
 ## 1. Cấu Hình Căn Cứ Động Cơ (Engine Base Configuration)
 
 Hệ thống kết nối với căn cứ động cơ Flowkit qua biến môi trường hoặc tham số đường dẫn:
@@ -81,6 +88,10 @@ curl -s http://127.0.0.1:8100/health
      - `video_prompt`: phân đoạn thời gian chuyển động chi tiết: `0-3s: [hành động]. 3-6s: [hành động]. 6-8s: [hành động].` (hoặc 4.0s native cho video ngắn).
      - `narrator_text`: lời thuyết minh vừa vặn với độ dài cảnh (tối đa 7.0s cho cảnh 8s; tối đa 3.5s cho cảnh 4s).
      - `dialogue`: lời thoại trong ngoặc kép ở sub-clip nếu có.
+   - **Quy chuẩn Trình diễn Thị giác Steve Jobs (Jobsian Visual Demonstration — áp dụng cho TVC / Video Sản phẩm):**
+     - *Tối giản hóa Bối cảnh (Minimalist Hero Shot):* Khi giới thiệu sản phẩm chủ đạo, ưu tiên ánh sáng studio tương phản cao (chiaroscuro) trên nền tối giản để toàn bộ thị giác tập trung vào đường nét sản phẩm, tránh hậu cảnh AI rối rắm.
+     - *Đạo cụ Đối chiếu Trực quan (The Manila Envelope Contrast):* Không để lời thuyết minh đọc thông số kỹ thuật khô khan; phải biến thông số thành một hành động so sánh vật lý nhìn thấy ngay trên khung hình (như Steve Jobs rút MacBook Air ra từ chiếc phong bì tài liệu).
+     - *Cấu trúc 4 nhịp TVC:* Cảnh 1-2: Phơi bày sự rườm rà cũ (The Villain) ➔ Cảnh 3-5: Sản phẩm xuất hiện giải quyết bằng 1 thao tác mượt mà ➔ Cảnh 6-7: Cảm xúc tự do của người dùng (Values) ➔ Cảnh cuối: Khoảnh khắc "One More Thing" & Tagline.
 3. **Quy tắc bất biến Rule 15 (Real-people bypass):**
    - Khi kịch bản dựa trên nhân vật có thật hoặc người nổi tiếng (chính trị gia, tài phiệt, KOLs):
      - **CẤM TUYỆT ĐỐI** dùng tên thật làm entity `name` hoặc trong prompt (`image_prompt`, `prompt`, `video_prompt`).
@@ -280,3 +291,11 @@ curl -s http://127.0.0.1:8100/health
 - **Số phân cảnh hoàn tất:** `<N>/<N>` scenes
 - **Điểm đánh giá AI Vision:** `<Score>/10`
 - **Đường dẫn tệp video master:** `<local_or_outdir_path>`
+
+---
+
+## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
+
+Trước khi giao bản cuối, tự rà theo `rubrics/content_compliance_rubric.md` — 4 trụ cột:
+**(1)** Tuân thủ chính sách nền tảng · **(2)** Quét sạch sáo rỗng AI (anti-slop) · **(3)** Kiểm chứng dữ liệu & logic · **(4)** Cấu trúc chuyển đổi & sức hút.
+Chạy ở chế độ closed-loop thì Compliance Critic sẽ thẩm định lại và ra phán quyết — skill này không tự phê duyệt.

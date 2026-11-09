@@ -115,3 +115,15 @@ Dưới đây là 12 công thức "Plug-and-Play" đã được kiểm chứng t
 12. **Công thức "Bản sao quá khứ":**
     > *"Gửi cho chính tôi của [X năm trước], khi đang [Hành động sai lầm trong quá khứ]: [Một lời cảnh tỉnh cực ngắn]."*
     > *Ví dụ:* "Gửi cho tôi của 3 năm trước khi vay 500 triệu lướt sóng đất: Dừng lại đi, mày không thông minh hơn thị trường đâu."
+
+---
+
+## 4. Phụ Lục Steve Jobs: Kỹ Thuật "Kẻ Phản Diện Hiện Trạng" & "One More Thing..."
+
+1. **Dựng Kẻ Phản Diện Chung (The Status Quo Villain — 3 giây đầu):**
+   - Trong buổi ra mắt iPhone 2007, Steve Jobs không nói iPhone tốt thế nào trước, mà chiếu hình những chiếc điện thoại cũ lên và chỉ vào "bàn phím nhựa cứng cố định" như một kẻ thù chung gây bức xúc.
+   - **Công thức Hook Villain:** *"Tại sao năm [Năm hiện tại] rồi mà chúng ta vẫn phải chịu đựng [Sự bất tiện vô lý của giải pháp cũ] mỗi ngày?"*
+2. **Đạo Cụ Đối Chiếu Trực Quan (The Manila Envelope Prop):**
+   - Thay vì dùng tính từ ("rất nhanh", "rất mỏng", "rất nhiều"), hãy cầm trên tay một vật dụng đời thường làm thước đo thị giác ngay giây đầu tiên.
+3. **Cú Chốt "One More Thing..." (5 giây cuối):**
+   - Khi người xem tưởng câu chuyện đã kết thúc ở giây thứ 45, hãy thêm một nhịp ngừng 0.5s: *"À, còn một điều nữa mà ít ai để ý..."* rồi tung ra luận điểm sắc bén nhất để khóa chặt tỷ lệ xem hết (Completion Rate > 100%) và kích hoạt phản xạ Save/Share.

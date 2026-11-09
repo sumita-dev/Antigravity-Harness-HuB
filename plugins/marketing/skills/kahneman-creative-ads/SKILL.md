@@ -39,13 +39,14 @@ Chỉ khi đủ (1)(2)(3)(6) mới viết full 2 deliverable. Có thể đọc t
 - `references/kahneman-mechanisms.md` — glossary cơ chế  
 - `references/canvas-template.md` — khung Canvas trống  
 - `references/example-baby-body.md` — case mẫu (body sơ sinh)  
+- `references/jobs-value-translation.md` — bộ lọc Steve Jobs dịch Spec kỹ thuật sang Giá trị cảm xúc ("1,000 songs in your pocket") & đạo cụ thị giác ("Manila Envelope")  
 
 ## Nguyên tắc cốt lõi (không bỏ)
 
-1. **System 1 trước, System 2 sau** — ads thắng impression; trang SP lo lý lẽ/giá/giỏ.  
-2. **Substitution** — xác định *câu hỏi S1* mẹ/khách thực sự trả lời (dễ), không chỉ câu marketing (khó).  
-3. **WYSIATI** — mọi claim quan trọng phải *thấy được* trên frame (vải, da, thao tác, kết).  
-4. **Cognitive ease** — 1 ý / spot; câu ngắn; tránh jargon lab trừ khi dịch ra cảm giác.  
+1. **System 1 trước, System 2 sau (Jobsian Value Filter)** — cấm dẫn đầu quảng cáo bằng thông số kỹ thuật khô khan ("speeds & feeds"). Mọi spec phải dịch sang lợi ích sống động kiểu *"1.000 bài hát trong túi áo"* trên ads; trang SP lo lý lẽ/giá/giỏ.  
+2. **Substitution** — xác định *câu hỏi S1* mẹ/khách thực sự trả lời (dễ) và *hệ giá trị/bản sắc* họ muốn thuộc về (*"Marketing is about values"*), không chỉ câu marketing (khó).  
+3. **WYSIATI & Khoảnh khắc "Phong bì vàng" (Manila Envelope Proof)** — mọi claim quan trọng phải *thấy được* trên frame bằng hành động/đạo cụ đối chiếu trực quan (vải, da, thao tác 1 chạm, vật đối chứng quen thuộc, kết).  
+4. **Cognitive ease & Saying No** — 1 ý / spot; câu ngắn; cắt bỏ 70% chi tiết phụ gây nhiễu; tránh jargon lab trừ khi dịch ra cảm giác.  
 5. **Prospect theory** — chọn frame: gain / loss nhẹ / certainty / possibility; loss aversion ~2:1 nhưng **không hù dọa**.  
 6. **Peak–end** — cấu trúc nội dung: peak sớm → coherence → end cảm xúc + CTA mềm.  
 7. **Soft-sell (nếu user yêu cầu hạn chế từ bán)** — tránh: mua ngay, sale, chốt đơn, lastest, giảm sốc. Ưu tiên: khoảnh khắc, an tâm, chăm, xem chất liệu/size, lưu gợi ý.  
@@ -64,10 +65,10 @@ Xuất **một bảng / các ô gọn**, đã điền. Không để placeholder 
 | **Giá & segment** | Giá; persona thu nhập/đời sống nếu có |
 | **Persona** | Ai; giai đoạn; nỗi/mong S1 |
 | **Câu hỏi S1 cần thắng** | 1 câu substitution (không phải USP feature) |
-| **Không bán / Đang “bán”** | Feature không lead vs trạng thái cảm xúc/identity lead |
+| **Không bán / Đang “bán” (Jobs Value Filter)** | Feature/Spec không lead ("speeds & feeds") vs trạng thái cảm xúc/identity lead & câu quy đổi kiểu *"1,000 songs in your pocket"* |
 | **Big idea** | 1 câu chiến lược (có thể 2 biến thể ngắn) |
 | **Frame prospect** | Gain / loss nhẹ / certainty / possibility + vì sao |
-| **WYSIATI must-show** | 3–6 thứ *phải thấy* trên ads |
+| **WYSIATI must-show (Manila Envelope)** | 3–6 thứ *phải thấy* trên ads (kèm ít nhất 1 đạo cụ/hành động chứng minh thị giác không cần lời) |
 | **Ease package** | Message 1 ý; ngôn ngữ cấm/ưu tiên |
 | **Peak → End** | Peak 0–3s; end frame; CTA mềm |
 | **Giá trên ads** | Cách neo (anchor) hoặc *không* nói giá trên ads |
@@ -128,7 +129,7 @@ Hooks phải **nghe được trên ads** (thoại/caption), khớp ràng buộc 
 4. **Gợi ý 7–14 ngày content** (map T1…T8, optional nhưng nên có)  
 5. **Câu hỏi mở** nếu cần truth thêm (ảnh, chứng chỉ logo, size chart…)  
 
-## Quy tắc SỰ THẬT (BẮT BUỘC)
+## AWF Truthfulness Boundary (Quy tắc SỰ THẬT BẮT BUỘC)
 
 - Không tự nghĩ ra rồi dùng như thật: số liệu, phần trăm, số follower/view, doanh thu, review/testimonial,
   tên khách hàng, chứng nhận, deadline.
@@ -154,6 +155,7 @@ Hooks phải **nghe được trên ads** (thoại/caption), khớp ràng buộc 
 | Chấm điểm / tối ưu SEO bài viết | `viet-content-seo-geo-v5` |
 | Đọc **số liệu ads đang chạy** để tìm nguyên nhân | `meta-ads-analyzer-mod-by-noti` |
 | Lập kế hoạch kênh traffic (không phải góc sáng tạo) | `traffic-secrets-playbook` |
+| Viết **Brand Manifesto / Kịch bản Keynote ra mắt sản phẩm** chuẩn Steve Jobs | `steve-jobs-product-launch` |
 
 ## Slash
 

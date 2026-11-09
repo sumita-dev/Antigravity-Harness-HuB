@@ -76,11 +76,12 @@ Sếp thấy nỗi đau nào là chí mạng nhất cần tập trung xử lý �
 ```
 *(Đợi Sếp trả lời)*
 
-### 🎯 BƯỚC 3: Dream Outcome (Kết quả mơ ước) & Hook Storytelling
-**Hành động của AI:** Thiết kế Dream Outcome thành một câu Hook Storytelling nhẹ nhàng đánh vào cảm xúc, tuân thủ bộ lọc chính sách quảng cáo.
+### 🎯 BƯỚC 3: Dream Outcome (Kết quả mơ ước) & Hook Storytelling (Chuẩn Steve Jobs)
+**Hành động của AI:** Thiết kế Dream Outcome theo nguyên lý **"Customer Experience Backwards & Benefit Translation"** của Steve Jobs: không nói về thông số/cấu phần kỹ thuật ("speeds & feeds"), mà dịch thẳng sang trải nghiệm sống động trong ≤ 8 chữ (như *"1.000 bài hát trong túi áo bạn"*), kết hợp thành câu Hook kể chuyện chạm cảm xúc và tuân thủ bộ lọc chính sách quảng cáo.
 ```
-"Để chạm tới ước mơ của khách và giảm rủi ro bị từ chối quảng cáo do từ ngữ nhạy cảm, em thiết kế câu Hook kể chuyện như sau:
-👉 '[Câu Hook đề xuất]'
+"Để chạm tới ước mơ của khách theo nguyên lý dịch thông số sang giá trị sống của Steve Jobs (và an toàn chính sách quảng cáo), em thiết kế câu định vị & Hook như sau:
+👉 Định vị 1 câu (Jobsian Benefit): '[Câu quy đổi lợi ích trực quan]'
+👉 Câu Hook kể chuyện: '[Câu Hook đề xuất]'
 Sếp thấy câu Hook này đã chạm đúng cảm xúc chưa ạ? Sếp duyệt để em tính toán Phương trình Giá trị nhé!"
 ```
 *(Đợi Sếp trả lời)*
@@ -106,13 +107,15 @@ Sếp chọn phương án nào để em stack vào Offer?"
 ```
 *(Đợi Sếp trả lời)*
 
-### 🎯 BƯỚC 6: Liệt kê Rào cản mua hàng & Thiết kế Trim & Stack
-**Hành động của AI:** Liệt kê các lý do khách hàng từ chối mua (Không có thời gian, sợ không làm được, không có tiền) và đề xuất bộ giải pháp đi kèm tương ứng.
+### 🎯 BƯỚC 6: Liệt kê Rào cản mua hàng & Thiết kế Trim & Stack (Kỷ luật "Saying No" & Rule of Three)
+**Hành động của AI:** Liệt kê các lý do khách hàng từ chối mua (Không có thời gian, sợ không làm được, không có tiền) và đề xuất bộ giải pháp đi kèm.
+*Quy tắc Steve Jobs (Focus & Rule of Three):* Tuyệt đối không nhồi nhét quá nhiều quà tặng rác gây rối trí (paradox of choice). Thực hiện "Trim" (cắt bỏ các phần rườm rà) và chỉ "Stack" tối đa **3 trụ cột giải pháp đắt giá nhất** giải quyết trực diện 3 rào cản lớn nhất của khách.
 ```
-"Để bẻ gãy mọi lời từ chối mua hàng, em đề xuất đóng gói combo giải pháp (Trim & Stack):
-- Sợ không có thời gian -> Tặng [Gói rút gọn 15 phút]
-- Sợ không làm được -> Tặng [Nhóm hỗ trợ 1-1]
-Sếp duyệt bộ combo này chưa ạ?"
+"Để bẻ gãy lời từ chối mua hàng mà vẫn giữ sự tinh gọn, sang trọng theo Quy tắc Số 3 (Rule of Three) của Steve Jobs, em đề xuất lọc bỏ các phần phụ rườm rà và chỉ đóng gói 3 trụ cột giá trị cao nhất (Trim & Stack):
+1. Xóa rào cản thời gian -> [Giải pháp/Cấu phần 1]
+2. Xóa rào cản sợ không làm được -> [Giải pháp/Cấu phần 2]
+3. Xóa rào cản hiệu quả -> [Giải pháp/Cấu phần 3]
+Sếp duyệt bộ 3 trụ cột combo này chưa ạ?"
 ```
 *(Đợi Sếp trả lời)*
 
@@ -148,13 +151,21 @@ Sếp xác nhận giúp em phần nào dùng được?"
 ```
 *(Đợi Sếp trả lời)*
 
-### 🎯 BƯỚC 9: Đặt tên Offer & Đóng gói Tài liệu (Naming Formula)
-**Hành động của AI:** Đề xuất 3 cái tên combo cuốn hút và tổng hợp thành tài liệu hoàn chỉnh.
+### 🎯 BƯỚC 9: Đặt tên Offer, Thiết kế Điểm chạm "Impute" (Unboxing) & Đóng gói Tài liệu
+**Hành động của AI:**
+1. Đề xuất 3 cái tên combo cuốn hút (kèm 1 phương án tên tối giản, sang trọng kiểu Apple).
+2. Thiết kế **Trải nghiệm "Impute" & Nghi thức Mở hộp (Unboxing Ritual)** theo bài học của Steve Jobs & Mike Markkula (*Khách hàng đánh giá chất lượng sản phẩm qua ấn tượng đầu tiên của bao bì/trang chào mừng*):
+   - Với sản phẩm vật lý: Cách đóng hộp, thông điệp in trên nắp hộp, thứ đầu tiên khách nhìn thấy khi mở ra.
+   - Với sản phẩm số/dịch vụ: Trải nghiệm 60 giây đầu tiên sau khi thanh toán (Onboarding tạo "First Win" tức thì).
 ```
 "Em đề xuất 3 tên combo:
-1. Gói [Tên 1]
-2. Gói [Tên 2]
-3. Gói [Tên 3]
+1. Gói [Tên 1 - Công thức Hormozi]
+2. Gói [Tên 2 - Công thức Kết quả]
+3. Gói [Tên 3 - Phong cách tối giản chuẩn Apple/Jobs]
+
+Kèm theo thiết kế Điểm chạm đầu tiên (Nguyên lý Impute & Unboxing của Steve Jobs) để nâng tầm giá trị cảm nhận:
+📦 [Mô tả trải nghiệm mở hộp / Onboarding 60s đầu tiên]
+
 Sếp ưng tên nào nhất để em xuất bản tài liệu Grand Slam Offer hoàn chỉnh ạ?"
 ```
 *(Đợi Sếp chọn)*
@@ -165,12 +176,13 @@ Sếp ưng tên nào nhất để em xuất bản tài liệu Grand Slam Offer h
 Sau khi hoàn thành 9 bước, tổng hợp lại toàn bộ nội dung thành một tài liệu Markdown chuẩn để phòng Media/Content có thể lấy chạy chiến dịch quảng cáo ngay lập tức.
 Tài liệu cuối cùng bao gồm:
 1. **Thông tin sản phẩm & Tệp mục tiêu**
-2. **Dream Outcome & Hook quảng cáo**
-3. **Chi tiết combo sản phẩm (Trim & Stack)**
-4. **Cam kết & Chính sách vận chuyển/COD**
-5. **Chi tiết quà tặng kèm**
-6. **Bảng phân tích Phương trình Giá trị (Value Equation Analysis)**
-7. **Launch Readiness Checklist**
+2. **Dream Outcome, Định vị 1 câu kiểu Steve Jobs & Hook quảng cáo**
+3. **Chi tiết combo sản phẩm (Trim & Stack theo Rule of Three)**
+4. **Thiết kế Điểm chạm "Impute" & Nghi thức Mở hộp (Unboxing / Onboarding Experience)**
+5. **Cam kết & Chính sách vận chuyển/COD**
+6. **Chi tiết quà tặng kèm**
+7. **Bảng phân tích Phương trình Giá trị (Value Equation Analysis)**
+8. **Launch Readiness Checklist**
    - Proof/case study đã được Sếp cung cấp hay chưa?
    - Guarantee/deadline/scarcity đã được Sếp duyệt hay chưa?
    - Claim nào vẫn là giả định?
@@ -178,8 +190,8 @@ Tài liệu cuối cùng bao gồm:
    - Blocker nào khiến offer chưa sẵn sàng launch?
 
 ---
-*Skill này được thiết kế dựa trên framework $100M Offers của Alex Hormozi*
-*Phiên bản: 1.1 | Antigravity AI | 2026-05*
+*Skill này được thiết kế dựa trên framework $100M Offers của Alex Hormozi kết hợp nguyên lý Impute & Focus của Steve Jobs*
+*Phiên bản: 1.2 | Antigravity AI | 2026-11*
 
 ## Đối chiếu tuân thủ trước khi trả bản final (BẮT BUỘC)
 
