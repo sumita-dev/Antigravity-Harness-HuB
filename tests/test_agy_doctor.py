@@ -328,6 +328,55 @@ def test_pillar_3_transcript_telemetry_green_yellow_red(tmp_path, monkeypatch):
     assert "Transcript RED" in item_red.message
 
 
+def test_pillar_3_checkpoint_resets_telemetry_and_separates_tool_steps(tmp_path, monkeypatch):
+    """Kiểm tra CHECKPOINT reset dung lượng/turns và không tính gộp tool steps vào user turns."""
+    _setup_clean_repo(tmp_path)
+    transcript_file = tmp_path / "transcript.jsonl"
+    monkeypatch.setenv("ANTIGRAVITY_TRANSCRIPT", str(transcript_file))
+    doctor = AntigravityDoctor(repo_dir=tmp_path)
+
+    # (a) Trước CHECKPOINT: 50 USER_EXPLICIT + 100 MODEL steps (vượt trần 40 turns và > 250KB nếu tính gộp)
+    pre_cp = (
+        [{"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "x" * 3000} for _ in range(50)]
+        + [{"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "y" * 2000} for _ in range(100)]
+    )
+    checkpoint_step = [{"source": "SYSTEM", "type": "CHECKPOINT", "content": "Compacted summary" * 500}]
+    # Sau CHECKPOINT: 5 USER_EXPLICIT turns + 80 MODEL tool steps
+    post_cp = (
+        [{"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": f"post turn {i}"} for i in range(5)]
+        + [{"source": "MODEL", "type": "PLANNER_RESPONSE", "content": f"tool step {j}"} for j in range(80)]
+    )
+
+    all_lines = pre_cp + checkpoint_step + post_cp
+    transcript_file.write_text("\n".join(json.dumps(l) for l in all_lines) + "\n", encoding="utf-8")
+
+    p3 = doctor.audit_pillar_3_context_telemetry()
+    item = next(it for it in p3.items if it.name == "active_transcript_telemetry")
+    assert item.status == "OPTIMAL"
+    assert "Transcript GREEN" in item.message
+    assert "5 turns" in (item.metric or "")
+    assert "(post-checkpoint)" in (item.metric or "")
+
+    # (b) active_prompt_tokens > 200_000 sau checkpoint kích hoạt ATTENTION (Transcript RED)
+    post_cp_high_tokens = post_cp + [
+        {
+            "source": "MODEL",
+            "type": "PLANNER_RESPONSE",
+            "input_tokens": 55_000,
+            "cache_read_tokens": 160_000,
+        }
+    ]
+    transcript_file.write_text(
+        "\n".join(json.dumps(l) for l in (pre_cp + checkpoint_step + post_cp_high_tokens)) + "\n",
+        encoding="utf-8",
+    )
+    p3_tokens = doctor.audit_pillar_3_context_telemetry()
+    item_tokens = next(it for it in p3_tokens.items if it.name == "active_transcript_telemetry")
+    assert item_tokens.status == "ATTENTION"
+    assert "Transcript RED" in item_tokens.message
+    assert "215,000 tokens" in (item_tokens.metric or "")
+
+
 # =============================================================================
 # 5. KIỂM THỬ TRỤ CỘT 4: PROCESS & GIT HYGIENE
 # =============================================================================

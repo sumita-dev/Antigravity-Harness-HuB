@@ -32,6 +32,8 @@ from scripts.session_guard import (
     RED_THRESHOLD_TURNS,
     YELLOW_THRESHOLD_BYTES,
     YELLOW_THRESHOLD_TURNS,
+    analyze_transcript_telemetry,
+    check_session,
     count_transcript_turns,
     evaluate_session_health,
     generate_handoff_content,
@@ -113,6 +115,44 @@ class TestSessionGuard:
         total_steps, user_turns = count_transcript_turns(transcript_file)
         assert total_steps == 4
         assert user_turns == 2
+
+    def test_check_session_checkpoint_reset_and_user_turns(self, tmp_path):
+        transcript_file = tmp_path / "transcript_cp.jsonl"
+        pre_cp = [
+            json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "a" * 4000})
+            for _ in range(50)
+        ]
+        cp_line = [json.dumps({"source": "SYSTEM", "type": "CHECKPOINT", "content": "summary"})]
+        post_cp = [
+            json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": f"u{i}"})
+            for i in range(4)
+        ] + [
+            json.dumps(
+                {
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "content": f"m{j}",
+                    "input_tokens": 12000,
+                    "cache_read_tokens": 30000,
+                }
+            )
+            for j in range(60)
+        ]
+        transcript_file.write_text("\n".join(pre_cp + cp_line + post_cp) + "\n", encoding="utf-8")
+
+        telemetry = analyze_transcript_telemetry(transcript_file)
+        assert telemetry["has_checkpoint"] is True
+        assert telemetry["turns"] == 4
+        assert telemetry["active_prompt_tokens"] == 42000
+        assert telemetry["effective_size_bytes"] < telemetry["raw_size_bytes"]
+
+        res = check_session(transcript_path=transcript_file)
+        assert res["status"] == "GREEN"
+        assert res["turns"] == 4
+        assert res["has_checkpoint"] is True
+        assert res["active_prompt_tokens"] == 42000
+        assert res["size_bytes"] == telemetry["effective_size_bytes"]
+        assert res["raw_size_bytes"] == telemetry["raw_size_bytes"]
 
     def test_auto_handoff_generation_and_write(self, tmp_path):
         target_file = tmp_path / "wiki" / "_session-handoff.md"

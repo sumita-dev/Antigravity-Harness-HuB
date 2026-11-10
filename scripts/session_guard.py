@@ -117,6 +117,72 @@ def count_transcript_turns(transcript_path: Path) -> Tuple[int, int]:
     return total_steps, user_turns
 
 
+def analyze_transcript_telemetry(transcript_path: Path) -> Dict[str, Any]:
+    """Phân tích telemetry từ file transcript JSONL có hỗ trợ CHECKPOINT reset.
+
+    Returns:
+        Dict chứa effective_size_bytes, raw_size_bytes, turns, total_steps,
+        user_turns, post_cp_steps, post_cp_user_turns, active_prompt_tokens, has_checkpoint.
+    """
+    raw_size_bytes = transcript_path.stat().st_size if transcript_path.exists() else 0
+    total_steps = 0
+    user_turns = 0
+    has_checkpoint = False
+    post_cp_bytes = 0
+    post_cp_steps = 0
+    post_cp_user_turns = 0
+    active_prompt_tokens = 0
+
+    try:
+        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+            for raw_line in f:
+                stripped = raw_line.strip()
+                if not stripped:
+                    continue
+                total_steps += 1
+                try:
+                    data = json.loads(stripped)
+                    source = data.get("source", "")
+                    step_type = data.get("type", "")
+                    if source == "USER_EXPLICIT" or step_type == "USER_INPUT":
+                        user_turns += 1
+                    if step_type == "CHECKPOINT":
+                        has_checkpoint = True
+                        post_cp_bytes = 0
+                        post_cp_steps = 0
+                        post_cp_user_turns = 0
+                        active_prompt_tokens = 0
+                        continue
+                    post_cp_bytes += len(raw_line.encode("utf-8"))
+                    post_cp_steps += 1
+                    if source == "USER_EXPLICIT" or step_type == "USER_INPUT":
+                        post_cp_user_turns += 1
+                    if "input_tokens" in data or "cache_read_tokens" in data:
+                        active_prompt_tokens = int(data.get("input_tokens") or 0) + int(
+                            data.get("cache_read_tokens") or 0
+                        )
+                except Exception:
+                    post_cp_bytes += len(raw_line.encode("utf-8"))
+                    post_cp_steps += 1
+    except Exception:
+        pass
+
+    effective_size_bytes = post_cp_bytes if has_checkpoint else raw_size_bytes
+    turns = post_cp_user_turns if post_cp_user_turns > 0 else post_cp_steps
+
+    return {
+        "effective_size_bytes": effective_size_bytes,
+        "raw_size_bytes": raw_size_bytes,
+        "turns": turns,
+        "total_steps": total_steps,
+        "user_turns": user_turns,
+        "post_cp_steps": post_cp_steps,
+        "post_cp_user_turns": post_cp_user_turns,
+        "active_prompt_tokens": active_prompt_tokens,
+        "has_checkpoint": has_checkpoint,
+    }
+
+
 def evaluate_session_health(
     size_bytes: int,
     turns: int,
@@ -205,16 +271,19 @@ def check_session(
             "status": "GREEN",
             "message": "Không tìm thấy file transcript hoạt động (coi như phiên mới/sạch).",
             "size_bytes": 0,
+            "raw_size_bytes": 0,
             "turns": 0,
             "total_steps": 0,
+            "has_checkpoint": False,
+            "active_prompt_tokens": 0,
             "transcript_path": None,
             "handoff_written": None,
         }
 
-    size_bytes = resolved_path.stat().st_size
-    total_steps, user_turns = count_transcript_turns(resolved_path)
-    # Turns tính theo số lượt turns thực tế hoặc steps nếu ít user_turns
-    turns = max(user_turns, total_steps)
+    telemetry = analyze_transcript_telemetry(resolved_path)
+    size_bytes = telemetry["effective_size_bytes"]
+    turns = telemetry["turns"]
+    total_steps = telemetry["total_steps"]
 
     status, message = evaluate_session_health(size_bytes, turns)
 
@@ -236,8 +305,11 @@ def check_session(
         "status": status,
         "message": message,
         "size_bytes": size_bytes,
+        "raw_size_bytes": telemetry["raw_size_bytes"],
         "turns": turns,
         "total_steps": total_steps,
+        "has_checkpoint": telemetry["has_checkpoint"],
+        "active_prompt_tokens": telemetry["active_prompt_tokens"],
         "transcript_path": str(resolved_path),
         "handoff_written": handoff_written,
     }

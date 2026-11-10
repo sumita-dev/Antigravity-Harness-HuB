@@ -59,6 +59,8 @@ TRANSCRIPT_YELLOW_BYTES = 200 * 1024  # 200 KB
 TRANSCRIPT_RED_BYTES = 250 * 1024  # 250 KB
 TRANSCRIPT_YELLOW_TURNS = 35
 TRANSCRIPT_RED_TURNS = 40
+TRANSCRIPT_YELLOW_TOKENS = 150_000
+TRANSCRIPT_RED_TOKENS = 200_000
 MAX_SESSIONS_BYTES = 500 * 1024 * 1024  # 500 MB
 MAX_BRAIN_BYTES = 500 * 1024 * 1024  # 500 MB
 LOCK_STUCK_AGE_SECONDS = 1800  # 30 phút
@@ -665,48 +667,83 @@ class AntigravityDoctor:
 
         if transcript_path and transcript_path.exists():
             size_bytes = transcript_path.stat().st_size
-            size_kb = size_bytes / 1024.0
 
-            # Đếm turns/steps
-            steps = 0
-            user_turns = 0
+            # Đếm turns/steps và theo dõi CHECKPOINT / token telemetry
+            has_checkpoint = False
+            post_cp_bytes = 0
+            post_cp_steps = 0
+            post_cp_user_turns = 0
+            active_prompt_tokens = 0
             try:
                 with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        line = line.strip()
+                    for raw_line in f:
+                        line = raw_line.strip()
                         if not line:
                             continue
-                        steps += 1
                         try:
                             item = json.loads(line)
                             src = item.get("source")
                             typ = item.get("type")
+                            if typ == "CHECKPOINT":
+                                has_checkpoint = True
+                                post_cp_bytes = 0
+                                post_cp_steps = 0
+                                post_cp_user_turns = 0
+                                active_prompt_tokens = 0
+                                continue
+                            post_cp_bytes += len(raw_line.encode("utf-8"))
+                            post_cp_steps += 1
                             if src == "USER_EXPLICIT" or typ == "USER_INPUT":
-                                user_turns += 1
+                                post_cp_user_turns += 1
+                            if "input_tokens" in item or "cache_read_tokens" in item:
+                                active_prompt_tokens = int(item.get("input_tokens") or 0) + int(
+                                    item.get("cache_read_tokens") or 0
+                                )
                         except Exception:
-                            pass
+                            post_cp_bytes += len(raw_line.encode("utf-8"))
+                            post_cp_steps += 1
             except Exception:
                 pass
 
-            turns = max(user_turns, steps)
+            effective_bytes = post_cp_bytes if has_checkpoint else size_bytes
+            size_kb = effective_bytes / 1024.0
+            turns = post_cp_user_turns if post_cp_user_turns > 0 else post_cp_steps
 
-            if size_bytes > TRANSCRIPT_RED_BYTES or turns > TRANSCRIPT_RED_TURNS:
+            token_suffix = f", {active_prompt_tokens:,} tokens" if active_prompt_tokens > 0 else ""
+            cp_note = " (post-checkpoint)" if has_checkpoint else ""
+            metric_str = f"{size_kb:.1f} KB, {turns} turns{token_suffix}{cp_note}"
+
+            if (
+                effective_bytes > TRANSCRIPT_RED_BYTES
+                or turns > TRANSCRIPT_RED_TURNS
+                or active_prompt_tokens > TRANSCRIPT_RED_TOKENS
+            ):
                 items.append(
                     HealthCheckItem(
                         name="active_transcript_telemetry",
                         status="ATTENTION",
-                        message=f"Transcript RED: {size_kb:.1f} KB (>250KB) hoặc {turns} turns (>40). Nguy cơ mờ ngữ cảnh nghiêm trọng!",
-                        metric=f"{size_kb:.1f} KB, {turns} turns",
+                        message=(
+                            f"Transcript RED: {size_kb:.1f} KB (>250KB), {turns} turns (>40)"
+                            f"{token_suffix}{cp_note}. Nguy cơ mờ ngữ cảnh nghiêm trọng!"
+                        ),
+                        metric=metric_str,
                         advisory="[ADVISORY] Kích hoạt Session Rollover khẩn cấp: xuất _session-handoff.md và gõ /compact.",
                     )
                 )
-            elif size_bytes > TRANSCRIPT_YELLOW_BYTES or turns > TRANSCRIPT_YELLOW_TURNS:
+            elif (
+                effective_bytes > TRANSCRIPT_YELLOW_BYTES
+                or turns > TRANSCRIPT_YELLOW_TURNS
+                or active_prompt_tokens > TRANSCRIPT_YELLOW_TOKENS
+            ):
                 items.append(
                     HealthCheckItem(
                         name="active_transcript_telemetry",
                         status="OBSERVE",
-                        message=f"Transcript YELLOW: {size_kb:.1f} KB (>200KB) hoặc {turns} turns (>35). Khuyến nghị chuẩn bị cắt phiên.",
-                        metric=f"{size_kb:.1f} KB, {turns} turns",
+                        message=(
+                            f"Transcript YELLOW: {size_kb:.1f} KB (>200KB), {turns} turns (>35)"
+                            f"{token_suffix}{cp_note}. Khuyến nghị chuẩn bị cắt phiên."
+                        ),
+                        metric=metric_str,
                         advisory="[ADVISORY] Ngữ cảnh sắp chạm trần: hoàn tất task hiện tại hoặc gõ /compact để giải phóng bộ nhớ.",
                     )
                 )
@@ -715,8 +752,8 @@ class AntigravityDoctor:
                     HealthCheckItem(
                         name="active_transcript_telemetry",
                         status="OPTIMAL",
-                        message=f"Transcript GREEN: {size_kb:.1f} KB, {turns} turns. Ngữ cảnh hoàn toàn an toàn.",
-                        metric=f"{size_kb:.1f} KB, {turns} turns",
+                        message=f"Transcript GREEN: {size_kb:.1f} KB, {turns} turns{token_suffix}{cp_note}. Ngữ cảnh hoàn toàn an toàn.",
+                        metric=metric_str,
                     )
                 )
         else:
