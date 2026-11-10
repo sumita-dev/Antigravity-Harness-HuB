@@ -506,7 +506,7 @@ def stop_process(pid: int) -> bool:
         except Exception:
             pass
         try:
-            res = subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=5)
+            res = subprocess.run(["taskkill", "/F", "/PID", str(pid)], stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
             return res.returncode == 0
         except Exception:
             return False

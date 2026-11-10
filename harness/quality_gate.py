@@ -279,7 +279,11 @@ class AdversarialQualityGate:
         - Degeneration check (chống lặp token vô nghĩa)
         """
         evaluator = self.evaluator
-        executed_steps = getattr(task_context, "steps", [])
+        raw_steps = getattr(task_context, "steps", None) or getattr(task_context, "trace_steps", [])
+        executed_steps = [
+            s.get("step", str(s)) if isinstance(s, dict) else s
+            for s in (raw_steps or [])
+        ]
 
         scores = {
             "hallucination": evaluator.evaluate_hallucination(

@@ -160,7 +160,7 @@ def main() -> int:
     process = subprocess.Popen(
         args.command,
         cwd=work_dir,
-        shell=True,
+        shell=True, stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

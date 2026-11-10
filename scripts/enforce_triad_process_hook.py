@@ -534,6 +534,7 @@ def evaluate_transcript(
     last_planner_step: dict[str, Any] | None = None
     non_exempt_mutations: list[str] = []
     subagent_invocations: list[tuple[int, dict[str, Any]]] = []
+    schedule_without_bg_cmd_steps: list[int] = []
     last_kill_all_idx = -1
     tier2_text_fragments: list[str] = []
 
@@ -557,7 +558,12 @@ def evaluate_transcript(
             if content.strip():
                 tier2_text_fragments.append(content)
 
-        for tc_name, tc_args in _extract_step_tool_calls(step):
+        step_tcs = _extract_step_tool_calls(step)
+        step_tc_names = {name for name, _ in step_tcs}
+        if "schedule" in step_tc_names and "run_command" not in step_tc_names:
+            schedule_without_bg_cmd_steps.append(step_idx)
+
+        for tc_name, tc_args in step_tcs:
             if tc_name in MUTATION_TOOL_NAMES:
                 for p in _extract_mutation_paths(tc_name, tc_args):
                     if not is_exempt_orchestrator_path(p, eff_payload):
@@ -637,6 +643,58 @@ def evaluate_transcript(
 
     last_subagent_invoke_idx = subagent_invocations[-1][0]
     kill_all_missing = last_kill_all_idx < last_subagent_invoke_idx
+
+    # Check 2b (BUG-08): Chronological ordering (post-QA/Critic Maker mutations),
+    # Rule 1.11 (Explicit Model Tiering), and Rule 1.10 (schedule timer alongside SubAgent)
+    unreviewed_maker_violations: list[str] = []
+    last_app_maker_pos = max((i for i, c in enumerate(classified) if c["is_app_maker"]), default=-1)
+    last_exec_critic_pos = max((i for i, c in enumerate(classified) if c["is_exec_critic"]), default=-1)
+    last_qa_pos = max((i for i, c in enumerate(classified) if c["is_qa"]), default=-1)
+    last_mkt_creator_pos = max((i for i, c in enumerate(classified) if c["is_mkt_creator"]), default=-1)
+
+    if has_app_maker and not missing_roles:
+        if (not is_tier2 and last_exec_critic_pos < last_app_maker_pos) or (last_qa_pos < last_app_maker_pos):
+            unreviewed_maker_violations.append(
+                "Vi phạm thứ tự Dynamic Triad (Rule 1.1): Lần gọi Builder/Maker cuối cùng diễn ra SAU Critic/QA Auditor và chưa được thẩm định lại"
+            )
+    if has_mkt_creator and not missing_roles:
+        if last_exec_critic_pos < last_mkt_creator_pos:
+            unreviewed_maker_violations.append(
+                "Vi phạm thứ tự Dynamic Marketing Triad (Rule 3): Lần gọi Creator cuối cùng diễn ra SAU Compliance Critic và chưa được thẩm định lại"
+            )
+
+    model_tier_violations: list[str] = []
+    for (_, tc_args), c in zip(subagent_invocations, classified):
+        model_val = _clean_arg_val(tc_args.get("Model") or tc_args.get("model")).lower()
+        if (c["is_exec_critic"] or c["is_qa"]) and model_val == "inherit":
+            role_label = c["role"] or "Critic/QA"
+            model_tier_violations.append(
+                f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='inherit' cho {role_label}"
+            )
+
+    schedule_violations: list[str] = []
+    if schedule_without_bg_cmd_steps and len(subagent_invocations) > 0:
+        schedule_violations.append(
+            "Vi phạm Quy tắc 1.10 (Zero-Polling): Cấm gọi `schedule` timer khi kích hoạt `invoke_subagent`"
+        )
+
+    if unreviewed_maker_violations or model_tier_violations or schedule_violations:
+        block_issues = unreviewed_maker_violations + model_tier_violations + schedule_violations
+        if missing_roles:
+            block_issues.append(
+                f"Thiếu bước kiểm định độc lập bắt buộc trong Dynamic Triad: {', '.join(missing_roles)}"
+            )
+        if kill_all_missing:
+            block_issues.append(
+                "Chưa gọi `manage_subagents(Action='kill_all')` sau khi SubAgent hoàn tất (Quy tắc 1.17)"
+            )
+        return {
+            "decision": "block",
+            "reason": (
+                f"{GUARD_MARKER} Phát hiện vi phạm nghiêm trọng quy trình Dynamic Triad: "
+                f"{'; '.join(block_issues)}."
+            ),
+        }
 
     if missing_roles or kill_all_missing:
         issues: list[str] = []

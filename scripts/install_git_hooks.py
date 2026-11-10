@@ -55,7 +55,7 @@ def install_hook():
 
     # 2. Cấu hình git config core.hooksPath trỏ vào .githooks
     try:
-        subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=REPO_ROOT, check=True)
+        subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=REPO_ROOT, stdin=subprocess.DEVNULL, check=True)
         print("[OK] Da cau hinh Git tu dong doc hooks tu: .githooks/")
     except Exception as e:
         print(f"[WARN] Khong the cau hinh core.hooksPath: {e}")

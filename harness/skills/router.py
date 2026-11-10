@@ -27,6 +27,26 @@ MARKETING_HINTS = ("marketing", "sale", "content", "story", "ads", "seo",
                    "facebook", "youtube", "quảng cáo", "offer", "kênh",
                    "traffic", "viết bài", "bóc phốt", "caption")
 
+_TECHNICAL_CONTENT_HEADERS_RE = re.compile(
+    r"\bcontent-(?:type|length|disposition|encoding|language|location|range|security-policy|transfer-encoding)\b",
+    re.IGNORECASE,
+)
+
+
+def _keyword_matches(kw: str, text: str) -> bool:
+    kw_lower = kw.lower().strip()
+    if not kw_lower:
+        return False
+    if kw_lower == "cls" and any(
+        py_hint in text
+        for py_hint in ("@classmethod", "classmethod", "sqlalchemy", "def ", "nhận cls", "(cls")
+    ):
+        return False
+    left = r"(?<!\w)" if (kw_lower[0].isalnum() or kw_lower[0] == "_") else ""
+    right = r"(?!\w)" if (kw_lower[-1].isalnum() or kw_lower[-1] == "_") else ""
+    return bool(re.search(f"{left}{re.escape(kw_lower)}{right}", text))
+
+
 
 class SkillRouter:
     def __init__(self, config_path: Optional[str] = None):
@@ -60,7 +80,7 @@ class SkillRouter:
         candidates = []
         for skill_name, data in self.routing_table.items():
             branch = data.get("branch", "app")
-            matched_kws = [kw for kw in data.get("keywords", []) if kw.lower() in text]
+            matched_kws = [kw for kw in data.get("keywords", []) if _keyword_matches(kw, text)]
             if matched_kws:
                 max_len = max(len(kw) for kw in matched_kws)
                 count = len(matched_kws)
@@ -77,7 +97,8 @@ class SkillRouter:
             final_branch = self.routing_table.get(final_skill, {}).get("branch", winner_branch)
             return final_skill, final_branch
 
-        if any(w in text for w in MARKETING_HINTS):
+        hint_text = _TECHNICAL_CONTENT_HEADERS_RE.sub(" ", text)
+        if any(_keyword_matches(w, hint_text) for w in MARKETING_HINTS):
             return None, "marketing"
 
         return None, "app"

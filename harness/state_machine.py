@@ -25,12 +25,23 @@ class TaskContext:
         self.qa_rounds = 0
         self.total_cycles = 0
         self.trace_steps: list[dict] = []
+        self._custom_steps = None
         self.relevant_patterns: list[dict] = []
         self.active_skill = None
         self.skill_path = None
         self.skill_instructions = None
         self.trajectory_store = trajectory_store
         self.last_event_id = None
+
+    @property
+    def steps(self) -> list:
+        if self._custom_steps is not None:
+            return self._custom_steps
+        return self.trace_steps
+
+    @steps.setter
+    def steps(self, value):
+        self._custom_steps = value
 
     def record_step(self, step_name: str, payload: dict):
         step_record = {

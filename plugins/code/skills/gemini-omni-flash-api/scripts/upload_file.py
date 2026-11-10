@@ -146,7 +146,7 @@ def upload_file(file_path, display_name=None):
                     print(f"Running: {' '.join(cmd)}")
 
                     try:
-                        result = subprocess.run(cmd)
+                        result = subprocess.run(cmd, stdin=subprocess.DEVNULL)
                         if result.returncode == 0 and os.path.exists(prepped_output_path):
                             file_path = prepped_output_path
                             file_size = os.path.getsize(file_path)

@@ -24,8 +24,8 @@ class TrajectoryStore:
             "critique_rounds": critique_rounds,
             "metadata": metadata or {}
         }
-        with open(self.path, "a") as f:
-            f.write(json.dumps(record) + "\n")
+        with open(self.path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
         return record
 
     def get_trajectories(self, branch: str = None, verdict: str = None) -> list[dict]:
@@ -33,7 +33,7 @@ class TrajectoryStore:
             return []
         
         trajectories = []
-        with open(self.path, "r") as f:
+        with open(self.path, "r", encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -56,8 +56,8 @@ class TrajectoryStore:
             "payload": payload
         }
         events_path = self.path.parent / "events.jsonl"
-        with open(events_path, "a") as f:
-            f.write(json.dumps(event) + "\n")
+        with open(events_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False) + "\n")
         return event
 
     def get_events(self, task_id: str) -> list[dict]:
@@ -66,7 +66,7 @@ class TrajectoryStore:
             return []
         
         events = []
-        with open(events_path, "r") as f:
+        with open(events_path, "r", encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue

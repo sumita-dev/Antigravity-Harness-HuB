@@ -89,7 +89,7 @@ class SkillDistiller:
         lines = []
         for i, s in enumerate(steps, 1):
             step_name = s.get("step", f"Bước {i}")
-            data = s.get("data") or {}
+            data = s.get("data") or s.get("payload") or {}
             detail = ""
             if "description" in data:
                 detail = f": {data['description']}"
@@ -139,9 +139,9 @@ class SkillDistiller:
         steps = trajectory.get("steps") or []
         rejections = []
         for s in steps:
-            data = s.get("data") or {}
+            data = s.get("data") or s.get("payload") or {}
             if data.get("verdict") == "REJECT" or s.get("step") == "REJECT":
-                reason = data.get("report") or data.get("reason")
+                reason = data.get("report") or data.get("reason") or data.get("notes") or data.get("raw")
                 if reason:
                     rejections.append(f"Vòng '{s.get('step')}': {reason}")
         if rejections:

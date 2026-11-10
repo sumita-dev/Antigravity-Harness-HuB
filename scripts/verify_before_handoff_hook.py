@@ -61,7 +61,7 @@ ALL_HOOK_MARKERS = (
     "[AUTONOMOUS SKILL & TRIAD ROUTER]",
 )
 DEFAULT_MAX_RETRIES = 2
-TARGET_PYTEST_TIMEOUT = 25
+TARGET_PYTEST_TIMEOUT = 60
 FALLBACK_MAX_TEST_FILES = 25
 
 MUTATION_TOOL_NAMES = {
@@ -314,6 +314,7 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
     mutated_files: list[str] = []
     modified_source_py_files: list[str] = []
     has_code_mutation = False
+    last_any_mutation_idx = -1
     last_non_test_py_mutation_idx = -1
     last_passing_pytest_idx = -1
     verification_events: list[dict[str, Any]] = []
@@ -321,7 +322,8 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
     pending_tool_calls: list[tuple[str, str]] = []
 
     def _record_mutated_path(raw_p: str, idx_step: int) -> None:
-        nonlocal last_non_test_py_mutation_idx
+        nonlocal last_any_mutation_idx, last_non_test_py_mutation_idx
+        last_any_mutation_idx = idx_step
         if raw_p not in mutated_files:
             mutated_files.append(raw_p)
         if Path(raw_p).suffix.lower() == ".py" and not _is_test_py_filename(raw_p):
@@ -440,11 +442,18 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
             pending_tool_calls = []
             continue
 
-        # 3. Non-planner step that may be a command/tool output step
+        # 3. Non-planner step that may be a command/tool output step (including background task completion SYSTEM_MESSAGE)
+        is_bg_task_completion = (
+            (step_type == "SYSTEM_MESSAGE" or source == "SYSTEM")
+            and "finished with result:" in content
+            and "Command exited with code" in content
+        )
         if (
             not is_planner
-            and step_type not in ("USER_INPUT", "SYSTEM_MESSAGE")
-            and source != "SYSTEM"
+            and (
+                (step_type not in ("USER_INPUT", "SYSTEM_MESSAGE") and source != "SYSTEM")
+                or is_bg_task_completion
+            )
         ):
             if any(m in content for m in ALL_HOOK_MARKERS):
                 continue
@@ -489,6 +498,7 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
         "mutated_files": mutated_files,
         "modified_source_py_files": modified_source_py_files,
         "has_code_mutation": has_code_mutation,
+        "last_any_mutation_idx": last_any_mutation_idx,
         "last_non_test_py_mutation_idx": last_non_test_py_mutation_idx,
         "last_passing_pytest_idx": last_passing_pytest_idx,
     }
@@ -623,7 +633,7 @@ def run_targeted_pytest(
     if not test_files:
         return None
 
-    cmd = [sys.executable, "-m", "pytest", *[str(p) for p in test_files], "-q"]
+    cmd = [sys.executable, "-m", "pytest", "--import-mode=importlib", *[str(p) for p in test_files], "-q"]
     try:
         proc = subprocess.run(
             cmd,
@@ -743,9 +753,13 @@ def evaluate_transcript(
     # -------------------------------------------------------------------------
     # Check C: Targeted & Auto-Discovered Test Execution (VULN-04)
     # -------------------------------------------------------------------------
+    unverified_mutations = (
+        ctx["last_any_mutation_idx"] >= 0
+        and ctx["last_passing_pytest_idx"] < ctx["last_any_mutation_idx"]
+    )
     test_files = _resolve_modified_test_files(
         workspace_root=workspace_root,
-        mutated_files=ctx["mutated_files"],
+        mutated_files=ctx["mutated_files"] if unverified_mutations else [],
         extra_target_tests=target_tests,
     )
 

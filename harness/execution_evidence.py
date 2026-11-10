@@ -232,14 +232,14 @@ class ExecutionEvidenceStore:
             if os.name == 'nt' and Path(resolved).suffix.lower() in {'.bat','.cmd'}:
                 raise EvidenceError('Batch commands require a shell; use a direct executable')
             execution_context['resolved_executable'] = resolved
-            process = subprocess.Popen([resolved,*argv[1:]], cwd=command['cwd'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False,
+            process = subprocess.Popen([resolved,*argv[1:]], cwd=command['cwd'], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False,
                 start_new_session=os.name != 'nt', creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
             try:
                 stdout, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
                 timed_out = True
                 if os.name == 'nt':
-                    subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'], capture_output=True, timeout=10, shell=False)
+                    subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'], stdin=subprocess.DEVNULL, capture_output=True, timeout=10, shell=False)
                 else:
                     os.killpg(process.pid, signal.SIGKILL)
                 process.kill()

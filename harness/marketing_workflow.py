@@ -67,7 +67,7 @@ class MarketingWorkflowStore:
     REQUIRED_CHECKS = ['source_accuracy', 'policy', 'integrity', 'task_quality']
 
     @classmethod
-    def audit_artifact_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = False) -> dict:
+    def audit_artifact_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = True) -> dict:
         """Audit marketing draft or compliance report text via hallucination_detector."""
         from harness.validators.hallucination_detector import audit_response
         res = audit_response(

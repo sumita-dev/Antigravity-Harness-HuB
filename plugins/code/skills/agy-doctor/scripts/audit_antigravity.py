@@ -809,6 +809,7 @@ class AntigravityDoctor:
             try:
                 proc = subprocess.run(
                     ["tasklist", "/FO", "CSV", "/NH"],
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=2.0,

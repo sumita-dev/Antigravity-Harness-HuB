@@ -316,15 +316,21 @@ class SkillEvolver:
                                 task_desc = rec.get("task_description", "")
                                 steps = rec.get("steps", [])
                                 
-                                # Tìm lý do reject từ bước CRITIC hoặc CHECKER
+                                # Tìm lý do reject từ bước CRITIC, CHECKER, CRITIQUE hoặc AUDIT
                                 last_err = ""
                                 for step in reversed(steps):
-                                    payload = step.get("payload", {})
-                                    if "raw" in payload and "REJECT" in payload["raw"]:
-                                        last_err = payload["raw"]
+                                    payload = step.get("payload") or step.get("data") or {}
+                                    if "raw" in payload and "REJECT" in str(payload["raw"]):
+                                        last_err = str(payload["raw"])
                                         break
                                     if "stderr" in payload and payload["stderr"]:
-                                        last_err = payload["stderr"]
+                                        last_err = str(payload["stderr"])
+                                        break
+                                    for k in ("notes", "report", "reason", "error"):
+                                        if payload.get(k):
+                                            last_err = str(payload[k])
+                                            break
+                                    if last_err:
                                         break
 
                                 extracted_errors.append({

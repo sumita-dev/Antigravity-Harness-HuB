@@ -79,7 +79,7 @@ def is_command_failure(status: str, content: str, error: str) -> bool:
         return False
 
     # Non-zero exit code check
-    exit_match = re.search(r"The command exited with code\s+([1-9]\d*)", content)
+    exit_match = re.search(r"(?:The\s+)?command exited with code\s+([1-9]\d*)", content, re.IGNORECASE)
     if exit_match:
         return True
 
@@ -117,14 +117,19 @@ def extract_error_details(content: str, error: str) -> tuple[str, str]:
         return err_type, detail.strip().splitlines()[0][:250]
 
     # 3. Non-zero exit code
-    exit_match = re.search(r"The command exited with code\s+([1-9]\d*)", combined)
+    exit_match = re.search(r"(?:The\s+)?command exited with code\s+([1-9]\d*)", combined, re.IGNORECASE)
     if exit_match:
         code = exit_match.group(1)
         # Check first non-empty error line in content
         first_line = ""
         for line in combined.splitlines():
             line_str = line.strip()
-            if line_str and not line_str.startswith("Created At") and not line_str.startswith("Completed At") and not line_str.startswith("The command exited"):
+            if (
+                line_str
+                and not line_str.startswith("Created At")
+                and not line_str.startswith("Completed At")
+                and not re.match(r"^(?:The\s+)?command exited", line_str, re.IGNORECASE)
+            ):
                 first_line = line_str
                 break
         detail = first_line if first_line else f"Command exited with code {code}"
@@ -168,9 +173,20 @@ def harvest_patterns_from_steps(steps: list[dict[str, Any]], conversation_id: st
             for tc in tool_calls:
                 tc_name = tc.get("name", "")
                 args = tc.get("args", {})
-                if tc_name in ("replace_file_content", "write_to_file"):
-                    target_file = sanitize_text(str(args.get("TargetFile", "")))
-                    instruction = sanitize_text(str(args.get("Instruction") or args.get("Description") or ""))
+                if tc_name in (
+                    "replace_file_content",
+                    "write_to_file",
+                    "edit_file",
+                    "write_file",
+                    "multi_replace_file_content",
+                    "apply_patch",
+                ):
+                    target_file = sanitize_text(
+                        str(args.get("Path") or args.get("TargetFile") or args.get("file_path") or "")
+                    )
+                    instruction = sanitize_text(
+                        str(args.get("Instruction") or args.get("Description") or args.get("toolSummary") or "")
+                    )
                     fix_desc = instruction if instruction else f"Modified file `{target_file}`"
                     for ae in active_errors:
                         ae["fixes"].append({
@@ -212,7 +228,7 @@ def harvest_patterns_from_steps(steps: list[dict[str, Any]], conversation_id: st
                 if active_errors:
                     is_success_cmd = (
                         tool_name == "run_command"
-                        or "The command exited with code 0" in content
+                        or bool(re.search(r"(?:The\s+)?command exited with code\s+0\b", content, re.IGNORECASE))
                         or status == "DONE"
                     )
                     if is_success_cmd:

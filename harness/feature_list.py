@@ -373,6 +373,7 @@ class FeatureList:
                 cmd_str,
                 shell=True,
                 cwd=str(root),
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

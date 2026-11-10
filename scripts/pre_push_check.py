@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def run_step(step_name: str, cmd: list) -> bool:
     print(f"\n[PRE-PUSH] -> {step_name}...")
     try:
-        res = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8")
+        res = subprocess.run(cmd, cwd=REPO_ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8")
         if res.returncode == 0:
             print(f"  [PASS] {step_name}")
             return True

@@ -30,6 +30,8 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
 
 @dataclass
 class MigrationViolation:

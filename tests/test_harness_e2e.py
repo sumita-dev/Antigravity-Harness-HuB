@@ -53,6 +53,8 @@ def test_cli_curate(capsys):
 
 def test_cli_skills_pending_and_approve(capsys):
     created_skill_dir = REPO_ROOT / "plugins" / "code" / "skills" / "build-fast-api-authentication"
+    cfg_path = REPO_ROOT / "configs" / "harness_config.json"
+    orig_cfg = cfg_path.read_text(encoding="utf-8") if cfg_path.exists() else None
     try:
         # Process a task with auto-distill
         ret = run_harness.main(["--task", "Build fast API authentication", "--branch", "app", "--auto-distill"])
@@ -76,3 +78,5 @@ def test_cli_skills_pending_and_approve(capsys):
     finally:
         if created_skill_dir.exists():
             shutil.rmtree(created_skill_dir, ignore_errors=True)
+        if orig_cfg is not None:
+            cfg_path.write_text(orig_cfg, encoding="utf-8")

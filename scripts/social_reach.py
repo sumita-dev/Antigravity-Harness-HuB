@@ -295,6 +295,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     [agent_reach_bin, "web", url],
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -346,6 +347,7 @@ def run_reach(
                 proc = subprocess.run(
                     cmd,
                     env=proc_env,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -365,6 +367,7 @@ def run_reach(
                     status_proc = subprocess.run(
                         [twitter_bin, "status"],
                         env=proc_env,
+                        stdin=subprocess.DEVNULL,
                         capture_output=True,
                         text=True,
                         timeout=timeout,
@@ -389,6 +392,7 @@ def run_reach(
                 proc = subprocess.run(
                     cmd,
                     env=proc_env,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -413,6 +417,7 @@ def run_reach(
                 proc = subprocess.run(
                     cmd,
                     env=proc_env,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -453,6 +458,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -493,6 +499,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -536,6 +543,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -579,6 +587,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -619,6 +628,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -659,6 +669,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -699,6 +710,7 @@ def run_reach(
             try:
                 proc = subprocess.run(
                     cmd,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,

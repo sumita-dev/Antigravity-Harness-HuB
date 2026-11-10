@@ -213,7 +213,7 @@ def resolve_or_upload_asset(asset_path, mime_type, strip_audio=False):
                 
                 # Check if ffmpeg is available
                 try:
-                    subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    subprocess.run(["ffmpeg", "-version"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
                 except (subprocess.SubprocessError, FileNotFoundError):
                     raise RuntimeError(
                         "Error: ffmpeg is not installed or not found in system PATH. "
@@ -227,7 +227,7 @@ def resolve_or_upload_asset(asset_path, mime_type, strip_audio=False):
 
                 # Fast stream-copy audio stripping
                 cmd = ["ffmpeg", "-y", "-i", asset_path, "-c:v", "copy", "-an", temp_stripped_path]
-                proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                proc = subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 if proc.returncode != 0:
                     err_msg = sanitize_error(proc.stderr.strip()) if proc.stderr else "Unknown ffmpeg error"
                     raise RuntimeError(f"ffmpeg failed to strip audio from '{asset_path}': {err_msg}")

@@ -88,9 +88,13 @@ class ChiefOrchestrator:
         review_rounds > 1 mô phỏng hàng đợi review nhiều vòng — đây là cách
         duy nhất kích hoạt được Stagnation Circuit Breaker từ CLI.
         """
-        skill = None
+        routed_skill, routed_branch = self.skill_router.route(task_description)
         if branch is None or branch == "auto":
-            skill, branch = self.skill_router.route(task_description)
+            skill = routed_skill
+            branch = routed_branch
+        else:
+            routed_skill_branch = self.skill_router.routing_table.get(routed_skill, {}).get("branch", routed_branch)
+            skill = routed_skill if (routed_skill and routed_skill_branch == branch) else None
 
         if context is None:
             context = TaskContext(task_id=task_id or str(uuid.uuid4()), branch=branch)
@@ -131,4 +135,6 @@ class ChiefOrchestrator:
             if not context.safe_transition(HarnessState.AUDIT):
                 context.safe_transition(HarnessState.ESCALATED)
                 return Verdict.ESCALATE
-        return self.quality_gate.evaluate(context, checker_output)
+        if checker_output.strip() == "VERDICT: REJECT":
+            return self.quality_gate.evaluate(context, checker_output)
+        return self.quality_gate.evaluate_audit(context, checker_output)

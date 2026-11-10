@@ -48,19 +48,15 @@ class AppRunner:
             else:
                 context.transition(HarnessState.CRITIQUE)  # Dynamic Triad: Maker -> Code Critic
                 context.record_step("CRITIQUE", {"actor": "code_critic"})
-                # If mock_critic_output is provided and rejects, evaluate it
                 mock_critic_output = kwargs.get("mock_critic_output", "VERDICT: APPROVE")
-                if "mock_critic_output" in kwargs or mock_checker_output == "VERDICT: APPROVE":
-                    # Evaluate critique
-                    critique_verdict = self.quality_gate.evaluate_critique(context, mock_critic_output)
-                    if critique_verdict != Verdict.APPROVE:
-                        return critique_verdict
-                else:
-                    # Move to AUDIT
-                    context.transition(HarnessState.AUDIT)
+                critique_verdict = self.quality_gate.evaluate_critique(context, mock_critic_output)
+                if critique_verdict != Verdict.APPROVE:
+                    return critique_verdict
                 if context.state == HarnessState.AUDIT:
                     context.record_step("AUDIT", {"actor": "qa_auditor"})
-            
+
         if test_command:
             return self.quality_gate.evaluate_execution(context, test_command)
-        return self.quality_gate.evaluate(context, mock_checker_output)
+        if mock_checker_output.strip() == "VERDICT: REJECT":
+            return self.quality_gate.evaluate(context, mock_checker_output)
+        return self.quality_gate.evaluate_audit(context, mock_checker_output)

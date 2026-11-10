@@ -44,6 +44,7 @@ def cleanup_com_processes(app_name: str = "all") -> None:
         try:
             subprocess.run(
                 ["taskkill", "/F", "/IM", proc],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False
@@ -136,6 +137,7 @@ def safe_convert_doc(
     try:
         proc = subprocess.Popen(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -176,6 +178,7 @@ def safe_convert_xls(
     try:
         proc = subprocess.Popen(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True

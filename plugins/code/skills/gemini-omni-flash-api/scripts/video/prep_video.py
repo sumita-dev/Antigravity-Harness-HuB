@@ -42,7 +42,7 @@ def prep_video(input_path, output_path, start_time_str=None, duration=10, fps=No
 
     # Check if ffmpeg is available
     try:
-        subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(["ffmpeg", "-version"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     except (subprocess.SubprocessError, FileNotFoundError):
         raise RuntimeError("ffmpeg is not installed or not found in system PATH.")
 
@@ -197,7 +197,7 @@ def prep_video(input_path, output_path, start_time_str=None, duration=10, fps=No
     cmd.append(output_path)
 
     print("Running ffmpeg encoding...")
-    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     if process.returncode != 0:
         print("Error: ffmpeg failed. Stderr output follows:", file=sys.stderr)

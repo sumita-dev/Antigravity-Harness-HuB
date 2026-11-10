@@ -132,7 +132,7 @@ class TestYouTubeKeywordIntelligence(unittest.TestCase):
                 "--format", "all",
                 "-o", out_prefix
             ]
-            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+            res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(res.returncode, 0, f"CLI exited with error: {res.stderr}")
 
             md_path = f"{out_prefix}.md"

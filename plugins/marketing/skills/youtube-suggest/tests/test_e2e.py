@@ -62,7 +62,7 @@ class TestYouTubeSuggestE2E(unittest.TestCase):
                 "-o", str(json_out),
                 "-f", "json"
             ]
-            res_json = subprocess.run(cmd_json, capture_output=True, text=True, encoding="utf-8")
+            res_json = subprocess.run(cmd_json, stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(res_json.returncode, 0, f"JSON CLI failed: {res_json.stderr}")
             self.assertTrue(json_out.exists(), "JSON output file was not created")
 
@@ -84,7 +84,7 @@ class TestYouTubeSuggestE2E(unittest.TestCase):
                 "-o", str(csv_out),
                 "-f", "csv"
             ]
-            res_csv = subprocess.run(cmd_csv, capture_output=True, text=True, encoding="utf-8")
+            res_csv = subprocess.run(cmd_csv, stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(res_csv.returncode, 0, f"CSV CLI failed: {res_csv.stderr}")
             self.assertTrue(csv_out.exists(), "CSV output file was not created")
 

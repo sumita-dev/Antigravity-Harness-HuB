@@ -120,6 +120,7 @@ def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> No
         try:
             subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
@@ -134,6 +135,7 @@ def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> No
                 try:
                     subprocess.run(
                         ["taskkill", "/F", "/IM", proc_name],
+                        stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         check=False,

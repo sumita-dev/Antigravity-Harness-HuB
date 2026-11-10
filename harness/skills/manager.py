@@ -10,6 +10,7 @@ Hỗ trợ:
 
 import os
 import re
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -277,13 +278,70 @@ class SkillManager:
         content = target["content"]
         metadata = target.get("metadata", {})
 
-        # Ghi kỹ năng vào codebase
-        self.create_skill(name=name, branch=branch, content=content, metadata=metadata)
+        # Ghi kỹ năng vào codebase và đồng bộ configs/harness_config.json
+        skill_file = self.create_skill(name=name, branch=branch, content=content, metadata=metadata)
+        self._register_skill_in_config(name=name, branch=branch, skill_file=skill_file, metadata=metadata)
 
         target["status"] = "APPROVED"
         target["approved_at"] = datetime.now(timezone.utc).isoformat()
         self._save_staged_records(records)
         return target
+
+    def _register_skill_in_config(
+        self,
+        name: str,
+        branch: str,
+        skill_file: Path,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        config_path = self.repo_root / "configs" / "harness_config.json"
+        if not config_path.is_file():
+            return
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if not isinstance(config, dict):
+            return
+        routing = config.setdefault("skill_routing", {})
+        direct_only = config.setdefault("skill_direct_only", [])
+        if name in routing or name in direct_only:
+            return
+        route_branch = "marketing" if (branch or "app").lower() == "marketing" else "app"
+        try:
+            rel_path = skill_file.relative_to(self.repo_root).as_posix()
+        except ValueError:
+            rel_path = str(skill_file)
+        meta_kws = (metadata or {}).get("keywords")
+        keywords = list(meta_kws) if isinstance(meta_kws, list) and meta_kws else [name, name.replace("-", " ")]
+        routing[name] = {
+            "branch": route_branch,
+            "path": rel_path,
+            "keywords": keywords,
+        }
+        config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    def _unregister_skill_from_config(self, name: str) -> None:
+        config_path = self.repo_root / "configs" / "harness_config.json"
+        if not config_path.is_file():
+            return
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if not isinstance(config, dict):
+            return
+        changed = False
+        routing = config.get("skill_routing")
+        if isinstance(routing, dict) and name in routing:
+            routing.pop(name, None)
+            changed = True
+        direct_only = config.get("skill_direct_only")
+        if isinstance(direct_only, list) and name in direct_only:
+            config["skill_direct_only"] = [s for s in direct_only if s != name]
+            changed = True
+        if changed:
+            config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     def reject_staged_skill(self, stage_id: str, reason: str = "") -> dict:
         """Từ chối kỹ năng trong staging."""
@@ -308,27 +366,18 @@ class SkillManager:
 
     # ----------------------- ARCHIVE -----------------------
     def archive_skill(self, name: str, branch: Optional[str] = None) -> Optional[Path]:
-        """Di chuyển kỹ năng không còn dùng vào thư mục lưu trữ archive."""
+        """Di chuyển toàn bộ thư mục kỹ năng không còn dùng vào thư mục lưu trữ archive và đồng bộ config."""
         skill_path = self.find_skill_path(name)
         if not skill_path or not skill_path.exists():
             return None
 
         skill_dir = skill_path.parent
         target_archive_dir = self.archive_dir / name
-        target_archive_dir.mkdir(parents=True, exist_ok=True)
+        if target_archive_dir.exists():
+            shutil.rmtree(target_archive_dir, ignore_errors=True)
+        target_archive_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(skill_dir, target_archive_dir)
+        shutil.rmtree(skill_dir, ignore_errors=True)
+        self._unregister_skill_from_config(name)
 
-        target_file = target_archive_dir / "SKILL.md"
-        target_file.write_text(skill_path.read_text(encoding="utf-8"), encoding="utf-8")
-
-        # Xóa file và thư mục gốc nếu rỗng
-        try:
-            skill_path.unlink()
-            for item in skill_dir.iterdir():
-                if item.is_file():
-                    (target_archive_dir / item.name).write_bytes(item.read_bytes())
-                    item.unlink()
-            skill_dir.rmdir()
-        except OSError:
-            pass
-
-        return target_file
+        return target_archive_dir / "SKILL.md"

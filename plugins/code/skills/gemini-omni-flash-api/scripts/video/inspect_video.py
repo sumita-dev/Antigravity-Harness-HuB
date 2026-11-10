@@ -47,7 +47,7 @@ def inspect_video(file_path, raw=False):
 
     # Check if ffprobe is available
     try:
-        subprocess.run(["ffprobe", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(["ffprobe", "-version"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     except (subprocess.SubprocessError, FileNotFoundError):
         raise RuntimeError("ffprobe is not installed or not found in system PATH.")
 
@@ -60,7 +60,7 @@ def inspect_video(file_path, raw=False):
         file_path
     ]
 
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+    result = subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
     data = json.loads(result.stdout)
     
     if raw:

@@ -45,6 +45,7 @@ class DatabaseSandbox:
         try:
             res = subprocess.run(
                 ["docker", "info"],
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -85,7 +86,7 @@ class DatabaseSandbox:
             "-p", f"{self.port}:5432",
             "postgres:16-alpine",
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
+        res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, timeout=30)
         self.container_id = res.stdout.strip()
         # Chờ container sẵn sàng
         time.sleep(2)
@@ -110,6 +111,7 @@ class DatabaseSandbox:
             try:
                 subprocess.run(
                     ["docker", "stop", self.container_id],
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     timeout=15,
                 )

@@ -109,8 +109,8 @@ class LearningHarvester:
         step_texts = []
         for s in steps:
             if isinstance(s, dict):
-                data = s.get("data") or {}
-                for k in ("report", "error", "reason", "verdict", "action", "description"):
+                data = s.get("data") or s.get("payload") or {}
+                for k in ("report", "error", "reason", "verdict", "action", "description", "notes", "raw", "stderr"):
                     if k in data and data[k]:
                         step_texts.append(str(data[k]).lower())
 

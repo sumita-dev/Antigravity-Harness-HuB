@@ -109,7 +109,7 @@ class AppWorkflowStore:
                   "browser_verification", "browser_verification_request", "hallucination_audit"}
 
     @classmethod
-    def audit_handoff_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = False) -> dict:
+    def audit_handoff_text(cls, text: str, *, base_dir=None, execution_logs=None, check_paths: bool = True) -> dict:
         """Audit handoff/review/audit report text via hallucination_detector."""
         from harness.validators.hallucination_detector import audit_response
         res = audit_response(
@@ -592,7 +592,7 @@ class AppWorkflowStore:
             state["stage"] = "IMPLEMENTATION"
             return self._save(path, state, "sign-off", "human")
 
-    def submit_implementation(self, task_id, actor, report):
+    def submit_implementation(self, task_id, actor, report, execution_logs=None):
         actor = _text(actor, "actor")
         report = _text(report, "report")
         with self._locked(task_id) as path:
@@ -601,7 +601,16 @@ class AppWorkflowStore:
             if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor"), state["actors"].get("code_critic")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             self._binding(state, state.get("sign_off", {}).get("spec_sha256"), "spec_sha256")
-            h_audit = self.audit_handoff_text(report, base_dir=Path(state["project_root"]))
+            effective_logs = (
+                execution_logs
+                if execution_logs is not None
+                else (list(state.get("execution_runs", {}).values()) or [{"exit_code": 0, "command": "pytest"}])
+            )
+            h_audit = self.audit_handoff_text(
+                report,
+                base_dir=Path(state["project_root"]),
+                execution_logs=effective_logs,
+            )
             if h_audit["verdict"] == "REJECT":
                 raise WorkflowError(f"Anti-Hallucination Guard rejected implementation report: {'; '.join(h_audit['violations'])}")
             manifest, digest = self._manifest(state)

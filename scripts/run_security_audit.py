@@ -213,7 +213,7 @@ def _scan_dependencies(app_dir: Path, ecosystem: str) -> dict[str, Any]:
         return {"status": "NOT_VERIFIED", "required": True, "reason": "Required scanner not installed"}
     command = [tool, "audit", "--json"] if npm else [tool, "-r", str(manifest), "--format", "json"]
     try:
-        proc = subprocess.run(command, cwd=str(app_dir), capture_output=True, text=True, timeout=25,
+        proc = subprocess.run(command, cwd=str(app_dir), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=25,
                               shell=npm and os.name == "nt")
         if proc.returncode not in (0, 1):
             raise ValueError(f"Scanner exit code {proc.returncode}")

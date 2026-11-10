@@ -83,19 +83,53 @@ def marketing_workflow_action(args):
         return store.submit_content(args.task_id, args.actor, payload)
     if action == "audit":
         return store.audit(args.task_id, args.actor, payload)
+    pub_record = None
     if action == "publish-prepare":
-        store.prepare_publish(args.task_id, args.actor, payload)
+        pub_record = store.prepare_publish(args.task_id, args.actor, payload)
     elif action == "publish-authorize":
-        store.authorize_publish(args.task_id, payload.get("publish_id"), payload.get("raw_authorization"))
+        pub_record = store.authorize_publish(args.task_id, payload.get("publish_id"), payload.get("raw_authorization"))
+    elif action == "publish-validate":
+        pub_id = payload.get("publish_id")
+        req_payload = payload.get("request") if isinstance(payload.get("request"), dict) else payload
+        pub_record = store.validate_publish(args.task_id, pub_id, req_payload)
+    elif action == "publish-record":
+        pub_record = store.record_publish(
+            args.task_id,
+            payload.get("publish_id"),
+            payload.get("status"),
+            external_id=payload.get("external_id"),
+            error=payload.get("error"),
+        )
     elif action == "publish-reconcile":
-        store.reconcile_publish(args.task_id, payload.get("publish_id"), args.actor, payload)
-    return store.status(args.task_id)
+        pub_id = payload.get("publish_id")
+        current_state = store.status(args.task_id)
+        existing = current_state.get("publishing", {}).get(pub_id)
+        if (
+            isinstance(existing, dict)
+            and existing.get("status") == "PREPARED"
+            and existing.get("raw_authorization")
+            and existing.get("authorization_binding_sha256") == existing.get("binding_sha256")
+        ):
+            binding = existing.get("binding", {})
+            req_payload = {
+                "action": binding.get("action"),
+                "destination": binding.get("destination"),
+                "content": binding.get("content"),
+                "media": [m["path"] if isinstance(m, dict) else m for m in binding.get("media", [])],
+                "schedule": binding.get("schedule"),
+            }
+            store.validate_publish(args.task_id, pub_id, req_payload)
+        pub_record = store.reconcile_publish(args.task_id, pub_id, args.actor, payload)
+    state = store.status(args.task_id)
+    if isinstance(pub_record, dict) and "publish_id" in pub_record:
+        state["publish_id"] = pub_record["publish_id"]
+    return state
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Antigravity Harness CLI")
     parser.add_argument("--task", default=None, help="Mô tả nhiệm vụ")
-    parser.add_argument("--marketing-workflow", choices=["init", "status", "research", "content", "audit", "revise", "publish-prepare", "publish-authorize", "publish-reconcile"],
+    parser.add_argument("--marketing-workflow", choices=["init", "status", "research", "content", "audit", "revise", "publish-prepare", "publish-authorize", "publish-validate", "publish-record", "publish-reconcile"],
                         help="Native marketing evidence checkpoints; no agents or external writes executed")
     parser.add_argument("--marketing-mode", choices=["content", "research-only"], default="content")
     parser.add_argument("--workflow", choices=["init", "status", "spec", "design-review", "sign-off", "implementation", "code-review", "execute", "audit", "audit-pending-browser", "verify-browser", "revise", "migrate-legacy"],
@@ -253,8 +287,9 @@ def main(argv=None) -> int:
         except (WorkflowError, OSError, ValueError, TypeError) as exc:
             print(json.dumps({"error": str(exc)}, ensure_ascii=False) if args.json else f"Workflow error: {exc}")
             return 1
+        pub_suffix = f"; publish_id={state['publish_id']}" if "publish_id" in state else ""
         print(json.dumps(state, ensure_ascii=False, indent=2) if args.json else
-              f"Task {state['task_id']}: {state['stage']}; next_agent={state['next_agent']}; revision={state['revision']}")
+              f"Task {state['task_id']}: {state['stage']}; next_agent={state['next_agent']}; revision={state['revision']}{pub_suffix}")
         return 0
     orchestrator = ChiefOrchestrator()
 

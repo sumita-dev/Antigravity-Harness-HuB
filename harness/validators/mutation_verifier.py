@@ -269,6 +269,7 @@ def verify_test_lethality(
                     test_command,
                     shell=True,
                     cwd=str(path.parent),
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
