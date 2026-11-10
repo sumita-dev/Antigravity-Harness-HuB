@@ -470,6 +470,46 @@ class AppWorkflowStore:
             raise WorkflowError("Empty implementation manifest")
         return entries, _hash(_canonical(entries))
 
+    def _safe_manifest_entries(self, state):
+        try:
+            entries, _ = self._manifest(state)
+            return entries
+        except WorkflowError:
+            return {}
+
+    def _test_manifest(self, state, spec=None):
+        root = self._safe_path(state["project_root"], "project_root")
+        spec = spec or state.get("spec", {})
+        entries = {}
+        if not root.is_dir():
+            return entries
+
+        tests_dir = root / "tests"
+        if tests_dir.is_dir():
+            for current, dirs, files in os.walk(tests_dir, followlinks=False):
+                dirs[:] = [d for d in sorted(dirs) if d != "__pycache__"]
+                for name in sorted(files):
+                    if name.endswith(".pyc"):
+                        continue
+                    file_path = Path(current) / name
+                    if file_path.is_file() and not _is_link(file_path):
+                        rel = file_path.relative_to(root).as_posix()
+                        entries[rel] = _hash(file_path.read_bytes())
+
+        for cmd in spec.get("verification_commands", []):
+            cmd_cwd = (root / cmd.get("cwd", ".")).resolve()
+            for arg in cmd.get("argv", []):
+                if isinstance(arg, str):
+                    for cand in (cmd_cwd / arg, root / arg):
+                        if cand.is_file() and not _is_link(cand):
+                            try:
+                                rel = cand.resolve().relative_to(root.resolve()).as_posix()
+                                if rel.endswith(".py") or "test" in rel.lower():
+                                    entries[rel] = _hash(cand.read_bytes())
+                            except ValueError:
+                                pass
+        return entries
+
 
     def _evidence(self, value, purpose=None, *, state):
         file = self._safe_path(value, "evidence path")
@@ -538,7 +578,17 @@ class AppWorkflowStore:
             self._clear_downstream(state)
             state.pop("design_review", None)
             state.pop("sign_off", None)
-            state.update(spec=spec, spec_sha256=_hash(_canonical(spec)), stage="DESIGN_REVIEW")
+            test_manifest = self._test_manifest(state, spec)
+            test_manifest_sha256 = _hash(_canonical(test_manifest))
+            spec_manifest = self._safe_manifest_entries(state)
+            state.update(
+                spec=spec,
+                spec_sha256=_hash(_canonical(spec)),
+                test_manifest=test_manifest,
+                test_manifest_sha256=test_manifest_sha256,
+                spec_manifest=spec_manifest,
+                stage="DESIGN_REVIEW",
+            )
             state["actors"]["architect"] = actor
             return self._save(path, state, "spec", actor)
 
@@ -601,6 +651,12 @@ class AppWorkflowStore:
             if actor in {state["actors"].get("design_reviewer"), state["actors"].get("qa_auditor"), state["actors"].get("code_critic")}:
                 raise WorkflowError("Maker and Checker actor must differ")
             self._binding(state, state.get("sign_off", {}).get("spec_sha256"), "spec_sha256")
+            approved_tests = state.get("test_manifest", {})
+            if approved_tests:
+                current_test_entries = self._test_manifest(state, state.get("spec"))
+                for rel_path, orig_hash in approved_tests.items():
+                    if current_test_entries.get(rel_path) != orig_hash:
+                        raise WorkflowError("Unauthorized test tampering detected: Maker cannot modify approved acceptance tests")
             effective_logs = (
                 execution_logs
                 if execution_logs is not None
@@ -663,6 +719,11 @@ class AppWorkflowStore:
             h_audit = self.audit_handoff_text(report, base_dir=Path(state["project_root"]))
             if verdict == "APPROVE" and h_audit["verdict"] == "REJECT":
                 raise WorkflowError(f"Anti-Hallucination Guard rejected code review report: {'; '.join(h_audit['violations'])}")
+            if verdict == "APPROVE":
+                has_ac = bool(re.search(r"\b(?:ac\d*|acceptance\s+criteria)\b", report, re.IGNORECASE))
+                has_assertion = bool(re.search(r"\b(?:test_\w*|assertion\w*)\b", report, re.IGNORECASE))
+                if not (has_ac and has_assertion):
+                    raise WorkflowError("Critique report must contain AC-to-Assertion mapping")
             state["actors"]["code_critic"] = actor
             state["code_review"] = dict(verdict=verdict, actor=actor, report=report, spec_sha256=spec_sha256, manifest_sha256=manifest_sha256, hallucination_audit=h_audit, provenance="DECLARED native actor; identity not authenticated")
             state["hallucination_audit"] = h_audit
@@ -892,6 +953,70 @@ class AppWorkflowStore:
             if verdict in {"APPROVE", "PARTIAL_APPROVE"}:
                 payload = dict(payload, actor=actor)
                 evidence_map, pending, statuses = self._validate_approval(state, payload, verdict)
+            if verdict == "APPROVE":
+                executed_cmds = payload.get("commands", [])
+                skip_mutation = payload.get("skip_mutation_check", False)
+                if skip_mutation:
+                    is_fast_track_or_hotfix = bool(
+                        state.get("spec", {}).get("fast_track")
+                        or payload.get("fast_track")
+                        or payload.get("hotfix")
+                        or state.get("spec", {}).get("hotfix")
+                        or (isinstance(state.get("spec", {}).get("fast_track"), dict) and state["spec"]["fast_track"].get("tier") == "minor")
+                    )
+                    if not is_fast_track_or_hotfix:
+                        raise WorkflowError("skip_mutation_check is only allowed for hotfix or fast-track")
+                elif executed_cmds:
+                    root = Path(state["project_root"])
+                    manifest = state.get("manifest", {})
+                    spec_manifest = state.get("spec_manifest", {})
+                    test_manifest = state.get("test_manifest", {})
+
+                    modified_sources = []
+                    for rel_path, digest in manifest.items():
+                        if not rel_path.endswith(".py"):
+                            continue
+                        path_obj = Path(rel_path)
+                        if (
+                            rel_path.startswith("tests/")
+                            or rel_path.startswith("test/")
+                            or path_obj.name.startswith("test_")
+                            or path_obj.stem.endswith("_test")
+                            or rel_path in test_manifest
+                        ):
+                            continue
+                        full_path = root / rel_path
+                        if not full_path.is_file():
+                            continue
+                        if spec_manifest:
+                            if spec_manifest.get(rel_path) != digest:
+                                modified_sources.append(full_path)
+                        else:
+                            modified_sources.append(full_path)
+
+                    if modified_sources:
+                        from harness.validators.mutation_verifier import verify_test_lethality
+                        import subprocess
+                        executed_ids = {c.get("id") for c in executed_cmds if isinstance(c, dict)}
+                        matching_specs = [
+                            c for c in state.get("spec", {}).get("verification_commands", [])
+                            if c.get("id") in executed_ids
+                        ]
+                        pytest_specs = [
+                            c for c in matching_specs
+                            if any("pytest" in str(a) or "test" in str(a).lower() for a in c.get("argv", []))
+                        ]
+                        chosen_spec = pytest_specs[0] if pytest_specs else (matching_specs[0] if matching_specs else None)
+
+                        if chosen_spec and chosen_spec.get("argv"):
+                            test_cmd_str = subprocess.list2cmdline(chosen_spec["argv"])
+                            for src_file in modified_sources:
+                                report = verify_test_lethality(str(src_file), test_cmd_str, max_mutants=3)
+                                if report.total_mutants > 0:
+                                    if report.score < 0.80 or not report.is_lethal:
+                                        raise WorkflowError(
+                                            f"Mutation testing failed: score {report.score} < 0.80 or test not lethal. Survived mutants: {report.survived}"
+                                        )
             state.pop("browser_verification", None)
             state.pop("browser_verification_request", None)
             state["actors"].pop("browser_verifier", None)

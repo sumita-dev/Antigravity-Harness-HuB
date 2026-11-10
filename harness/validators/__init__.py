@@ -93,6 +93,7 @@ from harness.validators.event_filter import (
     FilterResult,
     clean_and_truncate_log,
 )
+from harness.validators.semantic_judge import evaluate_semantic_grounding
 
 __all__ = [
     "AuditDimension",
@@ -110,6 +111,7 @@ __all__ = [
     "DimensionStatus",
     "EqualsMetric",
     "EventFilter",
+    "evaluate_semantic_grounding",
     "FakePassingError",
     "FeatureItem",
     "FeatureList",

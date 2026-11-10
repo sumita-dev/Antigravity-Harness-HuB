@@ -39,7 +39,7 @@ def optional_browser_collector(monkeypatch):
 
 def reviewed(store, task_id, actor, report):
     state = store.submit_implementation(task_id, actor, report)
-    return store.review_code(task_id, "APPROVE", "critic", state["spec_sha256"], state["manifest_sha256"], "Reviewed current source and tests")
+    return store.review_code(task_id, "APPROVE", "critic", state["spec_sha256"], state["manifest_sha256"], "Reviewed AC1 acceptance criteria and test_ assertion")
 
 
 def receipt(store, state, actor="qa", command_id="TEST"):
@@ -382,7 +382,7 @@ def test_verify_browser_cli_workflow(tmp_path, monkeypatch, capsys):
     cli("design-review", {"verdict": "APPROVE", "spec_sha256": state["spec_sha256"], "report": "checked"}, "reviewer")
     cli("sign-off", {"spec_sha256": state["spec_sha256"], "human_message": "Duyệt"})
     state = cli("implementation", {"report": "built"}, "builder")
-    state = cli("code-review", {"verdict": "APPROVE", "spec_sha256": state["spec_sha256"], "manifest_sha256": state["manifest_sha256"], "report": "checked source"}, "critic")
+    state = cli("code-review", {"verdict": "APPROVE", "spec_sha256": state["spec_sha256"], "manifest_sha256": state["manifest_sha256"], "report": "checked source. AC1 mapped to test_assertion"}, "critic")
     store = AppWorkflowStore(tmp_path / "brain")
     data = verification_payload(store, state, partial=True)
     data["verdict"] = "PARTIAL_APPROVE"

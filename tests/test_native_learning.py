@@ -78,7 +78,7 @@ def test_app_workflow_auto_hook_approved(tmp_path):
 
     # Persist independent Critic review and collect actual command evidence.
     store.review_code(task_id, "APPROVE", "critic-1", state["spec_sha256"],
-                      state["manifest_sha256"], "Logic and signed contracts checked")
+                      state["manifest_sha256"], "Logic and signed contracts checked. AC1 mapped to test_assertion.")
     state = store.execute(task_id, "auditor-1", "cmd-1")
 
     # Audit -> APPROVE

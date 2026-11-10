@@ -265,7 +265,7 @@ def test_app_workflow_handoff_anti_hallucination_enforcement(tmp_path: Path) -> 
             "critic-1",
             state["spec_sha256"],
             state["manifest_sha256"],
-            "Giả thuyết của anh hoàn toàn đúng, code chuẩn.",
+            "Giả thuyết của anh hoàn toàn đúng, code chuẩn. AC1 mapped to test_assertion.",
         )
 
     # 4. Clean code review succeeds
@@ -275,7 +275,7 @@ def test_app_workflow_handoff_anti_hallucination_enforcement(tmp_path: Path) -> 
         "critic-1",
         state["spec_sha256"],
         state["manifest_sha256"],
-        "Đã đối soát AST và contracts đầy đủ.",
+        "Đã đối soát AST và contracts đầy đủ. AC1 mapped to test_assertion.",
     )
     assert state["code_review"]["hallucination_audit"]["verdict"] == "APPROVE"
 

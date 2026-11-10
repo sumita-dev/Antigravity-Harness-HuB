@@ -18,8 +18,8 @@ def test_critique_is_independent_current_and_persisted(tmp_path):
     store,project=prepared(tmp_path)
     state=store.submit_implementation('task','maker','implemented')
     assert state['stage']=='CRITIQUE'
-    with pytest.raises(WorkflowError): store.review_code('task','APPROVE','maker',state['spec_sha256'],state['manifest_sha256'],'ok')
-    state=store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'logic checked')
+    with pytest.raises(WorkflowError): store.review_code('task','APPROVE','maker',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
+    state=store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'logic checked. AC1 verified test_assertion')
     assert state['stage']=='AUDIT'
     (project/'main.py').write_text('x=2')
     with pytest.raises(WorkflowError,match='changed'): store.status('task')
@@ -34,14 +34,14 @@ def test_critic_budget_persists(tmp_path):
 
 def test_unexecuted_qa_cannot_approve(tmp_path):
     store,_=prepared(tmp_path); state=store.submit_implementation('task','maker','done')
-    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     with pytest.raises(WorkflowError,match='receipt'):
         store.audit('task','APPROVE','qa',dict(report='ok',spec_sha256=state['spec_sha256'],manifest_sha256=state['manifest_sha256'],commands=[dict(id='test',command='echo ok',cwd=state['project_root'],exit_code=0)]))
 
 def test_real_execution_still_requires_allowed_evidence_path(tmp_path):
     store,_=prepared(tmp_path)
     state=store.submit_implementation('task','maker','done')
-    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     state=store.execute('task','qa','test')
     receipt=state['execution_receipt']
     evidence=tmp_path/'app'/'proof.txt'
@@ -55,7 +55,7 @@ def test_real_execution_still_requires_allowed_evidence_path(tmp_path):
 def test_real_receipt_approval_and_tamper_revalidation(tmp_path):
     store,_=prepared(tmp_path,evidence_root=str(tmp_path))
     state=store.submit_implementation('task','maker','done')
-    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     state=store.execute('task','qa','test'); receipt=state['execution_receipt']
     proof=tmp_path/'proof.txt'; proof.write_text('checked')
     payload=dict(report='checked',spec_sha256=state['spec_sha256'],manifest_sha256=state['manifest_sha256'],commands=[dict(id='test',receipt_id=receipt['receipt_id'])],preview=dict(checks=[dict(id='AC1',status='PASS',evidence=str(proof))]))
@@ -73,13 +73,13 @@ def test_source_mutated_by_command_cannot_produce_approval(tmp_path):
     command=dict(id='mutate',argv=[sys.executable,'-c',"from pathlib import Path; Path('main.py').write_text('changed')"],cwd='.',ac_ids=['AC1'])
     spec=dict(scope='s',design='d',contracts='c',risks='r',acceptance_criteria=[dict(id='AC1',description='works',ui=False)],verification_commands=[command])
     state=store.submit_spec('task',spec,'architect'); store.review_design('task','APPROVE','designer',state['spec_sha256'],'ok');store.sign_off('task',state['spec_sha256'],'SIGN_OFF: approved')
-    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     with pytest.raises(WorkflowError,match='changed'):store.execute('task','qa','mutate')
 
 def test_standalone_receipt_not_admitted_without_workflow_snapshot(tmp_path):
     from harness.execution_evidence import ExecutionEvidenceStore
     store,_=prepared(tmp_path,evidence_root=str(tmp_path))
-    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     c=state['spec']['verification_commands'][0]
     receipt=ExecutionEvidenceStore(store.root.parent/'execution_evidence').run('task','qa',state['spec_sha256'],state['manifest_sha256'],c['argv'],state['project_root'],c['ac_ids'],command_id='test')
     proof=tmp_path/'proof.txt';proof.write_text('checked')
@@ -112,7 +112,7 @@ def test_non_ui_manual_browser_cannot_skip_signed_execution_coverage(tmp_path):
 
 def test_maker_execution_receipt_rejected_even_when_claimed_in_audit(tmp_path):
     from harness.execution_evidence import ExecutionEvidenceStore
-    store,_=prepared(tmp_path,evidence_root=str(tmp_path));state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok')
+    store,_=prepared(tmp_path,evidence_root=str(tmp_path));state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion')
     c=state['spec']['verification_commands'][0];receipt=ExecutionEvidenceStore(store.root.parent/'execution_evidence').run('task','maker',state['spec_sha256'],state['manifest_sha256'],c['argv'],state['project_root'],c['ac_ids'],command_id='test')
     proof=tmp_path/'proof.txt';proof.write_text('checked')
     with pytest.raises(WorkflowError,match='Independent execution actor'):
@@ -138,7 +138,7 @@ def test_pending_browser_stage_executes_only_pending_signed_browser_plan(tmp_pat
     commands=[dict(id='test',argv=[sys.executable,'-c','print(1)'],cwd='.',ac_ids=['AC1']),dict(id='browser',argv=[sys.executable,'-c','print(1)'],cwd='.',ac_ids=['UI'],timeout=1,browser=dict(url='http://localhost:49999',assertions=[dict(selector='body')]))]
     spec=dict(scope='s',design='d',contracts='c',risks='r',evidence_root=str(tmp_path),acceptance_criteria=[dict(id='AC1',description='works',ui=False),dict(id='UI',description='visible',ui=True)],verification_commands=commands)
     state=store.submit_spec('task',spec,'architect');store.review_design('task','APPROVE','designer',state['spec_sha256'],'ok');store.sign_off('task',state['spec_sha256'],'SIGN_OFF: approved')
-    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'ok');state=store.execute('task','qa','test')
+    state=store.submit_implementation('task','maker','done');store.review_code('task','APPROVE','critic',state['spec_sha256'],state['manifest_sha256'],'AC1 verified test_assertion');state=store.execute('task','qa','test')
     proof=tmp_path/'proof.txt';proof.write_text('checked')
     store.audit('task','PARTIAL_APPROVE','qa',dict(report='UI pending',spec_sha256=state['spec_sha256'],manifest_sha256=state['manifest_sha256'],commands=[dict(id='test',receipt_id=state['execution_receipt']['receipt_id'])],preview=dict(url='http://localhost:49999',checks=[dict(id='AC1',status='PASS',evidence=str(proof)),dict(id='UI',status='NOT_VERIFIED',reason='browser unavailable')])))
     with pytest.raises(WorkflowError,match='only permits signed browser'):store.execute('task','browser-reviewer','test')

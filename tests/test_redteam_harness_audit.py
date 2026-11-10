@@ -505,7 +505,7 @@ def run_probe_def_05(work_dir: Path) -> dict[str, Any]:
             "builder-1",
             state["spec_sha256"],
             state["manifest_sha256"],
-            "Tự duyệt code của chính mình.",
+            "Tự duyệt code của chính mình. AC1 mapped to test_fee assertion.",
         )
     except WorkflowError as exc:
         blocked_errors["builder_self_critique"] = str(exc)
@@ -516,7 +516,7 @@ def run_probe_def_05(work_dir: Path) -> dict[str, Any]:
         "critic-1",
         state["spec_sha256"],
         state["manifest_sha256"],
-        "Đã kiểm tra độc lập logic apply_fee.",
+        "Đã kiểm tra độc lập logic apply_fee. AC1 mapped to test_fee assertion.",
     )
 
     # 2) Builder self-audit in AUDIT

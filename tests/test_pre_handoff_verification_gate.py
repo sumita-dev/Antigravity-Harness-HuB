@@ -415,7 +415,7 @@ def test_scenario_7_app_workflow_store_full_pre_handoff_gate(tmp_path: Path) -> 
         "critic-1",
         state["spec_sha256"],
         state["manifest_sha256"],
-        "Logic và cú pháp đạt yêu cầu.",
+        "Logic và cú pháp đạt yêu cầu. AC1 mapped to test_assertion.",
     )
     assert state["stage"] == "AUDIT"
 
@@ -450,7 +450,7 @@ def test_scenario_7_app_workflow_store_full_pre_handoff_gate(tmp_path: Path) -> 
         "critic-1",
         state["spec_sha256"],
         state["manifest_sha256"],
-        "Workspace sạch và code đạt chuẩn.",
+        "Workspace sạch và code đạt chuẩn. AC1 mapped to test_assertion.",
     )
     assert state["stage"] == "AUDIT"
 

@@ -36,6 +36,10 @@ SPECULATIVE_PATTERNS = [
     r"\bcan't\s+go\s+wrong\b",
     r"\bpretty\s+sure\b",
     r"\blooks\s+fine\b",
+    # English evasions
+    r"\bhigh\s+probability\b",
+    r"\bconfident\s+that\b",
+    r"\blooks\s+solid\b",
     # Tiếng Việt
     r"chắc\s+là",
     r"dường\s+như",
@@ -48,6 +52,14 @@ SPECULATIVE_PATTERNS = [
     r"không\s+thể\s+sai\s+được",
     r"chắc\s+ăn",
     r"cứ\s+thế\s+mà\s+chạy",
+    # Vietnamese evasions
+    r"nhiều\s+khả\s+năng",
+    r"khả\s+năng\s+rất\s+cao",
+    r"tin\s+tưởng\s+(?:tuyệt\s+đối)?",
+    r"theo\s+(?:kinh\s+nghiệm|quan\s+sát|góc\s+nhìn)",
+    r"trông\s+có\s+vẻ",
+    r"không\s+thể\s+có\s+lỗi",
+    r"nghĩ\s+là\s+được",
 ]
 
 # Các cụm từ hùa theo giả định/thiên kiến của người dùng (Sycophancy Patterns)
@@ -64,6 +76,14 @@ SYCOPHANCY_PATTERNS = [
     r"(?:anh|sếp|bạn)\s+(?:đã\s+)?bắt\s+(?:đúng|trúng|chuẩn)\s+bệnh",
     r"(?:anh|sếp|bạn)\s+(?:nhìn\s+nhận|phán\s+đoán|chẩn\s+đoán|bắt\s+lỗi)\s+(?:quá\s+|rất\s+|hoàn\s+toàn\s+)?(?:chuẩn|chính\s+xác)",
     r"đúng\s+hệt\s+như\s+(?:anh|sếp|bạn)\s+(?:nghĩ|nói|dự\s+đoán|nhận\s+định)",
+    # Vietnamese evasions
+    r"quá\s+thấu\s+đáo",
+    r"chuẩn\s+không\s+cần\s+chỉnh",
+    r"sâu\s+sắc",
+    r"nhìn\s+thấu",
+    r"quá\s+đỉnh",
+    r"chuyên\s+gia",
+    r"chuẩn\s+xác\s+100%",
     # Tiếng Anh
     r"\byour\s+hypothesis\s+is\s+correct\b",
     r"\bconfirms?\s+your\s+(?:assumption|suspicion)\b",
@@ -135,6 +155,8 @@ API_CLAIM_PATTERNS = [
     r"\b(?:payment\s+required|quota\s+exceeded)\b",
     r"(?:gọi\s+api|api\s+call)\s+(?:thành\s+công|thất\s+bại|bị\s+chặn|402|401)",
     r"\bapi\s+(?:permissions?|access|quota)\b",
+    r"\b(?:stripe|webhook|firebase|supabase|aws|oauth|payment|paypal|zalopay|payos)\b.*?\b(?:error|lỗi|chặn|failed|status|4\d\d|5\d\d)\b",
+    r"\b(?:4\d\d|5\d\d)\b.*?\b(?:stripe|webhook|firebase|supabase|aws|oauth|api)\b",
 ]
 
 # Pattern nhận diện raw HTTP response / status code trong execution logs
