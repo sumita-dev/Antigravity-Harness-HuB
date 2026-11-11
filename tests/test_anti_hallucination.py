@@ -8,11 +8,13 @@ from harness.validators.hallucination_detector import (
     audit_response,
     detect_speculative_language,
     detect_sycophancy,
+    extract_evidence_tuple,
     extract_symbols_from_code,
     verify_api_and_investigation_claims,
     verify_evidence_table,
     verify_execution_claims,
     verify_file_paths,
+    verify_network_and_routing_claims,
     verify_symbol_grounding,
 )
 
@@ -367,3 +369,67 @@ def test_natural_sycophancy_and_green_run_paraphrase_detection() -> None:
     assert en_res.verdict == "REJECT"
     assert len(en_res.sycophancy_phrases) >= 1
     assert len(en_res.unverified_claims) >= 1
+
+
+def test_verify_network_and_routing_claims_static_no_claim():
+    """Static text without negative routing claims passes without triggering Pillar 8."""
+    text = (
+        "Cập nhật tài liệu điều hướng. Khi người dùng bấm login, hệ thống chuyển hướng sang module dashboard. "
+        "Chúng ta chuyển hướng sang làm tiếp phần giao diện người dùng."
+    )
+    res = verify_network_and_routing_claims(text, execution_logs=None)
+    assert res["valid"] is True
+    assert res["claims_found"] == []
+    assert res["unverified_routing_claims"] == []
+
+
+def test_verify_network_and_routing_claims_negative_unverified():
+    """Negative routing and failure claims without probe logs trigger violation."""
+    text = "Báo cáo: Phát hiện lỗi 404, không truy cập được và server error 500."
+    res = verify_network_and_routing_claims(text, execution_logs=None)
+    assert res["valid"] is False
+    assert len(res["claims_found"]) >= 2
+    assert len(res["unverified_routing_claims"]) >= 2
+
+
+def test_verify_network_and_routing_claims_with_cli_probe():
+    """Negative claim with CLI probe command and raw HTTP status code passes."""
+    text = "Báo cáo: Link này bị fallback về trang chủ."
+    logs = "curl -I https://example.com/item\nHTTP/1.1 301 Moved Permanently\nLocation: https://example.com/"
+    res = verify_network_and_routing_claims(text, execution_logs=logs)
+    assert res["valid"] is True
+    assert len(res["claims_found"]) == 1
+    assert res["has_probe_cmd"] is True
+    assert res["has_http_status"] is True
+    assert res["unverified_routing_claims"] == []
+
+
+def test_extract_evidence_tuple_key_value_and_table():
+    """Recognize Lean Evidence Tuple in both key-value format and markdown table format."""
+    kv_text = (
+        "Báo cáo sự cố routing.\n\n"
+        "### [EVIDENCE TUPLE]\n"
+        "- Target URL: https://example.com/api/test\n"
+        "- Probe Command: `Invoke-RestMethod -Uri https://example.com/api/test`\n"
+        "- Raw Status Code: HTTP 500 Internal Server Error\n"
+    )
+    kv_tuple = extract_evidence_tuple(kv_text)
+    assert kv_tuple is not None
+    assert kv_tuple["valid"] is True
+    assert "https://example.com/api/test" in kv_tuple["target_url"]
+    assert "Invoke-RestMethod" in kv_tuple["probe_cmd"]
+    assert "500" in kv_tuple["raw_status"]
+
+    tbl_text = (
+        "Báo cáo sự cố 404.\n\n"
+        "### [EVIDENCE TUPLE]\n"
+        "| Target URL | Probe Command | Raw Status Code |\n"
+        "| :--- | :--- | :--- |\n"
+        "| https://example.com/old-page | `curl -I https://example.com/old-page` | HTTP 404 Not Found |\n"
+    )
+    tbl_tuple = extract_evidence_tuple(tbl_text)
+    assert tbl_tuple is not None
+    assert tbl_tuple["valid"] is True
+    assert "https://example.com/old-page" in tbl_tuple["target_url"]
+    assert "curl" in tbl_tuple["probe_cmd"]
+    assert "404" in tbl_tuple["raw_status"]

@@ -438,3 +438,97 @@ def test_routing_claim_with_http_probe_allows_stop(tmp_path: Path) -> None:
     }
     assert evaluate_hook_payload(payload) == {"decision": "allow"}
     assert _run_hook_cli(payload) == {"decision": "allow"}
+
+
+def test_static_tasks_with_no_negative_claims_pass_cleanly(tmp_path: Path) -> None:
+    """Static tasks discussing routing or navigation without negative failure claims return allow (Zero False Positives)."""
+    transcript = _write_transcript(
+        tmp_path / "t_static_routing.jsonl",
+        [
+            {
+                "type": "USER_INPUT",
+                "source": "USER_EXPLICIT",
+                "content": "Cập nhật tài liệu điều hướng và routing cho hệ thống",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "Đã hoàn thành cập nhật tài liệu kiến trúc. "
+                    "Hệ thống định tuyến cho phép chuyển hướng sang module dashboard khi người dùng đăng nhập thành công. "
+                    "Chúng ta chuyển hướng sang bước kiểm tra các cấu hình static tiếp theo."
+                ),
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-static-routing",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload) == {"decision": "allow"}
+    assert _run_hook_cli(payload) == {"decision": "allow"}
+
+
+def test_routing_claim_with_lean_evidence_tuple_allows_stop(tmp_path: Path) -> None:
+    """Negative routing claim with embedded Lean Evidence Tuple returns allow."""
+    transcript = _write_transcript(
+        tmp_path / "t_evidence_tuple.jsonl",
+        [
+            {
+                "type": "USER_INPUT",
+                "source": "USER_EXPLICIT",
+                "content": "Kiểm tra endpoint API và chuyển hướng",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "Báo cáo: Endpoint này bị redirect về trang chủ và không truy cập được.\n\n"
+                    "### [EVIDENCE TUPLE]\n"
+                    "- Target URL: https://example.com/api/v1/auth\n"
+                    "- Probe Command: `curl -I https://example.com/api/v1/auth`\n"
+                    "- Raw Status Code: HTTP 302 Found\n"
+                ),
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-evidence-tuple",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload) == {"decision": "allow"}
+    assert _run_hook_cli(payload) == {"decision": "allow"}
+
+
+def test_routing_claim_with_table_evidence_tuple_allows_stop(tmp_path: Path) -> None:
+    """Negative routing claim with table-formatted Lean Evidence Tuple returns allow."""
+    transcript = _write_transcript(
+        tmp_path / "t_evidence_table_tuple.jsonl",
+        [
+            {
+                "type": "USER_INPUT",
+                "source": "USER_EXPLICIT",
+                "content": "Kiểm tra endpoint bị lỗi 404",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "Phát hiện lỗi 404 và không truy cập được trang quản trị.\n\n"
+                    "### [EVIDENCE TUPLE]\n"
+                    "| Target URL | Probe Command | Raw Status Code |\n"
+                    "| :--- | :--- | :--- |\n"
+                    "| https://example.com/admin | `Invoke-WebRequest -Uri https://example.com/admin` | HTTP 404 Not Found |\n"
+                ),
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-table-evidence-tuple",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload) == {"decision": "allow"}
+    assert _run_hook_cli(payload) == {"decision": "allow"}

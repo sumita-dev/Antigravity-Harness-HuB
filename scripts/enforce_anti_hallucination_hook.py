@@ -461,11 +461,14 @@ def evaluate_transcript(
 
     if audit_res.verdict == "REJECT":
         if getattr(audit_res, "unverified_routing_claims", None):
+            claims_repr = ", ".join(f"'{c}'" for c in audit_res.unverified_routing_claims[:3])
             return {
                 "decision": "continue",
                 "reason": (
-                    f"{GUARD_MARKER} Tuyên bố lỗi chuyển hướng/routing nhưng không có raw HTTP probe evidence từ CLI. "
-                    "Yêu cầu chạy curl hoặc Invoke-WebRequest để lấy HTTP status trước khi kết luận!"
+                    f"{GUARD_MARKER} Tuyên bố chuyển hướng/routing hoặc lỗi hệ thống ({claims_repr}) "
+                    "nhưng không có raw HTTP probe evidence từ CLI (Cosmetic Triad Ban). "
+                    "Yêu cầu chạy curl hoặc Invoke-WebRequest để lấy HTTP status thực tế hoặc đính kèm khối `### [EVIDENCE TUPLE]` "
+                    "(Target URL, Probe Command, Raw Status Code) trước khi kết luận!"
                 ),
             }
         violations_str = "; ".join(audit_res.violations)

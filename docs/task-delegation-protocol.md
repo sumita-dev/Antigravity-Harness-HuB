@@ -54,4 +54,30 @@ Trước khi chuyển sang module kế tiếp:
 
 ### 4.2. Bắt Buộc Bước Ra Thực Tế (Adversarial Reality Grounding Invariant)
 - **QA Auditor độc lập kích hoạt CLI probe:** Trước khi ký duyệt (`APPROVE` / signoff) bất kỳ báo cáo kỹ thuật nào liên quan đến routing, hạ tầng mạng, web pages hoặc API endpoints, QA Auditor BẮT BUỘC phải độc lập chạy lệnh probe thực nghiệm từ CLI (`curl -I`, `Invoke-WebRequest`, `Invoke-RestMethod` hoặc HTTP client script) trực tiếp đến host/endpoint mục tiêu.
-- **Tiêu chuẩn nghiệm thu:** Chỉ chấp nhận signoff khi output ghi nhận rõ ràng raw HTTP status code (ví dụ `HTTP 200`, `HTTP 301`, `HTTP 302`, `HTTP 404`) và URL chuyển hướng thực tế từ CLI probe log với `exit code == 0`.
+- **Tiêu chuẩn nghiệm thu:** Chỉ chấp nhận signoff khi output ghi nhận rõ ràng raw HTTP status code (ví dụ `HTTP 200`, `HTTP 301`, `HTTP 302`, `HTTP 404`, `HTTP 500`) và URL chuyển hướng thực tế từ CLI probe log với `exit code == 0`.
+
+### 4.3. Tiêu Chuẩn Prompting QA Đối Kháng (Adversarial QA Prompting Standard)
+Khi điều phối SubAgent QA Auditor thẩm định bản vá lỗi, an ninh hoặc điều tra lỗi hệ thống, Quản đốc (Orchestrator) **BẮT BUỘC** phải đưa yêu cầu đối kháng tường minh vào prompt:
+> *"Em là QA Auditor đóng vai trò Adversarial Attacker khó tính nhất:
+> 1. Với bản vá bảo mật/logic: CẤM chỉ đọc diff mã nguồn; BẮT BUỘC tái hiện lại PoC exploit cũ và thử nghiệm thêm 1-2 payload bypass để kiểm chứng độ bền thực tế của bản vá.
+> 2. Với tuyên bố lỗi mạng/routing/redirect/HTTP: CẤM suy đoán AST tĩnh; BẮT BUỘC chạy trực tiếp CLI probe (`curl -I`, `Invoke-WebRequest`) lấy raw HTTP status code.
+> 3. Báo cáo nghiệm thu BẮT BUỘC đính kèm terminal output thực tế hoặc khối `### [EVIDENCE TUPLE]` hợp lệ."*
+
+### 4.4. Cấu Trúc Khối Bằng Chứng Tinh Gọn (Lean Evidence Tuple Format)
+Nhằm giữ Context Window tinh gọn nhưng vẫn vượt qua rào chắn thực chứng tự động, SubAgent và QA Auditor có thể trình bày bằng chứng kiểm định mạng/routing theo khối chuẩn:
+
+```markdown
+### [EVIDENCE TUPLE]
+- Target URL: <URL hoặc endpoint được kiểm chứng, ví dụ: https://example.com/login>
+- Probe Command: <Lệnh CLI thăm dò thực tế: curl -I, Invoke-WebRequest, Invoke-RestMethod, requests, urllib, fetch>
+- Raw Status Code: <Raw HTTP output hoặc status code: ví dụ HTTP 200 OK, HTTP 301 Moved Permanently, HTTP 404 Not Found, HTTP 500>
+```
+
+Hoặc dưới dạng bảng Markdown tinh gọn:
+
+```markdown
+### [EVIDENCE TUPLE]
+| Target URL | Probe Command | Raw Status Code |
+| :--- | :--- | :--- |
+| https://example.com/checkout | `curl -I https://example.com/checkout` | HTTP 301 Moved Permanently |
+```

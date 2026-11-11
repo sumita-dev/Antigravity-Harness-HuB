@@ -168,31 +168,33 @@ RAW_HTTP_PATTERNS = [
     r"\bstatus\s+code\s+[1-5]\d\d\b",
     r"\bStatusCode\s*:\s*[1-5]\d\d\b",
     r"\bpaid_plan_required\b",
-    r"\b(?:401\s+Unauthorized|402\s+Payment\s+Required|403\s+Forbidden|404\s+Not\s+Found|200\s+OK|301\s+Moved\s+Permanently|302\s+Found|307\s+Temporary\s+Redirect|308\s+Permanent\s+Redirect)\b",
+    r"\b(?:401\s+Unauthorized|402\s+Payment\s+Required|403\s+Forbidden|404\s+Not\s+Found|200\s+OK|301\s+Moved\s+Permanently|302\s+Found|307\s+Temporary\s+Redirect|308\s+Permanent\s+Redirect|500\s+Internal\s+Server\s+Error)\b",
     r'"status(?:_code)?":\s*[1-5]\d\d',
+    r"(?i)\b(?:raw\s+)?status(?:\s+code)?\s*[:=]?\s*(?:HTTP\s+)?([1-5]\d\d)\b",
+    r"\bHTTP\s*:\s*[1-5]\d\d\b",
 ]
 
-# Pattern nhận diện tuyên bố định tuyến mạng / chuyển hướng / mã lỗi HTTP (Network & Routing Claims)
+# Pattern nhận diện tuyên bố định tuyến mạng / chuyển hướng / lỗi hệ thống (Negative / Routing / Failure Claims)
 NETWORK_ROUTING_CLAIM_PATTERNS = [
-    # Tiếng Việt
-    r"chuyển\s+hướng\s+về",
-    r"chuyển\s+hướng\s+(?:sang|tới)",
-    r"fallback\s+về",
-    r"bị\s+fallback\s+về",
-    r"redirect\s+về",
-    r"bị\s+redirect\s+về",
-    r"lỗi\s+404\b",
-    r"rewrite\s+về\s+trang\s+chủ",
-    r"không\s+truy\s+cập\s+được\s+trang",
-    r"lỗi\s+chuyển\s+hướng",
-    # Tiếng Anh
-    r"\bredirect(?:ed)?\s+to\s+homepage\b",
+    # Tiếng Việt: Các tuyên bố phủ định / lỗi điều hướng / sập hệ thống (Negative / Routing / Failure claims)
+    r"(?:bị\s+)?chuyển\s+hướng\s+về",
+    r"(?:bị\s+)?fallback(?:\s+về)?",
+    r"(?:bị\s+)?redirect(?:\s+về)?",
+    r"(?:mã\s+)?lỗi\s+404\b",
+    r"rewrite\s+về(?:\s+trang\s+chủ)?",
+    r"không\s+truy\s+cập\s+được(?:\s+(?:trang|link|url|web|domain|site|endpoint))?",
+    r"lỗi\s+(?:chuyển\s+hướng|định\s+tuyến)",
+    r"(?:mã\s+)?lỗi\s+(?:server\s+)?500\b",
+    # Tiếng Anh: Negative / Routing / System Failure claims
     r"\bfallback\s+to\s+homepage\b",
-    r"\bredirected?\s+to\b",
+    r"\bredirect(?:ed)?\s+(?:back\s+)?to\s+(?:homepage|root|home)\b",
     r"\b404\s+not\s+found\b",
+    r"\b(?:500\s+)?server\s+error(?:\s+500)?\b",
+    r"\b500\s+internal\s+server\s+error\b",
     r"\brouting\s+error\b",
-    r"\bcannot\s+access\s+page\b",
+    r"\bcannot\s+access\s+(?:page|url|link|site|endpoint)\b",
     r"\bpage\s+not\s+found\b",
+    r"\brewrite\s+to\s+homepage\b",
 ]
 
 # Pattern nhận diện lệnh thăm dò mạng (Network Probe Commands)
@@ -206,6 +208,7 @@ HTTP_PROBE_CMD_PATTERNS = [
     r"\brequests\b",
     r"\burllib(?:\.request)?\b",
     r"\bfetch\s*\(",
+    r"\bfetch\b",
     r"\bhttp\.client\b",
     r"\bhttpx\b",
     r"\baiohttp\b",
@@ -289,6 +292,7 @@ class AuditResult:
     unverified_api_claims: List[str] = field(default_factory=list)
     unverified_routing_claims: List[str] = field(default_factory=list)
     has_evidence_table: bool = False
+    has_evidence_tuple: bool = False
 
     @property
     def is_approved(self) -> bool:
@@ -305,7 +309,7 @@ class AuditResult:
                 + (
                     f"Phát hiện {len(self.violations)} vi phạm ảo giác."
                     if self.violations
-                    else "Vượt qua toàn bộ 7 trụ cột rào chắn chống ảo giác."
+                    else "Vượt qua toàn bộ 8 trụ cột rào chắn chống ảo giác."
                 )
             ),
             metadata={
@@ -319,7 +323,9 @@ class AuditResult:
                 "unverified_symbols": self.unverified_symbols,
                 "sycophancy_phrases": self.sycophancy_phrases,
                 "unverified_api_claims": self.unverified_api_claims,
+                "unverified_routing_claims": self.unverified_routing_claims,
                 "has_evidence_table": self.has_evidence_table,
+                "has_evidence_tuple": self.has_evidence_tuple,
             },
         )
 
@@ -675,6 +681,115 @@ def verify_api_and_investigation_claims(
     }
 
 
+def extract_evidence_tuple(text: str) -> Optional[Dict[str, Any]]:
+    """Nhận diện cấu trúc Lean Evidence Tuple (### [EVIDENCE TUPLE]).
+
+    Yêu cầu chứa đủ 3 trường:
+    1. Target URL (hoặc endpoint/url/link)
+    2. Probe Command (lệnh thăm dò: curl, Invoke-WebRequest, Invoke-RestMethod, requests, urllib, fetch...)
+    3. Raw Status Code (HTTP 200, 301, 302, 404, 500...)
+    """
+    if not text:
+        return None
+
+    match = re.search(
+        r"(?:#{2,4}\s*\[?EVIDENCE\s+TUPLE\]?|\*\*\[?EVIDENCE\s+TUPLE\]?\*\*)",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+
+    start_pos = match.end()
+    rest_text = text[start_pos:]
+    next_header = re.search(r"\n#{2,4}\s+", rest_text)
+    section_text = rest_text[: next_header.start()] if next_header else rest_text
+
+    target_url = None
+    probe_cmd = None
+    raw_status = None
+
+    # Tìm qua key-value patterns
+    url_m = re.search(
+        r"(?:target(?:\s+url)?|url|endpoint|link)\s*[:=]\s*`?([^\r\n`|]+)`?",
+        section_text,
+        re.IGNORECASE,
+    )
+    if url_m:
+        target_url = url_m.group(1).strip()
+    else:
+        raw_url_m = re.search(r"https?://[^\s)`\"'|]+", section_text)
+        if raw_url_m:
+            target_url = raw_url_m.group(0).strip()
+
+    cmd_m = re.search(
+        r"(?:probe(?:\s+command)?|command|cmd)\s*[:=]\s*`?([^\r\n`|]+)`?",
+        section_text,
+        re.IGNORECASE,
+    )
+    if cmd_m:
+        cand_cmd = cmd_m.group(1).strip()
+        for p in HTTP_PROBE_CMD_PATTERNS:
+            if re.search(p, cand_cmd, re.IGNORECASE):
+                probe_cmd = cand_cmd
+                break
+    if not probe_cmd:
+        for p in HTTP_PROBE_CMD_PATTERNS:
+            found_cmd = re.search(p, section_text, re.IGNORECASE)
+            if found_cmd:
+                probe_cmd = found_cmd.group(0).strip()
+                break
+
+    status_m = re.search(
+        r"(?:raw\s+)?status(?:\s+code)?\s*[:=]\s*`?([^\r\n`|]+)`?",
+        section_text,
+        re.IGNORECASE,
+    )
+    if status_m:
+        cand_status = status_m.group(1).strip()
+        for p in RAW_HTTP_PATTERNS:
+            if re.search(p, cand_status, re.IGNORECASE):
+                raw_status = cand_status
+                break
+        if not raw_status and re.search(r"\b[1-5]\d\d\b", cand_status):
+            raw_status = cand_status
+    if not raw_status:
+        for p in RAW_HTTP_PATTERNS:
+            found_st = re.search(p, section_text, re.IGNORECASE)
+            if found_st:
+                raw_status = found_st.group(0).strip()
+                break
+
+    # Nếu section có bảng Markdown: | Target URL | Probe Command | Raw Status Code |
+    if not (target_url and probe_cmd and raw_status):
+        for line in section_text.splitlines():
+            line_str = line.strip()
+            if line_str.startswith("|") and line_str.endswith("|"):
+                parts = [p.strip().strip("`") for p in line_str.split("|")[1:-1]]
+                if len(parts) >= 3:
+                    if any("target" in p.lower() or "probe" in p.lower() or "---" in p for p in parts):
+                        continue
+                    p0_url = re.search(r"https?://[^\s)`\"'|]+", parts[0]) or parts[0]
+                    p1_cmd = any(re.search(p, parts[1], re.IGNORECASE) for p in HTTP_PROBE_CMD_PATTERNS)
+                    p2_status = any(re.search(p, parts[2], re.IGNORECASE) for p in RAW_HTTP_PATTERNS) or re.search(r"\b[1-5]\d\d\b", parts[2])
+                    if p0_url and p1_cmd and p2_status:
+                        target_url = str(p0_url.group(0) if hasattr(p0_url, "group") else p0_url)
+                        probe_cmd = parts[1]
+                        raw_status = parts[2]
+                        break
+
+    if target_url and probe_cmd and raw_status:
+        return {
+            "valid": True,
+            "target_url": target_url,
+            "probe_cmd": probe_cmd,
+            "raw_status": raw_status,
+            "section_text": section_text.strip(),
+        }
+
+    return None
+
+
 def verify_network_and_routing_claims(
     text: str,
     execution_logs: Optional[Union[str, Sequence[Any]]] = None,
@@ -683,7 +798,8 @@ def verify_network_and_routing_claims(
 
     Nhận diện các tuyên bố về routing, redirect, fallback, 404, rewrite...
     Bắt buộc execution_logs phải chứa cả lệnh network probe thực tế (curl, Invoke-WebRequest, requests,...)
-    VÀ raw HTTP status output (HTTP 200, 301, 302, 404,...). Nếu thiếu một trong hai -> vi phạm.
+    VÀ raw HTTP status output (HTTP 200, 301, 302, 404, 500,...), hoặc văn bản cung cấp khối
+    Lean Evidence Tuple (### [EVIDENCE TUPLE]) hoàn chỉnh.
     """
     text_lower = text.lower()
     claims_found: List[str] = []
@@ -700,13 +816,29 @@ def verify_network_and_routing_claims(
             "claims_found": [],
             "has_probe_cmd": True,
             "has_http_status": True,
+            "has_evidence_tuple": False,
+            "evidence_tuple": None,
             "unverified_routing_claims": [],
         }
 
     has_probe_cmd = False
     has_http_status = False
+    has_evidence_tuple = False
+    evidence_tuple_data = None
 
-    if execution_logs:
+    # 1. Nhận diện cấu trúc Lean Evidence Tuple trong text hoặc execution_logs
+    ev_tuple = extract_evidence_tuple(text)
+    if not ev_tuple and execution_logs and isinstance(execution_logs, str):
+        ev_tuple = extract_evidence_tuple(execution_logs)
+
+    if ev_tuple:
+        has_evidence_tuple = True
+        has_probe_cmd = True
+        has_http_status = True
+        evidence_tuple_data = ev_tuple
+
+    # 2. Nếu chưa có Lean Evidence Tuple, kiểm tra execution_logs từ CLI
+    if not (has_probe_cmd and has_http_status) and execution_logs:
         extracted_chunks: List[str] = []
         if isinstance(execution_logs, str):
             extracted_chunks.append(execution_logs)
@@ -755,6 +887,8 @@ def verify_network_and_routing_claims(
         "claims_found": claims_found,
         "has_probe_cmd": has_probe_cmd,
         "has_http_status": has_http_status,
+        "has_evidence_tuple": has_evidence_tuple,
+        "evidence_tuple": evidence_tuple_data,
         "unverified_routing_claims": unverified,
     }
 
@@ -991,4 +1125,5 @@ def audit_response(
         unverified_api_claims=api_check["unverified_api_claims"],
         unverified_routing_claims=routing_check["unverified_routing_claims"],
         has_evidence_table=has_evidence_table,
+        has_evidence_tuple=routing_check["has_evidence_tuple"],
     )
