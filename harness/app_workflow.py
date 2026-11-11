@@ -3,6 +3,7 @@
 Actor IDs and execution reports are supplied by the runtime, not authenticated.
 Each task is one atomic JSON transaction containing state, events and evidence.
 """
+import ast
 import hashlib
 import json
 import os
@@ -95,6 +96,67 @@ STAGE_GATES = {
         "slash_commands": ["/anti-hallucination-guard", "/webperf", "/verify-ui"],
     },
 }
+
+
+def _has_ast_assertion(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    for child in ast.walk(fn_node):
+        if isinstance(child, ast.Assert):
+            return True
+        if isinstance(child, ast.Call):
+            if isinstance(child.func, ast.Name):
+                name = child.func.id.lower()
+                if name.startswith("assert") or name in {"raises", "approx", "warns"}:
+                    return True
+            elif isinstance(child.func, ast.Attribute):
+                attr = child.func.attr.lower()
+                if attr.startswith("assert") or attr in {"raises", "approx", "warns"}:
+                    return True
+    return False
+
+
+def _verify_critique_test_assertions(report: str, project_root: str | Path | None) -> None:
+    candidates = re.findall(r"\b(test_[a-zA-Z0-9_]+)\b", report)
+    generic_placeholders = {"test_assertion", "test_assertions"}
+    test_funcs = [fn for fn in dict.fromkeys(candidates)]
+    if not test_funcs:
+        return
+
+    valid_test_functions: set[str] = set()
+    empty_test_functions: set[str] = set()
+
+    root_path = Path(project_root) if project_root else None
+    if root_path and root_path.is_dir():
+        test_files: list[Path] = []
+        for p in root_path.rglob("*.py"):
+            try:
+                rel_parts = p.relative_to(root_path).parts
+            except ValueError:
+                rel_parts = p.parts
+            if any(part.startswith(".") or part in {"node_modules", "venv", ".venv", "__pycache__"} for part in rel_parts[:-1]):
+                continue
+            if p.name.startswith("test_") or p.name.endswith("_test.py"):
+                test_files.append(p)
+
+        for tf in test_files:
+            try:
+                tree = ast.parse(tf.read_text(encoding="utf-8", errors="replace"), filename=str(tf))
+            except Exception:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if _has_ast_assertion(node):
+                        valid_test_functions.add(node.name)
+                    else:
+                        empty_test_functions.add(node.name)
+
+    empty_test_functions -= valid_test_functions
+
+    for fn in test_funcs:
+        if fn in valid_test_functions:
+            continue
+        if fn.lower() in generic_placeholders:
+            continue
+        raise WorkflowError(f"Critique report references non-existent or empty test function: {fn}")
 
 
 class AppWorkflowStore:
@@ -724,6 +786,7 @@ class AppWorkflowStore:
                 has_assertion = bool(re.search(r"\b(?:test_\w*|assertion\w*)\b", report, re.IGNORECASE))
                 if not (has_ac and has_assertion):
                     raise WorkflowError("Critique report must contain AC-to-Assertion mapping")
+                _verify_critique_test_assertions(report, state.get("project_root"))
             state["actors"]["code_critic"] = actor
             state["code_review"] = dict(verdict=verdict, actor=actor, report=report, spec_sha256=spec_sha256, manifest_sha256=manifest_sha256, hallucination_audit=h_audit, provenance="DECLARED native actor; identity not authenticated")
             state["hallucination_audit"] = h_audit
