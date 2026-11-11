@@ -213,9 +213,17 @@ def test_circuit_breaker_allows_stop_after_two_retries(tmp_path: Path) -> None:
         "transcriptPath": str(transcript),
         "workspacePaths": [str(REPO_ROOT)],
     }
-    assert evaluate_transcript(transcript) == {"decision": "allow"}
-    assert evaluate_hook_payload(payload) == {"decision": "allow"}
-    assert _run_hook_cli(payload) == {"decision": "allow"}
+    res_t = evaluate_transcript(transcript)
+    assert res_t["decision"] == "continue"
+    assert "[ESCALATED_HARD_STOP]" in res_t["reason"]
+
+    res_p = evaluate_hook_payload(payload)
+    assert res_p["decision"] == "continue"
+    assert "[ESCALATED_HARD_STOP]" in res_p["reason"]
+
+    res_cli = _run_hook_cli(payload)
+    assert res_cli["decision"] == "continue"
+    assert "[ESCALATED_HARD_STOP]" in res_cli["reason"]
 
 
 def test_app_workflow_handoff_anti_hallucination_enforcement(tmp_path: Path) -> None:

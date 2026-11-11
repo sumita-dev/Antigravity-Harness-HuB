@@ -10,6 +10,14 @@ from harness.quality_gate import AdversarialQualityGate, Verdict
 from harness.runners.app_runner import AppRunner
 from harness.runners.marketing_runner import MarketingRunner
 from harness.orchestrator import ChiefOrchestrator
+from harness.triad_protocol import (
+    HandoffValidationError,
+    TriadHandoffV2,
+    parse_handoff_v2,
+    sync_workspace_for_qa,
+    validate_handoff_v2,
+)
+from harness.subagent_guard import SubagentGuard
 
 
 def _walk_to_implementation(ctx: TaskContext) -> TaskContext:
@@ -179,3 +187,76 @@ def test_triad_app_runner_executes_critique_by_default():
     assert "AUDIT" in steps
     critique_step = next(s for s in ctx.trace_steps if s["step"] == "CRITIQUE")
     assert critique_step["payload"]["actor"] == "code_critic"
+
+
+def test_triad_handoff_v2_schema_contract():
+    """Hợp đồng Triad Handoff Contract v2: Xác thực đầy đủ các trường và bắt buộc commit_sha & verification_receipt."""
+    valid_data = {
+        "$schema": "https://antigravity.dev/schemas/triad-handoff.v2.json",
+        "task_id": "TASK-2026-11-11-SYNC-01",
+        "source_branch": "worktree/maker-01",
+        "commit_sha": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
+        "spec_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "modified_files": [
+            {"path": "harness/triad_protocol.py", "change_type": "CREATE", "diff_stat": "+100 -0"}
+        ],
+        "verification_receipt": {
+            "command": "pytest tests/test_triad_protocol.py -q",
+            "exit_code": 0,
+            "stdout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        },
+        "acceptance_criteria_matrix": [
+            {"ac_id": "AC-04", "status": "SATISFIED", "evidence_ref": "test_triad_handoff_v2_schema_contract"}
+        ],
+        "digest": "Maker completed Handoff v2 protocol implementation with full verification.",
+    }
+
+    ok, errors = validate_handoff_v2(valid_data)
+    assert ok is True
+    assert errors == []
+
+    handoff = parse_handoff_v2(valid_data)
+    assert handoff.task_id == "TASK-2026-11-11-SYNC-01"
+    assert handoff.commit_sha == "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"
+    assert handoff.verification_receipt["exit_code"] == 0
+
+    json_str = handoff.to_json()
+    assert "https://antigravity.dev/schemas/triad-handoff.v2.json" in json_str
+
+    # Test SubagentGuard.record_handoff
+    guard = SubagentGuard()
+    recorded = guard.record_handoff(valid_data)
+    assert recorded.task_id == handoff.task_id
+
+
+def test_triad_handoff_v2_rejection_rules():
+    """Từ chối nếu commit_sha không hợp lệ hoặc verification_receipt thất bại."""
+    # 1. commit_sha chứa ký tự không hợp lệ
+    bad_sha = {
+        "task_id": "T1",
+        "commit_sha": "not-a-hex-sha!",
+        "verification_receipt": {"command": "pytest", "exit_code": 0, "stdout_hash": "abc"},
+    }
+    ok, errors = validate_handoff_v2(bad_sha)
+    assert ok is False
+    assert any("commit_sha" in e for e in errors)
+    with pytest.raises(HandoffValidationError):
+        parse_handoff_v2(bad_sha)
+
+    # 2. exit_code != 0 trong verification_receipt
+    bad_ec = {
+        "task_id": "T2",
+        "commit_sha": "1234567890abcdef",
+        "verification_receipt": {"command": "pytest", "exit_code": 2, "stdout_hash": "abc"},
+    }
+    ok, errors = validate_handoff_v2(bad_ec)
+    assert ok is False
+    assert any("exit_code bắt buộc phải bằng 0" in e for e in errors)
+
+
+def test_sync_workspace_for_qa_mechanism(tmp_path: Path):
+    """Kiểm tra cơ chế đồng bộ workspace chống Branch Blindness (VULN-05)."""
+    # Test fallback khi không có git repo
+    res = sync_workspace_for_qa("feature-branch", tmp_path, repo_root=tmp_path)
+    assert res["synced"] is True
+    assert "filesystem fallback" in res["message"]

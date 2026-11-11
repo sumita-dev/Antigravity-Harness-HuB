@@ -20,6 +20,7 @@ from harness.validators.hallucination_detector import (
     detect_speculative_language,
     verify_execution_claims,
     verify_file_paths,
+    verify_tool_mutation_balance,
 )
 from harness.validators.opik_evaluator import (
     ContainsMetric,
@@ -165,6 +166,7 @@ __all__ = [
     "verify_required_keywords",
     "verify_start_end_phrase",
     "verify_test_lethality",
+    "verify_tool_mutation_balance",
     "verify_word_count",
 ]
 

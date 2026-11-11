@@ -458,7 +458,10 @@ def test_circuit_breaker_allows_after_two_retries(tmp_path: Path) -> None:
             {"type": "PLANNER_RESPONSE", "content": "Thử lại 2"},
         ],
     )
-    assert evaluate_transcript(t_cb) == {"decision": "allow"}
-    assert _run_hook_cli({"transcriptPath": str(t_cb), "terminationReason": "NO_TOOL_CALL"}) == {
-        "decision": "allow"
-    }
+    res_t = evaluate_transcript(t_cb)
+    assert res_t["decision"] == "continue"
+    assert "[ESCALATED_HARD_STOP]" in res_t["reason"]
+
+    res_cli = _run_hook_cli({"transcriptPath": str(t_cb), "terminationReason": "NO_TOOL_CALL"})
+    assert res_cli["decision"] == "continue"
+    assert "[ESCALATED_HARD_STOP]" in res_cli["reason"]

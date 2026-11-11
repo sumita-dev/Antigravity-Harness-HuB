@@ -293,6 +293,7 @@ class AuditResult:
     unverified_routing_claims: List[str] = field(default_factory=list)
     has_evidence_table: bool = False
     has_evidence_tuple: bool = False
+    has_mutation_without_test: bool = False
 
     @property
     def is_approved(self) -> bool:
@@ -326,8 +327,88 @@ class AuditResult:
                 "unverified_routing_claims": self.unverified_routing_claims,
                 "has_evidence_table": self.has_evidence_table,
                 "has_evidence_tuple": self.has_evidence_tuple,
+                "has_mutation_without_test": self.has_mutation_without_test,
             },
         )
+
+
+BARE_SOURCE_EXTENSIONS = {
+    ".py", ".pyi", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json",
+}
+
+# Các pattern đề xuất tương lai / giả định (Proposal / Future)
+PROPOSAL_PATTERNS = [
+    r"\b(?:cần|sẽ|hãy|nên|muốn|dự\s+kiến|chuẩn\s+bị|kế\s+hoạch|đề\s+xuất|gợi\s+ý)\s+(?:tạo|thêm|viết|sinh|khởi\s+tạo|bổ\s+sung)\b",
+    r"\b(?:tạo|thêm|viết)\s+(?:mới|file\s+mới|tệp\s+mới)\b",
+    r"\b(?:need|needs|needed)\s+to\s+(?:create|add|write|generate|introduce|implement|build)\b",
+    r"\b(?:should|shall|will|would|could|can|plan\s+to|plans\s+to|planning\s+to|propose\s+to|suggest|suggests|recommends?)\s+(?:create|add|write|generate|introduce|implement|build)\b",
+    r"\b(?:create|creating|add|adding|write|writing|generate|generating)\s+(?:a\s+)?(?:new\s+)?(?:file|module|script)\b",
+    r"\b(?:to\s+be\s+created|future\s+file|hypothetical|example|placeholder)\b",
+    r"\b(?:tên\s+file\s+trần|file\s+trần|bare\s+filename)\b",
+    r"\b(?:được\s+bỏ\s+qua|bỏ\s+qua\s+an\s+toàn|ignored|exempt|skipped)\b",
+    r"\b(?:ví\s+dụ|for\s+example|e\.g\.)\b",
+]
+
+# Các pattern khẳng định tồn tại / đã sửa / tham chiếu trực tiếp (Assertion / Past / Location)
+ASSERTION_PATTERNS = [
+    r"\b(?:đã\s+)?(?:sửa|chỉnh\s+sửa|thay\s+đổi|cập\s+nhật|fix|khắc\s+phục|hoàn\s+thành|triển\s+khai|viết\s+xong)\s+(?:ở|tại|trong|tệp|file)?\b",
+    r"\b(?:xem|đọc|kiểm\s+tra|tham\s+khảo|mở|tìm|tra\s+cứu)\s+(?:trong|tại|file|tệp|ở)?\b",
+    r"\b(?:được\s+)?(?:định\s+nghĩa|khai\s+báo|chứa|lưu|cấu\s+hình|nằm)\s+(?:trong|tại|ở)\b",
+    r"\b(?:trong|tại|ở|vào|từ)\s+(?:file|tệp|module)\b",
+    r"\b(?:modified|updated|edited|fixed|resolved|refactored|implemented|completed)\s+(?:in|at|inside)?\b",
+    r"\b(?:see|look\s+at|check|inspect|examine|read|refer\s+to|reference)\s+(?:in|at|inside)?\b",
+    r"\b(?:defined|declared|located|found|stored|configured|resides?)\s+(?:in|at|inside)\b",
+    r"\b(?:in|inside|within|at|from)\s+(?:file|module)?\b",
+    r"\b(?:already\s+exists?|currently\s+in)\b",
+]
+
+
+def _find_bare_file_in_workspace(resolved_base: Path, filename: str) -> bool:
+    """Kiểm tra xem bare filename có tồn tại trong workspace hay không (bao gồm các thư mục con)."""
+    target = resolved_base / filename
+    try:
+        if target.exists():
+            return True
+    except OSError:
+        pass
+
+    skip_dirs = {".git", ".venv", "venv", "node_modules", ".pytest_temp", "__pycache__", ".idea"}
+    try:
+        for root, dirs, files in os.walk(resolved_base):
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            if filename in files:
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def _is_asserted_bare_file(text: str, filename: str) -> bool:
+    """Phân biệt câu khẳng định file tồn tại (asserted_file) vs câu đề xuất tương lai / mô tả trung tính."""
+    fn_esc = re.escape(filename)
+    matches = list(re.finditer(r"(?:`" + fn_esc + r"`|" + fn_esc + r")", text, re.IGNORECASE))
+    if not matches:
+        return False
+
+    has_assertion = False
+    for m in matches:
+        start_pos = max(0, m.start() - 120)
+        end_pos = min(len(text), m.end() + 120)
+        snippet = text[start_pos:end_pos]
+        snippet_lower = snippet.lower()
+
+        # Kiểm tra proposal trước: nếu là đề xuất tương lai -> bỏ qua match này
+        is_proposal = any(re.search(pat, snippet_lower) for pat in PROPOSAL_PATTERNS)
+        if is_proposal:
+            continue
+
+        # Kiểm tra assertion: nếu có chỉ dấu khẳng định sự tồn tại hoặc đã thao tác
+        is_assertion = any(re.search(pat, snippet_lower) for pat in ASSERTION_PATTERNS)
+        if is_assertion:
+            has_assertion = True
+            break
+
+    return has_assertion
 
 
 def verify_file_paths(
@@ -492,9 +573,14 @@ def verify_file_paths(
                     missing.append(cleaned)
             else:
                 # Bare filename without directory separator or file:/// URI:
-                # count existing workspace-root files in verified_paths, ignore non-existent prose mentions
-                if (resolved_base / p_exp).exists():
+                found = _find_bare_file_in_workspace(resolved_base, cleaned)
+                if found:
                     verified.append(cleaned)
+                else:
+                    ext = Path(cleaned).suffix.lower()
+                    if ext in BARE_SOURCE_EXTENSIONS:
+                        if _is_asserted_bare_file(text, cleaned):
+                            missing.append(cleaned)
         except OSError:
             if is_file_uri or has_sep:
                 missing.append(cleaned)
@@ -1020,6 +1106,127 @@ def verify_symbol_grounding(
     }
 
 
+MUTATION_TOOL_NAMES = {
+    "write_file",
+    "edit_file",
+    "replace_file_content",
+    "multi_replace_file_content",
+    "write_to_file",
+    "create_file",
+    "patch_file",
+    "apply_patch",
+}
+
+REPO_CODE_EXTENSIONS = {
+    ".py", ".pyi", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+    ".json", ".yaml", ".yml", ".toml", ".html", ".css", ".sql", ".sh", ".ps1",
+}
+
+EXEMPT_MUTATION_SEGMENTS = (
+    "brain/",
+    "/.brain/",
+    "wiki/",
+    "memory/",
+    "_session-handoff",
+    "_open-questions",
+)
+
+EVASIVE_COMPLETION_PATTERNS = [
+    r"\b(?:sắp\s+xếp\s+chu\s+đáo|hoàn\s+thiện\s+ngăn\s+nắp|chu\s+đáo\s+và\s+hoàn\s+thiện)\b",
+    r"\b(?:toàn\s+bộ|tất\s+cả)\s+các\s+mục\s+trong\s+yêu\s+cầu\s+đã\s+được\b",
+    r"\b(?:all\s+requirements?|all\s+items?)\s+(?:have\s+been\s+|are\s+)?(?:neatly\s+|properly\s+)?(?:arranged|organized|completed)\b",
+]
+
+
+def verify_tool_mutation_balance(
+    turn_steps: Optional[Sequence[Any]] = None,
+    execution_logs: Optional[Union[str, Sequence[Any]]] = None,
+    has_code_mutation: Optional[bool] = None,
+    text: str = "",
+) -> Dict[str, Any]:
+    """Kiểm toán Tool-Mutation Balance:
+    Nếu transcript có thao tác sửa/ghi file mã nguồn repository kèm từ ngữ khéo léo lách
+    completion claim mà không có tool call kiểm thử (run_command chạy test/linter với exit code == 0)
+    đi kèm thì coi là vi phạm.
+    """
+    mutation_detected = bool(has_code_mutation) if has_code_mutation is not None else False
+
+    if not mutation_detected and turn_steps:
+        for step in turn_steps:
+            if not isinstance(step, dict):
+                continue
+            tool_calls = step.get("tool_calls") or []
+            if isinstance(tool_calls, list):
+                for tc in tool_calls:
+                    if not isinstance(tc, dict):
+                        continue
+                    fn_obj = tc.get("function") if isinstance(tc.get("function"), dict) else {}
+                    tc_name = str(tc.get("name") or tc.get("tool") or fn_obj.get("name") or "").rsplit(":", 1)[-1].strip()
+                    if tc_name in MUTATION_TOOL_NAMES:
+                        args = tc.get("args") or tc.get("arguments") or tc.get("parameters") or tc.get("input") or {}
+                        if isinstance(args, str):
+                            try:
+                                import json
+                                args = json.loads(args)
+                            except Exception:
+                                args = {}
+                        target_path = str(args.get("Path") or args.get("path") or args.get("file_path") or args.get("file") or "").replace("\\", "/")
+                        ext = Path(target_path).suffix.lower()
+                        is_exempt = any(seg in target_path.lower() for seg in EXEMPT_MUTATION_SEGMENTS)
+                        if ext in REPO_CODE_EXTENSIONS and not is_exempt:
+                            mutation_detected = True
+                            break
+            if mutation_detected:
+                break
+
+    check_text = text or ""
+    if not check_text and turn_steps:
+        for s in reversed(turn_steps):
+            if isinstance(s, dict) and (s.get("type") == "PLANNER_RESPONSE" or s.get("role") in ("assistant", "model")):
+                check_text = str(s.get("content") or "")
+                if check_text.strip():
+                    break
+
+    has_evasive_completion = bool(check_text) and any(
+        re.search(pat, check_text, re.IGNORECASE) for pat in EVASIVE_COMPLETION_PATTERNS
+    )
+
+    has_valid_execution = False
+    if execution_logs:
+        if isinstance(execution_logs, str):
+            has_valid_execution = _matches_execution_evidence(execution_logs)
+        elif isinstance(execution_logs, Sequence):
+            for entry in execution_logs:
+                if isinstance(entry, dict):
+                    if entry.get("exit_code") == 0:
+                        has_valid_execution = True
+                        break
+                    for k in ("output", "stdout", "content"):
+                        val = entry.get(k)
+                        if isinstance(val, str) and _matches_execution_evidence(val):
+                            has_valid_execution = True
+                            break
+                    if has_valid_execution:
+                        break
+                elif isinstance(entry, str) and _matches_execution_evidence(entry):
+                    has_valid_execution = True
+                    break
+
+    is_valid = not (mutation_detected and has_evasive_completion and not has_valid_execution)
+    violations: List[str] = []
+    if not is_valid:
+        violations.append(
+            "Thao tác chỉnh sửa mã nguồn mà không có tool call kiểm thử chạy test/linter thực tế (exit code 0) (Tool-Mutation Balance Violation)"
+        )
+
+    return {
+        "valid": is_valid,
+        "mutation_detected": mutation_detected,
+        "has_valid_execution": has_valid_execution,
+        "violations": violations,
+    }
+
+
 def audit_response(
     text: str,
     base_dir: Optional[Union[str, Path]] = None,
@@ -1029,8 +1236,10 @@ def audit_response(
     require_evidence_table: bool = False,
     check_paths: bool = True,
     api_execution_logs: Optional[Union[str, Sequence[Any]]] = None,
+    turn_steps: Optional[Sequence[Any]] = None,
+    has_code_mutation: Optional[bool] = None,
 ) -> AuditResult:
-    """Kiểm toán tổng hợp phản hồi/báo cáo theo 8 trụ cột rào chắn chống ảo giác tự động.
+    """Kiểm toán tổng hợp phản hồi/báo cáo theo các trụ cột rào chắn chống ảo giác tự động.
 
     Trả về AuditResult với phán quyết (APPROVE / REJECT) và score.
     """
@@ -1099,6 +1308,18 @@ def audit_response(
                 f"Unverified network/routing claim without raw HTTP probe evidence: '{claim}'"
             )
 
+    # 9. Trụ cột 9: Tool-Mutation Balance
+    mutation_check = verify_tool_mutation_balance(
+        turn_steps=turn_steps,
+        execution_logs=execution_logs,
+        has_code_mutation=has_code_mutation,
+        text=text,
+    )
+    has_mutation_without_test = not mutation_check["valid"]
+    if has_mutation_without_test:
+        for v in mutation_check["violations"]:
+            violations.append(v)
+
     # Tính toán điểm tin cậy (Score)
     total_penalties = (
         len(path_check["missing_paths"]) * 0.3
@@ -1110,6 +1331,8 @@ def audit_response(
         + len(routing_check["unverified_routing_claims"]) * 0.3
     )
     if require_evidence_table and not has_evidence_table:
+        total_penalties += 0.3
+    if has_mutation_without_test:
         total_penalties += 0.3
 
     score = max(0.0, 1.0 - total_penalties)
@@ -1132,4 +1355,5 @@ def audit_response(
         unverified_routing_claims=routing_check["unverified_routing_claims"],
         has_evidence_table=has_evidence_table,
         has_evidence_tuple=routing_check["has_evidence_tuple"],
+        has_mutation_without_test=has_mutation_without_test,
     )

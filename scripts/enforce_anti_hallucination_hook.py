@@ -47,8 +47,34 @@ OTHER_HOOK_MARKERS = (
     "[PRE-HANDOFF-GATE]",
     "[TRIAD-PROCESS-GATE]",
     "[AUTONOMOUS SKILL & TRIAD ROUTER]",
+    "[ESCALATED_HARD_STOP]",
 )
 DEFAULT_MAX_RETRIES = 2
+
+MUTATION_TOOL_NAMES = {
+    "write_file",
+    "edit_file",
+    "replace_file_content",
+    "multi_replace_file_content",
+    "write_to_file",
+    "create_file",
+    "patch_file",
+    "apply_patch",
+}
+
+REPO_CODE_EXTENSIONS = {
+    ".py", ".pyi", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+    ".json", ".yaml", ".yml", ".toml", ".html", ".css", ".sql", ".sh", ".ps1",
+}
+
+EXEMPT_MUTATION_SEGMENTS = (
+    "brain/",
+    "/.brain/",
+    "wiki/",
+    "memory/",
+    "_session-handoff",
+    "_open-questions",
+)
 
 COMMAND_TOOL_NAMES = {
     "run_command",
@@ -237,6 +263,9 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
     verification_chunks: list[str] = []
     api_chunks: list[str] = []
     pending_tool_calls: list[tuple[str, str]] = []
+    has_code_mutation = False
+    calls_ask_question = False
+    has_escalated_hard_stop = False
 
     for step in turn_steps:
         step_type = str(step.get("type") or "")
@@ -245,6 +274,11 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
         content = str(step.get("content") or "")
         reason = str(step.get("reason") or "")
         message = str(step.get("message") or "")
+        sys_inst = str(step.get("system_instruction") or "")
+
+        combined_meta = f"{content}\n{reason}\n{message}\n{sys_inst}"
+        if "[ESCALATED_HARD_STOP]" in combined_meta:
+            has_escalated_hard_stop = True
 
         is_planner = step_type == "PLANNER_RESPONSE" or role in ("assistant", "model")
 
@@ -253,6 +287,7 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                 latest_response = content
 
             tool_calls = step.get("tool_calls")
+            calls_ask_question = False
             if isinstance(tool_calls, list) and tool_calls:
                 pending_tool_calls = []
                 for tc in tool_calls:
@@ -262,6 +297,8 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                     tc_name = _clean_arg_val(
                         tc.get("name") or tc.get("tool") or fn_obj.get("name") or ""
                     )
+                    if tc_name.rsplit(":", 1)[-1].strip() == "ask_question":
+                        calls_ask_question = True
                     tc_args = _parse_args_dict(
                         tc.get("args")
                         if "args" in tc
@@ -281,6 +318,16 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                         pending_tool_calls.append((tc_name or "run_command", cmd_str))
                     elif tc_name:
                         pending_tool_calls.append((tc_name, ""))
+
+                    norm_tc = tc_name.rsplit(":", 1)[-1].strip()
+                    if norm_tc in MUTATION_TOOL_NAMES:
+                        target_path = _clean_arg_val(
+                            tc_args.get("Path") or tc_args.get("path") or tc_args.get("file_path") or tc_args.get("file") or ""
+                        ).replace("\\", "/")
+                        ext = Path(target_path).suffix.lower()
+                        is_exempt = any(seg in target_path.lower() for seg in EXEMPT_MUTATION_SEGMENTS)
+                        if ext in REPO_CODE_EXTENSIONS and not is_exempt:
+                            has_code_mutation = True
 
             tool_responses = step.get("tool_responses")
             if isinstance(tool_responses, list):
@@ -404,6 +451,17 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
             if explicit_ec == 0:
                 verification_chunks.append("Command exited with code 0")
 
+        step_tool_name = _clean_arg_val(step.get("tool_name") or step.get("name") or step.get("tool") or "").rsplit(":", 1)[-1].strip()
+        if step_tool_name in MUTATION_TOOL_NAMES:
+            tc_args = _parse_args_dict(step.get("args") or step.get("arguments") or step.get("input") or step.get("parameters") or {})
+            target_path = _clean_arg_val(
+                tc_args.get("Path") or tc_args.get("path") or tc_args.get("file_path") or tc_args.get("file") or step.get("path") or ""
+            ).replace("\\", "/")
+            ext = Path(target_path).suffix.lower()
+            is_exempt = any(seg in target_path.lower() for seg in EXEMPT_MUTATION_SEGMENTS)
+            if ext in REPO_CODE_EXTENSIONS and not is_exempt:
+                has_code_mutation = True
+
     verification_logs = "\n".join(verification_chunks) if verification_chunks else None
     api_logs = "\n".join(api_chunks) if api_chunks else None
 
@@ -414,6 +472,9 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
         "execution_logs": verification_logs,
         "verification_logs": verification_logs,
         "api_logs": api_logs,
+        "has_code_mutation": has_code_mutation,
+        "calls_ask_question": calls_ask_question,
+        "has_escalated_hard_stop": has_escalated_hard_stop,
     }
 
 
@@ -435,7 +496,7 @@ def evaluate_transcript(
     if termination_reason and termination_reason != "NO_TOOL_CALL":
         return {"decision": "allow"}
 
-    if execution_num > max_retries:
+    if execution_num >= max_retries + 1:
         return {"decision": "allow"}
 
     steps = parse_transcript(transcript_path)
@@ -443,8 +504,27 @@ def evaluate_transcript(
         return {"decision": "allow"}
 
     ctx = extract_turn_context_detailed(steps)
-    if ctx["retry_count"] >= max_retries:
+
+    if ctx.get("calls_ask_question"):
         return {"decision": "allow"}
+
+    if ctx.get("has_escalated_hard_stop"):
+        return {"decision": "allow"}
+
+    if execution_num > max_retries or ctx["retry_count"] >= max_retries:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"[ESCALATED_HARD_STOP] Cầu dao ngắt mạch đã kích hoạt sau {max_retries} lần cảnh báo "
+                "không sửa được vi phạm thực chứng. Khóa toàn bộ quyền tự trị. "
+                "Yêu cầu Quản đốc xuất trình báo cáo vi phạm trực tiếp cho Sếp."
+            ),
+            "system_instruction": (
+                f"[ESCALATED_HARD_STOP] Cầu dao ngắt mạch đã kích hoạt sau {max_retries} lần cảnh báo "
+                "không sửa được vi phạm thực chứng. Khóa toàn bộ quyền tự trị. "
+                "Yêu cầu Quản đốc xuất trình báo cáo vi phạm trực tiếp cho Sếp."
+            ),
+        }
 
     latest_response = ctx["latest_response"]
     if not latest_response or not latest_response.strip():
@@ -457,9 +537,20 @@ def evaluate_transcript(
         execution_logs=ctx["verification_logs"],
         check_paths=check_paths,
         api_execution_logs=ctx["api_logs"],
+        turn_steps=ctx["turn_steps"],
+        has_code_mutation=ctx.get("has_code_mutation", False),
     )
 
     if audit_res.verdict == "REJECT":
+        if getattr(audit_res, "has_mutation_without_test", False):
+            return {
+                "decision": "continue",
+                "reason": (
+                    f"{GUARD_MARKER} Phát hiện thao tác sửa/ghi mã nguồn repository nhưng không có lệnh kiểm thử "
+                    "(pytest / linter với exit code == 0) đi kèm (Tool-Mutation Balance Violation). "
+                    "Yêu cầu chạy test kiểm chứng thực tế trước khi hoàn tất turn!"
+                ),
+            }
         if getattr(audit_res, "unverified_routing_claims", None):
             claims_repr = ", ".join(f"'{c}'" for c in audit_res.unverified_routing_claims[:3])
             return {
@@ -505,7 +596,7 @@ def evaluate_hook_payload(
     except (TypeError, ValueError):
         execution_num = 0
 
-    if execution_num > max_retries:
+    if execution_num >= max_retries + 1:
         return {"decision": "allow"}
 
     transcript_path = payload.get("transcriptPath")

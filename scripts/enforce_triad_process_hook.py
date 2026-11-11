@@ -53,6 +53,7 @@ OTHER_HOOK_MARKERS = (
     "[ANTI-HALLUCINATION-GUARD]",
     "[PRE-HANDOFF-GATE]",
     "[AUTONOMOUS SKILL & TRIAD ROUTER]",
+    "[ESCALATED_HARD_STOP]",
 )
 DEFAULT_MAX_RETRIES = 2
 
@@ -511,7 +512,7 @@ def evaluate_transcript(
     if termination_reason not in ("", "NO_TOOL_CALL"):
         return {"decision": "allow"}
 
-    if execution_num > max_retries:
+    if execution_num >= max_retries + 1:
         return {"decision": "allow"}
 
     steps = parse_transcript(transcript_path)
@@ -589,14 +590,32 @@ def evaluate_transcript(
                 if not is_exempt_orchestrator_path(p, eff_payload) and p not in non_exempt_mutations:
                     non_exempt_mutations.append(p)
 
-    if retry_count >= max_retries:
-        return {"decision": "allow"}
-
     # Exemption (d): Last PLANNER_RESPONSE invokes ask_question (Human Gate / Intent Alignment)
     if last_planner_step is not None:
         last_calls = _extract_step_tool_calls(last_planner_step)
         if any(name == "ask_question" for name, _ in last_calls):
             return {"decision": "allow"}
+
+    # Escalation marker check: if [ESCALATED_HARD_STOP] already appeared, allow turn closure
+    has_escalated_hard_stop = any(
+        "[ESCALATED_HARD_STOP]" in f"{s.get('content') or ''}\n{s.get('reason') or ''}\n{s.get('message') or ''}\n{s.get('system_instruction') or ''}"
+        for s in turn_steps
+    )
+    if has_escalated_hard_stop:
+        return {"decision": "allow"}
+
+    if execution_num > max_retries or retry_count >= max_retries:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"[ESCALATED_HARD_STOP] Cầu dao ngắt mạch Dynamic Triad đã kích hoạt sau {max_retries} lần cảnh báo. "
+                "Khóa toàn bộ quyền tự trị. Yêu cầu Quản đốc xuất trình báo cáo vi phạm trực tiếp cho Sếp."
+            ),
+            "system_instruction": (
+                f"[ESCALATED_HARD_STOP] Cầu dao ngắt mạch Dynamic Triad đã kích hoạt sau {max_retries} lần cảnh báo. "
+                "Khóa toàn bộ quyền tự trị. Yêu cầu Quản đốc xuất trình báo cáo vi phạm trực tiếp cho Sếp."
+            ),
+        }
 
     # Check 1 (VULN-01A): Direct code/project file mutation by Root Orchestrator with 0 subagents
     if non_exempt_mutations and len(subagent_invocations) == 0:
@@ -738,7 +757,7 @@ def evaluate_hook_payload(
     except (TypeError, ValueError):
         execution_num = 0
 
-    if execution_num > max_retries:
+    if execution_num >= max_retries + 1:
         return {"decision": "allow"}
 
     if is_subagent_session([], payload):

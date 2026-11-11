@@ -16,7 +16,20 @@ def __getattr__(name: str) -> Any:
     if name in ("SubagentGuard", "SubagentInfo", "SubAgentState"):
         import harness.subagent_guard as mod
         return getattr(mod, name)
+    if name in ("TriadHandoffV2", "validate_handoff_v2", "parse_handoff_v2", "sync_workspace_for_qa"):
+        import harness.triad_protocol as mod
+        return getattr(mod, name)
     raise AttributeError(f"module 'harness' has no attribute '{name}'")
 
 
-__all__ = ["get_deadman_timeout", "SubagentGuard", "SubagentInfo", "SubAgentState", "list_idle_subagents"]
+__all__ = [
+    "get_deadman_timeout",
+    "SubagentGuard",
+    "SubagentInfo",
+    "SubAgentState",
+    "list_idle_subagents",
+    "TriadHandoffV2",
+    "validate_handoff_v2",
+    "parse_handoff_v2",
+    "sync_workspace_for_qa",
+]
