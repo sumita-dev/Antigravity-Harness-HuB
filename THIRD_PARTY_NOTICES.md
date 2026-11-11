@@ -14,6 +14,8 @@ giấy phép MIT áp cho mã nguồn gốc của repo (xem `LICENSE`).
 | `traffic-secrets-playbook` | `plugins/marketing/skills/` | Nội dung trích từ sách của Russell Brunson — cần cân nhắc bản quyền nội dung |
 | `alex-hormozi-*`, `kahneman-creative-ads` | `plugins/marketing/skills/` | Framework của tác giả khác, diễn giải lại |
 | `boc-phot-storytelling` (kèm BRAND_GUIDELINE html) | `plugins/marketing/skills/` | Tài liệu thương hiệu riêng — kiểm tra có được phép công khai |
+| `*-by-noti-*`, `viet-content-seo-geo-v5` | `plugins/marketing/skills/` | Các kỹ năng content/SEO/Ads do bên Noti biên soạn hoặc mod lại |
+| `obsidian-*`, `karpathy-second-brain`, `setup-second-brain` | `plugins/second-brain/skills/` | Kỹ năng tích hợp Second Brain/Obsidian Markdown và cấu trúc tri thức Karpathy |
 
 ## Việc cần làm
 1. Xác nhận giấy phép của từng nhóm ở trên (hoặc thay bằng skill tự viết).

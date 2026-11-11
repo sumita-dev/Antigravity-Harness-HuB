@@ -38,34 +38,35 @@ DESTRUCTIVE_SHELL_PATTERNS: List[Tuple[str, str, PolicyAction]] = [
     # Fork bomb & system freeze
     (r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:", "Fork bomb signature detected", PolicyAction.BLOCK),
     # Format / dd to disk
-    (r"\bformat\s+[a-zA-Z]:", "Disk format command detected", PolicyAction.BLOCK),
-    (r"\bmkfs(\.\w+)?\s+", "Filesystem creation command detected", PolicyAction.BLOCK),
-    (r"\bdd\s+.*if=.*of=(/dev/|\\\\.\\[a-zA-Z]:)", "Raw disk overwrite (dd) detected", PolicyAction.BLOCK),
-    # Massive destruction in Unix / POSIX
-    (r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|\*)", "Root filesystem recursive deletion (rm -rf /) detected", PolicyAction.BLOCK),
-    (r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+~", "User home recursive deletion detected", PolicyAction.BLOCK),
-    (r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\.\.(?:/|\s|$)", "Parent directory recursive deletion detected", PolicyAction.BLOCK),
-    (r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\*", "Mass wild-card recursive deletion (rm -rf *) detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)format\s+[a-zA-Z]:", "Disk format command detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)mkfs(\.\w+)?\s+", "Filesystem creation command detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)dd\s+.*if=.*of=(/dev/|\\\\.\\[a-zA-Z]:)", "Raw disk overwrite (dd) detected", PolicyAction.BLOCK),
+    # Massive destruction in Unix / POSIX (rm with flexible flag orders: -rf, -fr, -r -f, --recursive --force, and targets: /, ~, $HOME, ..)
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)rm\s+(?:-[a-zA-Z0-9_-]+\s+)*(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|--recursive\s+--force|--force\s+--recursive|-r\s+-f|-f\s+-r|-rf|-fr)\s+(?:-[a-zA-Z0-9_-]+\s+)*(?:/(?:\s|$|\*)|~(?:\s|$|/)|(?:\$HOME|\$\{HOME\})(?:\s|$|/))", "Root or user home filesystem recursive deletion detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)rm\s+(?:-[a-zA-Z0-9_-]+\s+)*(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|--recursive\s+--force|--force\s+--recursive|-r\s+-f|-f\s+-r|-rf|-fr)\s+(?:-[a-zA-Z0-9_-]+\s+)*\.\.(?:/|\s|$)", "Parent directory recursive deletion detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)rm\s+(?:-[a-zA-Z0-9_-]+\s+)*(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|--recursive\s+--force|--force\s+--recursive|-r\s+-f|-f\s+-r|-rf|-fr)\s+(?:-[a-zA-Z0-9_-]+\s+)*\*", "Mass wild-card recursive deletion (rm -rf *) detected", PolicyAction.BLOCK),
+    # Dangerous find delete
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)find\s+(?:/(?:\s|$)|~(?:\s|$|/)|\$HOME|\$\{HOME\}|[a-zA-Z]:[\\/]).*-(?:delete|exec\s+rm)", "Dangerous root/home wide search deletion (find / -delete) detected", PolicyAction.BLOCK),
     # Windows destructive deletes
-    (r"\bdel\s+.*(?:\/s|\/q).*(?:[a-zA-Z]:\\|\*|\bC:\\Windows)", "Recursive silent deletion of system/broad scope detected", PolicyAction.BLOCK),
-    (r"\brd\s+\/s\s+\/q\s+(?:[a-zA-Z]:\\|\bC:\\Windows)", "Silent directory tree removal of system scope detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)del\s+.*(?:\/s|\/q).*(?:[a-zA-Z]:\\|\*|\bC:\\Windows)", "Recursive silent deletion of system/broad scope detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)rd\s+\/s\s+\/q\s+(?:[a-zA-Z]:\\|\bC:\\Windows)", "Silent directory tree removal of system scope detected", PolicyAction.BLOCK),
     # PowerShell destructive commands
-    (r"(?i)\b(Remove-Item|ri|rmdir|rd)\b.*-Recurse.*-Force.*(?:\b[a-zA-Z]:\\|\bC:\\Windows|\$env:SystemRoot|\$HOME|\b\.\.)", "PowerShell destructive recursive deletion of system/parent scope", PolicyAction.BLOCK),
-    (r"(?i)\b(Remove-Item|ri|rmdir|rd)\b.*-Force.*-Recurse.*(?:\b[a-zA-Z]:\\|\bC:\\Windows|\$env:SystemRoot|\$HOME|\b\.\.)", "PowerShell destructive recursive deletion of system/parent scope", PolicyAction.BLOCK),
-    (r"(?i)\b(Remove-Item|ri|rmdir|rd)\b.*-Recurse.*(?:\s*\*|\s*\.\\\*)", "Broad PowerShell recursive wildcard deletion", PolicyAction.WARN),
+    (r"(?i)(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)(?:Remove-Item|ri|rmdir|rd)\b.*-Recurse.*-Force.*(?:\b[a-zA-Z]:\\|\bC:\\Windows|\$env:SystemRoot|\$HOME|\b\.\.)", "PowerShell destructive recursive deletion of system/parent scope", PolicyAction.BLOCK),
+    (r"(?i)(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)(?:Remove-Item|ri|rmdir|rd)\b.*-Force.*-Recurse.*(?:\b[a-zA-Z]:\\|\bC:\\Windows|\$env:SystemRoot|\$HOME|\b\.\.)", "PowerShell destructive recursive deletion of system/parent scope", PolicyAction.BLOCK),
+    (r"(?i)(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)(?:Remove-Item|ri|rmdir|rd)\b.*-Recurse.*(?:\s*\*|\s*\.\\\*)", "Broad PowerShell recursive wildcard deletion", PolicyAction.WARN),
     # Database destructive commands
     (r"(?i)\bDROP\s+(DATABASE|SCHEMA)\b", "Destructive DROP DATABASE/SCHEMA detected", PolicyAction.BLOCK),
     (r"(?i)\bDROP\s+TABLE\b", "Destructive DROP TABLE detected", PolicyAction.WARN),
     (r"(?i)\bTRUNCATE(\s+TABLE)?\b", "Destructive TRUNCATE detected", PolicyAction.WARN),
     (r"(?i)\bDELETE\s+FROM\s+\w+\s*(?:;|$|\s+WHERE\s+(?:1=1|true)\b)", "Broad DELETE without safe filter detected", PolicyAction.BLOCK),
     # Git destructive commands
-    (r"\bgit\s+reset\s+--hard\b", "Git destructive reset hard detected", PolicyAction.WARN),
-    (r"\bgit\s+clean\s+-[a-zA-Z]*f[a-zA-Z]*\s+-[a-zA-Z]*d\b", "Git force clean untracked files and directories", PolicyAction.WARN),
-    (r"\bgit\s+clean\s+-[a-zA-Z]*fd[a-zA-Z]*\b", "Git force clean untracked files and directories", PolicyAction.WARN),
-    (r"\bgit\s+push\s+.*--force\b", "Git force push detected", PolicyAction.WARN),
-    # Process / system control
-    (r"(?i)\b(shutdown|reboot|init\s+0|init\s+6)\b", "System shutdown/reboot detected", PolicyAction.BLOCK),
-    (r"\bkill\s+-9\s+1\b", "Init/PID 1 termination detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*)git\s+reset\s+--hard\b", "Git destructive reset hard detected", PolicyAction.WARN),
+    (r"(?:^|[;&|]\s*)git\s+clean\s+-[a-zA-Z]*f[a-zA-Z]*\s+-[a-zA-Z]*d\b", "Git force clean untracked files and directories", PolicyAction.WARN),
+    (r"(?:^|[;&|]\s*)git\s+clean\s+-[a-zA-Z]*fd[a-zA-Z]*\b", "Git force clean untracked files and directories", PolicyAction.WARN),
+    (r"(?:^|[;&|]\s*)git\s+push\s+.*(?:--force|-f\b)", "Git force push detected", PolicyAction.WARN),
+    # Process / system control - anchored to command start or pipeline/subshell delimiters
+    (r"(?i)(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)(?:shutdown|reboot|init\s+0|init\s+6)\b", "System shutdown/reboot detected", PolicyAction.BLOCK),
+    (r"(?:^|[;&|]\s*|\b(?:sudo|doas|nohup)\s+)kill\s+-9\s+1\b", "Init/PID 1 termination detected", PolicyAction.BLOCK),
 ]
 
 # Danh sách đường dẫn hệ thống nhạy cảm (Sensitive system paths)

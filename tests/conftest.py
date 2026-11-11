@@ -5,6 +5,10 @@ vào repo — tránh việc `pytest` làm bẩn trajectories/patterns đã commi
 """
 
 import os
+import sys
 import tempfile
+
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
 
 os.environ.setdefault("HARNESS_BRAIN_DIR", tempfile.mkdtemp(prefix="harness-brain-"))

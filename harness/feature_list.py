@@ -359,8 +359,10 @@ class FeatureList:
         cmd_str = feat.verification_command.strip()
 
         # Kiểm tra chống mock lệnh ảo (Risk R5)
-        trivial_cmds = {"exit 0", "true", "echo ok", "echo pass", "echo 1"}
-        if cmd_str.lower() in trivial_cmds:
+        # Chặn các lệnh rỗng, echo đơn thuần, exit 0, true, pass...
+        cmd_lower = cmd_str.lower().strip()
+        trivial_cmds = {"exit 0", "true", "echo ok", "echo pass", "echo 1", "echo done", ":"}
+        if cmd_lower in trivial_cmds or re.match(r"^(?:echo\s+.*|python(?:\.exe)?\s+-c\s+[\"']\s*(?:pass|exit\(0\)|return|True)\s*[\"']|rem\b|::.*)$", cmd_lower):
             raise VerificationFailedError(f"Rejected trivial verification_command '{cmd_str}'. Command must invoke real tests or scripts.")
 
         root = project_root or (self.file_path.parent if self.file_path else Path.cwd())

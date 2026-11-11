@@ -396,11 +396,17 @@ def verify_file_paths(
 
         is_file_uri = from_uri or s_low.startswith(("file:///", "file://"))
 
-        if from_uri and s and s[-1] in ".,;:":
+        if s and len(s) >= 2 and ((s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'"))):
+            s = s[1:-1].strip()
+
+        if s and s[-1] in ".,;:\"'":
             probe_cur = Path(s.split("#", 1)[0].split("?", 1)[0]).suffix.lower()
-            probe_trim = Path(s.rstrip(".,;:").split("#", 1)[0].split("?", 1)[0]).suffix.lower()
+            probe_trim = Path(s.rstrip(".,;:\"'").split("#", 1)[0].split("?", 1)[0]).suffix.lower()
             if probe_cur not in VALID_FILE_EXTENSIONS and probe_trim in VALID_FILE_EXTENSIONS:
-                s = s.rstrip(".,;:")
+                s = s.rstrip(".,;:\"'")
+
+        if s and len(s) >= 2 and ((s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'"))):
+            s = s[1:-1].strip()
 
         # Strip #L... fragment and ?query
         no_frag = s.split("#", 1)[0].split("?", 1)[0].strip()

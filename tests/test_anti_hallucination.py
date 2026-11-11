@@ -26,7 +26,7 @@ def test_verify_file_paths_existing():
     """Kiểm tra đường dẫn file có thật trong repo."""
     text = (
         "Chúng ta đã cấu hình file `configs/harness_config.json` và "
-        "tham chiếu `requirements.txt` cùng file [README](file:///README.md)."
+        "tham chiếu `requirements.txt` cùng file [GEMINI](file:///GEMINI.md)."
     )
     res = verify_file_paths(text, base_dir=REPO_DIR)
     assert res["valid"] is True

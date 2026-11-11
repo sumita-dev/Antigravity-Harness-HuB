@@ -39,10 +39,17 @@ def test_destructive_commands_blocked():
     """Các lệnh xóa hàng loạt, phá hủy hệ thống, drop database phải bị BLOCK."""
     destructive_commands = [
         "rm -rf /",
+        "rm -fr /",
+        "rm -r -f /",
+        "rm --recursive --force /",
         "rm -rf /*",
         "rm -rf ~",
+        "rm -rf $HOME",
+        "rm -rf ${HOME}",
         "rm -rf ..",
         "rm -rf *",
+        "find / -delete",
+        "find ~ -exec rm -rf {} +",
         "del /f /s /q C:\\Windows",
         "del /s /q *",
         "format C:",
@@ -68,6 +75,8 @@ def test_destructive_commands_warned():
         "git reset --hard HEAD~1",
         "git clean -fd",
         "git push origin main --force",
+        "git push -f",
+        "git push origin main -f",
         "DROP TABLE temp_logs;",
         "TRUNCATE TABLE audit_cache;",
         "Remove-Item -Recurse .\\*",
@@ -76,6 +85,18 @@ def test_destructive_commands_warned():
         decision = evaluate_command_policy(cmd)
         assert decision.action == PolicyAction.WARN, f"Expected WARN for command: {cmd}, got: {decision.action}"
         assert is_command_safe(cmd) is True  # is_command_safe trả về True cho WARN
+
+
+def test_git_commit_messages_with_keywords_allowed():
+    """Các lệnh commit/log chứa từ khóa shutdown, reboot không được bị chặn nhầm."""
+    safe_commit_cmds = [
+        'git commit -m "fix shutdown handler"',
+        'git commit -m "handle reboot event gracefully"',
+        'git log --grep="shutdown"',
+    ]
+    for cmd in safe_commit_cmds:
+        decision = evaluate_command_policy(cmd)
+        assert decision.action == PolicyAction.ALLOW, f"Expected ALLOW for safe git commit: {cmd}, got {decision.action}"
 
 
 def test_sensitive_system_paths():

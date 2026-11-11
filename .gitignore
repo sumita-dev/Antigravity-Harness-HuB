@@ -27,3 +27,9 @@ node_modules/
 **/node_modules/
 package-lock.json
 **/package-lock.json
+
+# Local runtime & hardware specific telemetry
+HealthReport.json
+**/HealthReport.json
+watchlist.json
+**/watchlist.json

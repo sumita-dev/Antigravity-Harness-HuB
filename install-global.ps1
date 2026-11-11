@@ -5,7 +5,8 @@
     Script này sao chép toàn bộ bộ luật (rules), các plugin (skills), vai trò (agents),
     rubrics và scripts từ Antigravity-Harness-Hub vào thư mục cấu hình toàn cục
     của người dùng (~/.gemini/config/), giúp mọi dự án trên Antigravity tự động áp dụng
-    khung điều phối Maker-Checker và 59 kỹ năng.
+    khung điều phối Maker-Checker và hệ thống kỹ năng.
+    Tự động sao lưu cấu hình cũ (Backup) trước khi ghi đè.
 .EXAMPLE
     pwsh -File .\install-global.ps1
 #>
@@ -26,6 +27,24 @@ Write-Host "==========================================================" -Foregro
 Write-Host "Thư mục nguồn (Repo): $RepoRoot" -ForegroundColor Gray
 Write-Host "Thư mục đích (Global): $GlobalConfigDir" -ForegroundColor Gray
 Write-Host ""
+
+# 0. Tự động sao lưu (Backup) cấu hình cũ trước khi thay đổi
+if (Test-Path $GlobalConfigDir) {
+    $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $BackupDir = Join-Path $HOME ".gemini\backups\config_backup_$Timestamp"
+    Write-Host "[...] Đang tạo bản sao lưu cấu hình hiện tại vào: $BackupDir" -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
+    
+    # Sao lưu các file trọng yếu nếu tồn tại
+    $KeyFilesToBackup = @("GEMINI.md", "harness_config.json", "run_harness.py", ".agents", ".agent")
+    foreach ($item in $KeyFilesToBackup) {
+        $srcPath = Join-Path $GlobalConfigDir $item
+        if (Test-Path $srcPath) {
+            Copy-Item -Path $srcPath -Destination (Join-Path $BackupDir $item) -Recurse -Force
+        }
+    }
+    Write-Host "[OK] Đã hoàn tất sao lưu an toàn." -ForegroundColor Green
+}
 
 # 1. Đảm bảo các thư mục đích tồn tại
 $DirsToCreate = @($GlobalConfigDir, $GlobalRulesDir, $GlobalPluginsDir, $GlobalAgentsDir, $GlobalRubricsDir, $GlobalScriptsDir)
