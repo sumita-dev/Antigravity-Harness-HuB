@@ -1,6 +1,6 @@
 """Module kiểm định và rào chắn chống ảo giác (Autonomous Anti-Hallucination Guard).
 
-Vận hành 7 trụ cột rào chắn thực chứng tự động:
+Vận hành 8 trụ cột rào chắn thực chứng tự động:
 1. verify_file_paths: Quét các đường dẫn file trong văn bản, kiểm tra tính tồn tại thực tế trên filesystem.
 2. detect_speculative_language: Phát hiện và triệt tiêu từ ngữ võ đoán / phỏng đoán không có căn cứ.
 3. verify_execution_claims: Bắt buộc các tuyên bố thành công phải có trace log thực thi với exit code == 0.
@@ -8,7 +8,8 @@ Vận hành 7 trụ cột rào chắn thực chứng tự động:
 5. detect_sycophancy: Triệt tiêu thiên kiến xác nhận và câu hùa theo giả định người dùng (Sycophancy Ban).
 6. verify_api_and_investigation_claims: Bắt buộc các tuyên bố về quyền hạn API/hạ tầng phải có raw HTTP status code.
 7. verify_evidence_table: Đối soát khung bảng 3 cột thực chứng (Evidence Table).
-8. audit_response: Kiểm toán tổng hợp và xuất AuditResult (APPROVE / REJECT) tự động.
+8. verify_network_and_routing_claims: Bắt buộc các tuyên bố về routing, redirect, fallback phải có raw HTTP status code từ lệnh network probe thực tế (Adversarial Reality Grounding).
+9. audit_response: Kiểm toán tổng hợp và xuất AuditResult (APPROVE / REJECT) tự động.
 """
 
 from __future__ import annotations
@@ -165,9 +166,49 @@ RAW_HTTP_PATTERNS = [
     r"\bHTTP/[0-9\.]+\s+[1-5]\d\d\b",
     r"\bstatus(?:_code)?\s*[:=]\s*[1-5]\d\d\b",
     r"\bstatus\s+code\s+[1-5]\d\d\b",
+    r"\bStatusCode\s*:\s*[1-5]\d\d\b",
     r"\bpaid_plan_required\b",
-    r"\b(?:401\s+Unauthorized|402\s+Payment\s+Required|403\s+Forbidden|404\s+Not\s+Found|200\s+OK)\b",
+    r"\b(?:401\s+Unauthorized|402\s+Payment\s+Required|403\s+Forbidden|404\s+Not\s+Found|200\s+OK|301\s+Moved\s+Permanently|302\s+Found|307\s+Temporary\s+Redirect|308\s+Permanent\s+Redirect)\b",
     r'"status(?:_code)?":\s*[1-5]\d\d',
+]
+
+# Pattern nhận diện tuyên bố định tuyến mạng / chuyển hướng / mã lỗi HTTP (Network & Routing Claims)
+NETWORK_ROUTING_CLAIM_PATTERNS = [
+    # Tiếng Việt
+    r"chuyển\s+hướng\s+về",
+    r"chuyển\s+hướng\s+(?:sang|tới)",
+    r"fallback\s+về",
+    r"bị\s+fallback\s+về",
+    r"redirect\s+về",
+    r"bị\s+redirect\s+về",
+    r"lỗi\s+404\b",
+    r"rewrite\s+về\s+trang\s+chủ",
+    r"không\s+truy\s+cập\s+được\s+trang",
+    r"lỗi\s+chuyển\s+hướng",
+    # Tiếng Anh
+    r"\bredirect(?:ed)?\s+to\s+homepage\b",
+    r"\bfallback\s+to\s+homepage\b",
+    r"\bredirected?\s+to\b",
+    r"\b404\s+not\s+found\b",
+    r"\brouting\s+error\b",
+    r"\bcannot\s+access\s+page\b",
+    r"\bpage\s+not\s+found\b",
+]
+
+# Pattern nhận diện lệnh thăm dò mạng (Network Probe Commands)
+HTTP_PROBE_CMD_PATTERNS = [
+    r"\bcurl(?:\.exe)?\b",
+    r"\bInvoke-WebRequest\b",
+    r"\biwr\b",
+    r"\bInvoke-RestMethod\b",
+    r"\birm\b",
+    r"\brequests\.(?:get|post|head|options|put|delete|patch|request)\b",
+    r"\brequests\b",
+    r"\burllib(?:\.request)?\b",
+    r"\bfetch\s*\(",
+    r"\bhttp\.client\b",
+    r"\bhttpx\b",
+    r"\baiohttp\b",
 ]
 
 # Pattern nhận diện đường dẫn file trong markdown/code text
@@ -246,6 +287,7 @@ class AuditResult:
     unverified_symbols: List[str] = field(default_factory=list)
     sycophancy_phrases: List[str] = field(default_factory=list)
     unverified_api_claims: List[str] = field(default_factory=list)
+    unverified_routing_claims: List[str] = field(default_factory=list)
     has_evidence_table: bool = False
 
     @property
@@ -633,6 +675,90 @@ def verify_api_and_investigation_claims(
     }
 
 
+def verify_network_and_routing_claims(
+    text: str,
+    execution_logs: Optional[Union[str, Sequence[Any]]] = None,
+) -> Dict[str, Any]:
+    """Trụ cột 8: Kiểm định tuyên bố định tuyến mạng / chuyển hướng / mã lỗi HTTP (Adversarial Reality Grounding).
+
+    Nhận diện các tuyên bố về routing, redirect, fallback, 404, rewrite...
+    Bắt buộc execution_logs phải chứa cả lệnh network probe thực tế (curl, Invoke-WebRequest, requests,...)
+    VÀ raw HTTP status output (HTTP 200, 301, 302, 404,...). Nếu thiếu một trong hai -> vi phạm.
+    """
+    text_lower = text.lower()
+    claims_found: List[str] = []
+
+    for pattern in NETWORK_ROUTING_CLAIM_PATTERNS:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        for m in matches:
+            if m not in claims_found:
+                claims_found.append(m)
+
+    if not claims_found:
+        return {
+            "valid": True,
+            "claims_found": [],
+            "has_probe_cmd": True,
+            "has_http_status": True,
+            "unverified_routing_claims": [],
+        }
+
+    has_probe_cmd = False
+    has_http_status = False
+
+    if execution_logs:
+        extracted_chunks: List[str] = []
+        if isinstance(execution_logs, str):
+            extracted_chunks.append(execution_logs)
+        elif isinstance(execution_logs, Sequence):
+            for entry in execution_logs:
+                if isinstance(entry, dict):
+                    sc = entry.get("status_code") or entry.get("status") or entry.get("http_status")
+                    if sc is not None and isinstance(sc, int) and 100 <= sc <= 599:
+                        has_http_status = True
+                    for k in (
+                        "command",
+                        "CommandLine",
+                        "cmd",
+                        "output",
+                        "stdout",
+                        "stderr",
+                        "response",
+                        "body",
+                        "content",
+                    ):
+                        val = entry.get(k)
+                        if isinstance(val, str) and val.strip():
+                            extracted_chunks.append(val)
+                elif isinstance(entry, str) and entry.strip():
+                    extracted_chunks.append(entry)
+
+        combined_logs = "\n".join(extracted_chunks)
+
+        if not has_probe_cmd:
+            for pattern in HTTP_PROBE_CMD_PATTERNS:
+                if re.search(pattern, combined_logs, re.IGNORECASE):
+                    has_probe_cmd = True
+                    break
+
+        if not has_http_status:
+            for pattern in RAW_HTTP_PATTERNS:
+                if re.search(pattern, combined_logs, re.IGNORECASE):
+                    has_http_status = True
+                    break
+
+    is_valid = bool(has_probe_cmd and has_http_status)
+    unverified = claims_found if not is_valid else []
+
+    return {
+        "valid": is_valid,
+        "claims_found": claims_found,
+        "has_probe_cmd": has_probe_cmd,
+        "has_http_status": has_http_status,
+        "unverified_routing_claims": unverified,
+    }
+
+
 def verify_evidence_table(text: str) -> Dict[str, Any]:
     """Trụ cột 7: Đối soát khung bảng 3 cột thực chứng (Evidence Table).
 
@@ -764,7 +890,7 @@ def audit_response(
     check_paths: bool = True,
     api_execution_logs: Optional[Union[str, Sequence[Any]]] = None,
 ) -> AuditResult:
-    """Kiểm toán tổng hợp phản hồi/báo cáo theo 7 trụ cột rào chắn chống ảo giác tự động.
+    """Kiểm toán tổng hợp phản hồi/báo cáo theo 8 trụ cột rào chắn chống ảo giác tự động.
 
     Trả về AuditResult với phán quyết (APPROVE / REJECT) và score.
     """
@@ -824,6 +950,15 @@ def audit_response(
     if require_evidence_table and not has_evidence_table:
         violations.append("Thiếu bảng đối soát thực chứng 3 cột (Evidence Table) theo chuẩn rào chắn")
 
+    # 8. Trụ cột 8: Network & Routing Claims Verification (Adversarial Reality Grounding)
+    effective_routing_logs = api_execution_logs if api_execution_logs is not None else execution_logs
+    routing_check = verify_network_and_routing_claims(text, execution_logs=effective_routing_logs)
+    if not routing_check["valid"]:
+        for claim in routing_check["unverified_routing_claims"]:
+            violations.append(
+                f"Unverified network/routing claim without raw HTTP probe evidence: '{claim}'"
+            )
+
     # Tính toán điểm tin cậy (Score)
     total_penalties = (
         len(path_check["missing_paths"]) * 0.3
@@ -832,6 +967,7 @@ def audit_response(
         + len(symbol_check["unverified_symbols"]) * 0.2
         + len(sycophancy_phrases) * 0.3
         + len(api_check["unverified_api_claims"]) * 0.3
+        + len(routing_check["unverified_routing_claims"]) * 0.3
     )
     if require_evidence_table and not has_evidence_table:
         total_penalties += 0.3
@@ -853,5 +989,6 @@ def audit_response(
         unverified_symbols=symbol_check["unverified_symbols"],
         sycophancy_phrases=sycophancy_phrases,
         unverified_api_claims=api_check["unverified_api_claims"],
+        unverified_routing_claims=routing_check["unverified_routing_claims"],
         has_evidence_table=has_evidence_table,
     )

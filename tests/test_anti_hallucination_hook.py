@@ -373,3 +373,68 @@ def test_default_check_paths_blocks_phantom_paths_and_no_check_paths_flag_disabl
     )
     assert res_disabled.returncode == 0
     assert json.loads(res_disabled.stdout.strip()) == {"decision": "allow"}
+
+
+def test_routing_claim_without_http_probe_triggers_continue(tmp_path: Path) -> None:
+    """Routing claim ('4 link bị fallback về trang chủ') without HTTP probe command returns continue."""
+    transcript = _write_transcript(
+        tmp_path / "t_routing_unverified.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra 4 link chuyển hướng"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: 4 link bị fallback về trang chủ.",
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-routing-unverified",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    res_fn = evaluate_hook_payload(payload)
+    assert res_fn["decision"] == "continue"
+    assert GUARD_MARKER in res_fn["reason"]
+    assert "chuyển hướng/routing" in res_fn["reason"]
+
+    res_cli = _run_hook_cli(payload)
+    assert res_cli["decision"] == "continue"
+    assert "chuyển hướng/routing" in res_cli["reason"]
+
+
+def test_routing_claim_with_http_probe_allows_stop(tmp_path: Path) -> None:
+    """Routing claim ('4 link bị fallback về trang chủ') with prior curl probe returns allow."""
+    transcript = _write_transcript(
+        tmp_path / "t_routing_verified.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra 4 link chuyển hướng"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "run_command",
+                        "args": {"CommandLine": "curl -I https://example.com/link1"},
+                    }
+                ],
+            },
+            {
+                "type": "GENERIC",
+                "status": "DONE",
+                "content": "HTTP/1.1 301 Moved Permanently\nLocation: https://example.com/\nCommand exited with code 0",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: 4 link bị fallback về trang chủ.",
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-routing-verified",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload) == {"decision": "allow"}
+    assert _run_hook_cli(payload) == {"decision": "allow"}

@@ -300,6 +300,8 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                         if isinstance(tr_ec, int) and not isinstance(tr_ec, bool)
                         else None
                     )
+                    if cmd_str:
+                        api_chunks.append(cmd_str)
                     if tr_out:
                         api_chunks.append(tr_out)
                     if explicit_ec == 0:
@@ -354,6 +356,8 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                 explicit_ec = (
                     int(tr_ec) if isinstance(tr_ec, int) and not isinstance(tr_ec, bool) else None
                 )
+                if cmd_str:
+                    api_chunks.append(cmd_str)
                 if tr_out:
                     api_chunks.append(tr_out)
                 if explicit_ec == 0:
@@ -383,6 +387,8 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
             int(raw_ec) if isinstance(raw_ec, int) and not isinstance(raw_ec, bool) else None
         )
 
+        if cmd_str:
+            api_chunks.append(cmd_str)
         if step_text:
             api_chunks.append(step_text)
         if explicit_ec == 0:
@@ -454,6 +460,14 @@ def evaluate_transcript(
     )
 
     if audit_res.verdict == "REJECT":
+        if getattr(audit_res, "unverified_routing_claims", None):
+            return {
+                "decision": "continue",
+                "reason": (
+                    f"{GUARD_MARKER} Tuyên bố lỗi chuyển hướng/routing nhưng không có raw HTTP probe evidence từ CLI. "
+                    "Yêu cầu chạy curl hoặc Invoke-WebRequest để lấy HTTP status trước khi kết luận!"
+                ),
+            }
         violations_str = "; ".join(audit_res.violations)
         return {
             "decision": "continue",

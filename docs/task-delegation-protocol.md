@@ -41,3 +41,17 @@ Trước khi chuyển sang module kế tiếp:
 - **Anti-Scope-Reduction Guard:** Quy định tại `GEMINI.md` (Mục 14).
 - **2-Tier Definition of Done:** Bắt buộc Tầng State & Tầng Lifecycle (`verification-before-completion`).
 - **Feature Parity Inventory:** Bắt buộc đối soát AST và sự kiện (`anti-hallucination-guard`).
+
+---
+
+## 4. Quy chuẩn Giao Việc Chống Thẩm Định Hình Thức (Anti-Cosmetic Triad & Adversarial Grounding)
+
+> **Mục tiêu:** Cấm tuyệt đối hiện tượng "thẩm định hình thức" (Cosmetic Review), nơi các tác tử trong Triad (Architect, Builder, Critic, QA) chỉ đối chiếu lý thuyết, kiểm tra cú pháp AST tĩnh hoặc suy đoán về routing/network mà không có bằng chứng thực chứng từ thế giới thực.
+
+### 4.1. Lệnh Cấm Thẩm Định Hình Thức (Cosmetic Triad Ban)
+- **Cấm suy diễn ranh giới mạng:** Mọi kết luận về lỗi mạng, chuyển hướng URL (redirect), fallback trang chủ, rewrite, hoặc HTTP 404/500 CẤM TUYỆT ĐỐI dựa trên suy đoán logic hay chỉ đọc file mã nguồn.
+- **Bắt buộc raw HTTP evidence:** Bắt kỳ tuyên bố nào về hành vi chuyển hướng hoặc lỗi trang đều bị rào chắn `enforce_anti_hallucination_hook.py` chặn lại nếu thiếu raw HTTP status code từ lệnh probe thực tế.
+
+### 4.2. Bắt Buộc Bước Ra Thực Tế (Adversarial Reality Grounding Invariant)
+- **QA Auditor độc lập kích hoạt CLI probe:** Trước khi ký duyệt (`APPROVE` / signoff) bất kỳ báo cáo kỹ thuật nào liên quan đến routing, hạ tầng mạng, web pages hoặc API endpoints, QA Auditor BẮT BUỘC phải độc lập chạy lệnh probe thực nghiệm từ CLI (`curl -I`, `Invoke-WebRequest`, `Invoke-RestMethod` hoặc HTTP client script) trực tiếp đến host/endpoint mục tiêu.
+- **Tiêu chuẩn nghiệm thu:** Chỉ chấp nhận signoff khi output ghi nhận rõ ràng raw HTTP status code (ví dụ `HTTP 200`, `HTTP 301`, `HTTP 302`, `HTTP 404`) và URL chuyển hướng thực tế từ CLI probe log với `exit code == 0`.
