@@ -68,7 +68,7 @@ Kích hoạt theo nhu cầu từ `plugins/marketing/skills/<skill>/SKILL.md`:
 
 ## 4. Kỹ Năng Nhánh Kỹ Thuật & Thứ Trợ (App & Code Skills)
 Kích hoạt từ `plugins/<plugin>/skills/<skill>/SKILL.md`:
-- **Core App & Dev:** `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/gemini-omni-flash-api`, `/modern-web-guidance`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`.
+- **Core App & Dev:** `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/gemini-omni-flash-api`, `/modern-web-guidance`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`, `/sdd-spec-kit`.
 - **GitNexus Impact:** `/gitnexus-plan`, `/gitnexus-work`, `/gitnexus-review`.
 - **UI & A11y:** `/impeccable`, `/verify-ui`, `/accessibility`, `/apple-inspired-design`.
 - **Hệ Thống & PC:** `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`.

@@ -1083,6 +1083,20 @@
         "manila envelope moment",
         "think different"
       ]
+    },
+    "sdd-spec-kit": {
+      "branch": "app",
+      "keywords": [
+        "sdd-spec-kit",
+        "sdd spec kit",
+        "spec-driven development",
+        "spec kit",
+        "speckit",
+        "constitution.md",
+        "spec.md",
+        "tạo đặc tả kỹ thuật sdd",
+        "hiến pháp dự án sdd"
+      ]
     }
   },
   "runtime_policy": {
