@@ -125,6 +125,54 @@ class ChiefOrchestrator:
         self._finish(context, task_description, verdict, auto_distill=auto_distill)
         return context, verdict
 
+    def fan_out_tasks(
+        self,
+        task_list: list[str],
+        branch: str = "app",
+        max_concurrency: int = 4,
+        mock_checker_output: str = "VERDICT: APPROVE",
+        auto_distill: bool = False,
+    ) -> list[tuple[TaskContext, Verdict]]:
+        """Thực thi song song danh sách sub-tasks theo mô hình Fan-Out/Fan-In (Spec-Kit).
+
+        Chia nhỏ danh sách task độc lập từ tasks.md, dispatch qua ThreadPoolExecutor
+        với giới hạn max_concurrency và gom toàn bộ kết quả trả về.
+        """
+        import concurrent.futures
+
+        if not task_list:
+            return []
+
+        concurrency = max(1, min(max_concurrency, len(task_list)))
+        results: list[tuple[TaskContext, Verdict]] = []
+
+        def _execute_single(sub_task_desc: str):
+            sub_ctx = TaskContext(task_id=str(uuid.uuid4()), branch=branch)
+            return self.process_task(
+                task_description=sub_task_desc,
+                branch=branch,
+                mock_checker_output=mock_checker_output,
+                context=sub_ctx,
+                auto_distill=auto_distill,
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            future_to_task = {
+                executor.submit(_execute_single, desc): desc
+                for desc in task_list
+            }
+            for future in concurrent.futures.as_completed(future_to_task):
+                try:
+                    res = future.result()
+                    results.append(res)
+                except Exception as exc:
+                    err_ctx = TaskContext(task_id=str(uuid.uuid4()), branch=branch)
+                    err_ctx.record_step("FAN_OUT_ERROR", {"task": future_to_task[future], "error": str(exc)})
+                    err_ctx.safe_transition(HarnessState.ESCALATED)
+                    results.append((err_ctx, Verdict.ESCALATE))
+
+        return results
+
     def submit_for_review(self, context: TaskContext, checker_output: str):
         """Nộp sản phẩm cho Checker. An toàn khi task đã kết thúc."""
         if context.state == HarnessState.APPROVED:

@@ -12,6 +12,7 @@ class HarnessState(Enum):
     IMPLEMENTATION = auto()
     CRITIQUE = auto()
     AUDIT = auto()
+    PAUSED = auto()
     APPROVED = auto()
     REJECTED = auto()
     ESCALATED = auto()
@@ -66,15 +67,17 @@ class TaskContext:
         valid_transitions = {
             HarnessState.INIT: [HarnessState.INTAKE],
             # Không cho nhảy cóc: INTAKE phải qua DESIGN (đúng quy chuẩn README)
-            HarnessState.INTAKE: [HarnessState.DESIGN, HarnessState.ESCALATED],
-            HarnessState.DESIGN: [HarnessState.IMPLEMENTATION, HarnessState.ESCALATED],
-            # IMPLEMENTATION có thể sang CRITIQUE (Dynamic Triad) hoặc AUDIT (Fast-Track)
-            HarnessState.IMPLEMENTATION: [HarnessState.CRITIQUE, HarnessState.AUDIT, HarnessState.ESCALATED],
-            # CRITIQUE có thể sang AUDIT (đạt), quay về IMPLEMENTATION (sửa GAP), hoặc ESCALATED
-            HarnessState.CRITIQUE: [HarnessState.AUDIT, HarnessState.IMPLEMENTATION, HarnessState.ESCALATED],
-            # AUDIT có thể sang APPROVED, REJECTED, IMPLEMENTATION (test fail sửa nhanh), CRITIQUE (GAP kiến trúc), ESCALATED
-            HarnessState.AUDIT: [HarnessState.APPROVED, HarnessState.REJECTED, HarnessState.IMPLEMENTATION, HarnessState.CRITIQUE, HarnessState.ESCALATED],
-            HarnessState.REJECTED: [HarnessState.IMPLEMENTATION, HarnessState.CRITIQUE, HarnessState.ESCALATED],
+            HarnessState.INTAKE: [HarnessState.DESIGN, HarnessState.PAUSED, HarnessState.ESCALATED],
+            HarnessState.DESIGN: [HarnessState.IMPLEMENTATION, HarnessState.PAUSED, HarnessState.ESCALATED],
+            # IMPLEMENTATION có thể sang CRITIQUE (Dynamic Triad) hoặc AUDIT (Fast-Track) hoặc PAUSED
+            HarnessState.IMPLEMENTATION: [HarnessState.CRITIQUE, HarnessState.AUDIT, HarnessState.PAUSED, HarnessState.ESCALATED],
+            # CRITIQUE có thể sang AUDIT (đạt), quay về IMPLEMENTATION (sửa GAP), hoặc PAUSED/ESCALATED
+            HarnessState.CRITIQUE: [HarnessState.AUDIT, HarnessState.IMPLEMENTATION, HarnessState.PAUSED, HarnessState.ESCALATED],
+            # AUDIT có thể sang APPROVED, REJECTED, IMPLEMENTATION (test fail sửa nhanh), CRITIQUE (GAP kiến trúc), PAUSED, ESCALATED
+            HarnessState.AUDIT: [HarnessState.APPROVED, HarnessState.REJECTED, HarnessState.IMPLEMENTATION, HarnessState.CRITIQUE, HarnessState.PAUSED, HarnessState.ESCALATED],
+            HarnessState.REJECTED: [HarnessState.IMPLEMENTATION, HarnessState.CRITIQUE, HarnessState.PAUSED, HarnessState.ESCALATED],
+            # PAUSED: Human Review Gate cho phép resume tiếp tục trạng thái mong muốn hoặc ESCALATED
+            HarnessState.PAUSED: [HarnessState.DESIGN, HarnessState.IMPLEMENTATION, HarnessState.CRITIQUE, HarnessState.AUDIT, HarnessState.APPROVED, HarnessState.ESCALATED],
             HarnessState.APPROVED: [],
             HarnessState.ESCALATED: []
         }

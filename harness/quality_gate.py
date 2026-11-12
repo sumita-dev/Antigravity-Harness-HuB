@@ -10,6 +10,7 @@ class Verdict(str, Enum):
     APPROVE = "APPROVE"
     REJECT = "REJECT"
     ESCALATE = "ESCALATE"
+    PAUSE = "PAUSE"
 
 class AdversarialQualityGate:
     def __init__(
@@ -30,6 +31,76 @@ class AdversarialQualityGate:
             from harness.validators.opik_evaluator import OpikEvaluator
             self._evaluator = OpikEvaluator()
         return self._evaluator
+
+    def gate_check(
+        self,
+        task_context,
+        message: str = "Human Review Gate: Approval required.",
+        options: Optional[List[str]] = None,
+        verdict_override: Optional[str] = None,
+        checkpoint_path: Optional[str] = None,
+    ) -> Tuple[Verdict, str]:
+        """Human-in-the-Loop Review Gate (lấy cảm hứng từ GateStep của Spec-Kit).
+
+        Nếu verdict_override được truyền trực tiếp (hoặc non-interactive với giá trị định sẵn),
+        xử lý quyết định ngay. Nếu không, chuyển trạng thái sang PAUSED và lưu checkpoint để resume sau.
+        """
+        import json
+        from pathlib import Path
+
+        if options is None:
+            options = ["approve", "reject"]
+
+        # Nếu có verdict định sẵn (ví dụ resume hoặc non-interactive input)
+        if verdict_override:
+            choice = verdict_override.strip().lower()
+            if choice in ("approve", "approved", "yes", "1"):
+                task_context.record_step("GATE_RESUME", {"message": message, "choice": choice, "verdict": "APPROVE"})
+                return Verdict.APPROVE, choice
+            elif choice in ("reject", "rejected", "no", "0"):
+                task_context.record_step("GATE_RESUME", {"message": message, "choice": choice, "verdict": "REJECT"})
+                return Verdict.REJECT, choice
+            else:
+                task_context.record_step("GATE_RESUME", {"message": message, "choice": choice, "verdict": "ESCALATE"})
+                return Verdict.ESCALATE, choice
+
+        # Chuyển trạng thái sang PAUSED
+        previous_state = task_context.state
+        task_context.safe_transition(HarnessState.PAUSED)
+        
+        # Ghi checkpoint lưu state nếu có đường dẫn
+        checkpoint_info = {
+            "task_id": task_context.task_id,
+            "branch": task_context.branch,
+            "previous_state": previous_state.name,
+            "state": task_context.state.name,
+            "message": message,
+            "options": options,
+            "critique_rounds": task_context.critique_rounds,
+            "qa_rounds": task_context.qa_rounds,
+            "total_cycles": task_context.total_cycles,
+        }
+        task_context.record_step("GATE_PAUSE", checkpoint_info)
+
+        if checkpoint_path:
+            p = Path(checkpoint_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(checkpoint_info, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        return Verdict.PAUSE, "PAUSED"
+
+    def resume_gate(
+        self,
+        task_context,
+        target_state: HarnessState,
+        choice: str,
+    ) -> bool:
+        """Nối lại luồng sau khi được người dùng phê duyệt từ trạng thái PAUSED."""
+        if task_context.state != HarnessState.PAUSED:
+            return False
+        
+        task_context.record_step("GATE_RESOLVED", {"choice": choice, "target_state": target_state.name})
+        return task_context.safe_transition(target_state)
 
     def evaluate_critique(self, task_context, critic_output: str) -> Verdict:
         """Đánh giá phản biện từ Critic (soi GAP, logic, edge cases)."""
