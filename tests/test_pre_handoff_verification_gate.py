@@ -555,3 +555,48 @@ def test_scenario_8_auto_discovers_and_runs_pytest_on_unverified_source_py_mutat
     # Fix source code so test_pricing.py passes -> hook allows handoff
     src_file.write_text("def discount(x: float) -> float:\n    return x * 0.9\n", encoding="utf-8")
     assert _run_hook_cli(payload) == {"decision": "allow"}
+
+
+def test_scenario_9_exempt_paths_do_not_trigger_verification_or_queue_tests(
+    tmp_path: Path,
+) -> None:
+    """Mutating brain, obsidian, wiki, memory, or scratch paths does NOT count as code mutation."""
+    from scripts.verify_before_handoff_hook import extract_turn_context, parse_transcript
+
+    ws = tmp_path / "ws_exempt"
+    ws.mkdir(parents=True)
+    brain_file = "C:/Users/User/.gemini/antigravity/brain/conv123/scratch/helper.py"
+    wiki_file = "D:/vault/wiki/_session-handoff.md"
+    mem_file = "D:/vault/memory/memory.md"
+
+    transcript = _write_transcript(
+        tmp_path / "t_exempt.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Cập nhật tài liệu và bộ nhớ"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {"name": "write_file", "args": {"Path": brain_file, "Content": "x = 1"}},
+                    {"name": "edit_file", "args": {"Path": wiki_file, "Content": "notes"}},
+                    {"name": "write_file", "args": {"Path": mem_file, "Content": "facts"}},
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Updated files"},
+            {"type": "PLANNER_RESPONSE", "content": "Đã cập nhật memory và wiki."},
+        ],
+    )
+    steps = parse_transcript(transcript)
+    ctx = extract_turn_context(steps)
+    assert ctx["has_code_mutation"] is False
+    assert ctx["mutated_files"] == []
+    assert ctx["modified_source_py_files"] == []
+
+    payload = {
+        "conversationId": "conv-scenario-9",
+        "transcriptPath": str(transcript),
+        "workspacePaths": [str(ws)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    res = _run_hook_cli(payload)
+    assert res == {"decision": "allow"}

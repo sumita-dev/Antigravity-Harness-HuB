@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -36,20 +37,37 @@ from harness.skills.router import SkillLoader, SkillRouter  # noqa: E402
 
 ROUTER_MARKER = "[AUTO-SKILL-ROUTER]"
 
-APP_TRIAD_SPEC = "Maker/Builder (pro) -> Code Critic (flash) -> QA Auditor (flash)"
-APP_FULL_TRIAD_SPEC = (
-    "Architect (pro) -> Design Reviewer (flash) -> Builder (pro) -> Code Critic (flash) -> QA Auditor (flash)"
-)
-MARKETING_TRIAD_SPEC = "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (flash)"
+DEFAULT_MAKER_MODEL = "pro"
+DEFAULT_CRITIC_MODEL = "flash"
+DEFAULT_QA_MODEL = "flash"
 
 
-def resolve_triad_spec(branch: str, skill: str | None = None) -> str:
-    """Return the mandatory SubAgent Triad & Model Tiering specification for the routed branch."""
+def resolve_triad_spec(
+    branch: str,
+    skill: str | None = None,
+    *,
+    maker_model: str | None = None,
+    critic_model: str = DEFAULT_CRITIC_MODEL,
+    qa_model: str = DEFAULT_QA_MODEL,
+) -> str:
+    """Return the mandatory SubAgent Triad & Model Tiering specification for the routed branch.
+
+    Accommodates flexible model selection (e.g. inherit, pro, custom) instead of hardcoding (pro) blindly.
+    """
+    maker = (maker_model or os.environ.get("ANTIGRAVITY_MAKER_MODEL") or DEFAULT_MAKER_MODEL).strip()
     if branch == "marketing":
-        return MARKETING_TRIAD_SPEC
+        return f"Web Researcher ({maker}) -> Creator ({maker}) -> Compliance Critic ({critic_model})"
     if skill == "app":
-        return APP_FULL_TRIAD_SPEC
-    return APP_TRIAD_SPEC
+        return (
+            f"Architect ({maker}) -> Design Reviewer ({critic_model}) -> "
+            f"Builder ({maker}) -> Code Critic ({critic_model}) -> QA Auditor ({qa_model})"
+        )
+    return f"Maker/Builder ({maker}) -> Code Critic ({critic_model}) -> QA Auditor ({qa_model})"
+
+
+APP_TRIAD_SPEC = resolve_triad_spec("app")
+APP_FULL_TRIAD_SPEC = resolve_triad_spec("app", "app")
+MARKETING_TRIAD_SPEC = resolve_triad_spec("marketing")
 
 
 def route_user_prompt(
@@ -57,6 +75,7 @@ def route_user_prompt(
     *,
     router: SkillRouter | None = None,
     loader: SkillLoader | None = None,
+    maker_model: str | None = None,
 ) -> dict[str, Any]:
     """Route a user prompt to (skill, branch, skill_path, triad_spec)."""
     r = router or SkillRouter()
@@ -64,7 +83,7 @@ def route_user_prompt(
     matched_skill, branch = r.route(user_input)
     skill_path = l.find_skill_path(matched_skill) if matched_skill else None
     normalized_path = Path(skill_path).as_posix() if skill_path else None
-    triad_spec = resolve_triad_spec(branch, matched_skill)
+    triad_spec = resolve_triad_spec(branch, matched_skill, maker_model=maker_model)
     return {
         "branch": branch,
         "skill": matched_skill,
@@ -78,6 +97,7 @@ def evaluate_pre_invocation_payload(
     *,
     router: SkillRouter | None = None,
     loader: SkillLoader | None = None,
+    maker_model: str | None = None,
 ) -> dict[str, Any]:
     """Evaluate an Antigravity PreInvocation JSON payload and return the hook response."""
     empty_response: dict[str, Any] = {"injectSteps": [], "terminationBehavior": ""}
@@ -97,7 +117,18 @@ def evaluate_pre_invocation_payload(
     if not user_input:
         return empty_response
 
-    route_info = route_user_prompt(user_input, router=router, loader=loader)
+    resolved_maker_model = (
+        maker_model
+        or payload.get("makerModel")
+        or payload.get("maker_model")
+        or payload.get("model")
+    )
+    route_info = route_user_prompt(
+        user_input,
+        router=router,
+        loader=loader,
+        maker_model=resolved_maker_model,
+    )
     branch = route_info["branch"]
     skill = route_info["skill"] or "none"
     skill_path = route_info["skill_path"] or "none"
@@ -111,12 +142,17 @@ def evaluate_pre_invocation_payload(
     else:
         directive = f"No specific skill keyword matched; follow branch '{branch}' Dynamic Triad [{triad}]."
 
-    ephemeral_msg = (
+    directive_msg = (
         f"{ROUTER_MARKER} branch={branch} | skill={skill} | "
         f"skill_path={skill_path} | triad={triad} | directive={directive}"
     )
     return {
-        "injectSteps": [{"ephemeralMessage": ephemeral_msg}],
+        "injectSteps": [
+            {
+                "systemMessage": {"systemMessage": directive_msg},
+                "ephemeralMessage": directive_msg,
+            }
+        ],
         "terminationBehavior": "",
     }
 
@@ -128,6 +164,7 @@ def main() -> None:
         parser = argparse.ArgumentParser(description="Antigravity PreInvocation Auto Skill Router Hook")
         parser.add_argument("--prompt", "-p", type=str, default="", help="Direct user prompt to route")
         parser.add_argument("--invocation-num", "-n", type=int, default=1, help="Invocation number in turn")
+        parser.add_argument("--model", "-m", type=str, default="", help="Flexible maker model override")
         args, _ = parser.parse_known_args()
 
         if args.prompt:
@@ -135,14 +172,18 @@ def main() -> None:
                 {
                     "lastUserInput": args.prompt,
                     "invocationNum": args.invocation_num,
-                }
+                },
+                maker_model=args.model or None,
             )
         elif not sys.stdin.isatty():
             raw_input = sys.stdin.read()
             if raw_input and raw_input.strip():
                 payload = json.loads(raw_input)
                 if isinstance(payload, dict):
-                    result = evaluate_pre_invocation_payload(payload)
+                    result = evaluate_pre_invocation_payload(
+                        payload,
+                        maker_model=args.model or None,
+                    )
     except Exception:
         result = {"injectSteps": [], "terminationBehavior": ""}
 

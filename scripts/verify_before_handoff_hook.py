@@ -25,11 +25,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 from typing import Any
+import urllib.parse
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -74,6 +76,50 @@ MUTATION_TOOL_NAMES = {
     "patch_file",
     "apply_patch",
 }
+
+EXEMPT_BASENAMES = {
+    "_session-handoff.md",
+    "_open-questions.md",
+    "memory.md",
+}
+
+EXEMPT_PATH_SEGMENTS = (
+    "/.gemini/antigravity/brain/",
+    "/antigravity/brain/",
+    "/.brain/",
+    "/obsidian/",
+    "/wiki/",
+    "/memory/",
+    "/scratch/",
+)
+
+
+def is_exempt_path(path_str: str) -> bool:
+    """Return True if path points to exempt documentation, memory, session notes, or scratch/brain artifacts."""
+    if not path_str or not isinstance(path_str, str):
+        return False
+    cleaned = path_str.strip()
+    if cleaned.lower().startswith("file:///"):
+        cleaned = cleaned[8:]
+    elif cleaned.lower().startswith("file://"):
+        cleaned = cleaned[7:]
+    cleaned = urllib.parse.unquote(cleaned).strip()
+    if not cleaned:
+        return False
+
+    expanded = os.path.expanduser(cleaned)
+    norm = expanded.replace("\\", "/")
+    norm_low = norm.lower()
+
+    basename_low = Path(norm).name.lower()
+    if basename_low in EXEMPT_BASENAMES:
+        return True
+
+    padded = "/" + norm_low.lstrip("/")
+    if any(seg in padded for seg in EXEMPT_PATH_SEGMENTS):
+        return True
+
+    return False
 
 COMMAND_TOOL_NAMES = {
     "run_command",
@@ -321,8 +367,11 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
     pending_tool_calls: list[tuple[str, str]] = []
 
-    def _record_mutated_path(raw_p: str, idx_step: int) -> None:
-        nonlocal last_any_mutation_idx, last_non_test_py_mutation_idx
+    def _record_mutated_path(raw_p: str, idx_step: int) -> bool:
+        nonlocal last_any_mutation_idx, last_non_test_py_mutation_idx, has_code_mutation
+        if is_exempt_path(raw_p):
+            return False
+        has_code_mutation = True
         last_any_mutation_idx = idx_step
         if raw_p not in mutated_files:
             mutated_files.append(raw_p)
@@ -330,6 +379,7 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
             last_non_test_py_mutation_idx = idx_step
             if raw_p not in modified_source_py_files:
                 modified_source_py_files.append(raw_p)
+        return True
 
     def _record_verification_event(ev: dict[str, Any], idx_step: int) -> None:
         nonlocal last_passing_pytest_idx
@@ -378,9 +428,12 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 )
 
                 if tc_name in MUTATION_TOOL_NAMES:
-                    has_code_mutation = True
-                    for p in _extract_path_from_args(tc_args):
-                        _record_mutated_path(p, step_idx)
+                    extracted_paths = _extract_path_from_args(tc_args)
+                    if extracted_paths:
+                        for p in extracted_paths:
+                            _record_mutated_path(p, step_idx)
+                    else:
+                        has_code_mutation = True
 
                 cmd_str = _clean_arg_val(
                     tc_args.get("CommandLine")
@@ -397,13 +450,15 @@ def extract_turn_context(steps: list[dict[str, Any]]) -> dict[str, Any]:
         raw_step_tool = _clean_arg_val(step.get("tool") or step.get("name") or "")
         step_tool = raw_step_tool.rsplit(":", 1)[-1].strip()
         if step_tool in MUTATION_TOOL_NAMES:
-            has_code_mutation = True
-            for p in _extract_path_from_args(step):
-                _record_mutated_path(p, step_idx)
+            extracted_paths = _extract_path_from_args(step)
+            if extracted_paths:
+                for p in extracted_paths:
+                    _record_mutated_path(p, step_idx)
+            else:
+                has_code_mutation = True
 
         mod_list = step.get("modified_files")
         if isinstance(mod_list, list):
-            has_code_mutation = True
             for p in mod_list:
                 cleaned_p = _clean_arg_val(p)
                 if cleaned_p:
@@ -548,6 +603,8 @@ def _resolve_modified_test_files(
 
     resolved_tests: list[Path] = []
     for raw_path in candidates:
+        if is_exempt_path(raw_path):
+            continue
         p = Path(raw_path)
         if not p.is_absolute():
             p = (workspace_root / p).resolve()
