@@ -540,3 +540,109 @@ def test_routing_claim_with_table_evidence_tuple_allows_stop(tmp_path: Path) -> 
     }
     assert evaluate_hook_payload(payload) == {"decision": "allow"}
     assert _run_hook_cli(payload) == {"decision": "allow"}
+
+
+def test_gap3_subagent_verification_runner_expansion_and_speculative_filter(tmp_path: Path) -> None:
+    """GAP-3 (DR-05, DR-06): Verification runner expansion supports run_pytest_windows.py, cargo test, etc. and filters speculative language."""
+    # 1. SubAgent wakeup reporting run_pytest_windows.py with exit code 0 is recognized as valid verification evidence
+    t_valid_subagent = _write_transcript(
+        tmp_path / "t_subagent_run_pytest_windows.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Chạy kiểm thử hệ thống"},
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": "[Message] sender=conv-qa content=Ran py -3.12 scripts/run_pytest_windows.py. Command exited with code 0. 50 passed in 10s.",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: Đã chạy kiểm thử thành công, toàn bộ 50 bài test đều pass.",
+            },
+        ],
+    )
+    payload_valid = {
+        "conversationId": "conv-subagent-valid",
+        "transcriptPath": str(t_valid_subagent),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload_valid) == {"decision": "allow"}
+    assert _run_hook_cli(payload_valid) == {"decision": "allow"}
+
+    # 2. SubAgent wakeup reporting cargo test with exit code 0 is recognized
+    t_cargo = _write_transcript(
+        tmp_path / "t_subagent_cargo.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build Rust module"},
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": "[Message] sender=conv-qa content=Ran cargo test. Command exited with code 0. 12 passed.",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: Cargo test pass hoàn toàn.",
+            },
+        ],
+    )
+    payload_cargo = {
+        "conversationId": "conv-subagent-cargo",
+        "transcriptPath": str(t_cargo),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload_cargo) == {"decision": "allow"}
+    assert _run_hook_cli(payload_cargo) == {"decision": "allow"}
+
+    # 3. SubAgent wakeup with speculative language (e.g. "chắc là 10 passed") is rejected from verification evidence
+    t_speculative = _write_transcript(
+        tmp_path / "t_subagent_speculative.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra tính năng"},
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": "[Message] sender=conv-qa content=Ran pytest. chắc là 10 passed.",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: test đã pass và hoàn tất sửa lỗi.",
+            },
+        ],
+    )
+    payload_spec = {
+        "conversationId": "conv-subagent-speculative",
+        "transcriptPath": str(t_speculative),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    # Since the subagent message was speculative ("chắc là"), it was excluded from verification evidence.
+    # The planner's claim of "test đã pass" is ungrounded -> Hook returns continue.
+    res_spec = evaluate_hook_payload(payload_spec)
+    assert res_spec["decision"] == "continue"
+    assert GUARD_MARKER in res_spec["reason"]
+
+    # 4. Same claim with verified, non-speculative SubAgent receipt -> Hook allows handoff
+    t_genuine = _write_transcript(
+        tmp_path / "t_subagent_genuine.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra tính năng"},
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": "[Message] sender=conv-qa content=Ran pytest. 10 passed. Command exited with code 0.",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Báo cáo: test đã pass và hoàn tất sửa lỗi.",
+            },
+        ],
+    )
+    payload_genuine = {
+        "conversationId": "conv-subagent-genuine",
+        "transcriptPath": str(t_genuine),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    assert evaluate_hook_payload(payload_genuine) == {"decision": "allow"}
+

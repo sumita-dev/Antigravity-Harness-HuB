@@ -338,3 +338,64 @@ def test_sync_workspace_for_qa_dirty_working_tree(tmp_path: Path):
     # Khi allow_dirty=True thì cho phép checkout
     res_allowed = sync_workspace_for_qa("maker-branch", repo, repo_root=repo, allow_dirty=True)
     assert res_allowed["synced"] is True
+
+
+def test_triad_handoff_v2_physical_report_verification_and_workspace_mode(tmp_path: Path):
+    """GAP-1 (DR-01): verify_report_exists=True kiểm tra sự tồn tại vật lý trên đĩa và workspace_mode."""
+    report_file = tmp_path / "actual_report.md"
+    report_file.write_text("# QA Audit Report\nAll passed.\n", encoding="utf-8")
+
+    payload = {
+        "task_id": "T-VERIFY-REPORT-01",
+        "commit_sha": "1234567890abcdef",
+        "verification_receipt": {"command": "pytest -q", "exit_code": 0, "stdout_hash": "abc123"},
+        "report_path": str(report_file),
+        "workspace_mode": "branch",
+        "workspace_path": str(tmp_path),
+    }
+
+    # 1. verify_report_exists=True khi file tồn tại -> OK
+    ok, errors = validate_handoff_v2(payload, require_report_path=True, verify_report_exists=True)
+    assert ok is True
+    assert errors == []
+
+    parsed = parse_handoff_v2(payload, require_report_path=True, verify_report_exists=True)
+    assert parsed.workspace_mode == "branch"
+    assert parsed.workspace_path == str(tmp_path)
+    assert parsed.to_dict()["workspace_mode"] == "branch"
+    assert parsed.to_dict()["workspace_path"] == str(tmp_path)
+
+    # 2. verify_report_exists=True khi file KHÔNG tồn tại -> Lỗi
+    non_existent = tmp_path / "non_existent_report.md"
+    bad_payload = dict(payload, report_path=str(non_existent))
+    ok_bad, errors_bad = validate_handoff_v2(bad_payload, require_report_path=True, verify_report_exists=True)
+    assert ok_bad is False
+    assert any("không tồn tại" in e for e in errors_bad)
+
+    with pytest.raises(HandoffValidationError):
+        parse_handoff_v2(bad_payload, require_report_path=True, verify_report_exists=True)
+
+    # 3. verify_report_exists=False (mặc định) vẫn tương thích ngược với synthetic path
+    ok_compat, errors_compat = validate_handoff_v2(bad_payload, require_report_path=True, verify_report_exists=False)
+    assert ok_compat is True
+    assert errors_compat == []
+
+    # 4. workspace_mode không hợp lệ -> Lỗi
+    bad_mode = dict(payload, workspace_mode="invalid_mode")
+    ok_mode, errors_mode = validate_handoff_v2(bad_mode)
+    assert ok_mode is False
+    assert any("workspace_mode" in e for e in errors_mode)
+
+    # 5. workspace_mode=None mặc định an toàn về "inherit"
+    none_mode = dict(payload, workspace_mode=None)
+    ok_none, errors_none = validate_handoff_v2(none_mode)
+    assert ok_none is True
+    parsed_none = parse_handoff_v2(none_mode)
+    assert parsed_none.workspace_mode == "inherit"
+
+    # 6. SubagentGuard record_handoff với verify_report_exists=True
+    guard = SubagentGuard()
+    rec = guard.record_handoff(payload, require_report_path=True, verify_report_exists=True)
+    assert rec.task_id == "T-VERIFY-REPORT-01"
+    assert rec.workspace_mode == "branch"
+

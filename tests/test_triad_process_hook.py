@@ -535,3 +535,430 @@ def test_rule_1_11_allows_critic_inherit_blocks_qa_inherit(tmp_path: Path) -> No
     assert res_qa_block["decision"] == "block"
     assert "Model='inherit'" in res_qa_block["reason"]
     assert "QA Auditor" in res_qa_block["reason"]
+
+
+def test_fix_a_design_reviewer_with_auditor_role_allows_inherit_model(tmp_path: Path) -> None:
+    """Fix-A: Design_Reviewer containing 'Auditor' in role description must NOT be classified as is_qa=True."""
+    c = classify_subagent_role({"Role": "Design_Reviewer - Independent Spec Auditor", "Model": "inherit"})
+    assert c["is_design_reviewer"] is True
+    assert c["is_qa"] is False
+    assert c["is_exec_critic"] is False
+
+    # In transcript: Design Reviewer with Model="inherit" must not trigger QA Model="inherit" block
+    t_design_inherit = _write_transcript(
+        tmp_path / "t_design_inherit.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Review kiến trúc"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {
+                            "TypeName": "self",
+                            "Role": "Design_Reviewer - Independent Spec Auditor",
+                            "Model": "inherit",
+                        },
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Review complete."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất review.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res = _run_hook_cli({"transcriptPath": str(t_design_inherit), "terminationReason": "NO_TOOL_CALL"})
+    # It shouldn't block on Model="inherit", decision is allow since it's just design reviewer + kill_all
+    assert res["decision"] == "allow"
+
+
+def test_fix_b_schedule_before_subagent_to_monitor_run_command_allowed(tmp_path: Path) -> None:
+    """Fix-B: schedule called before any invoke_subagent to monitor a run_command is not flagged."""
+    t_sched_ok = _write_transcript(
+        tmp_path / "t_sched_ok.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Khảo sát và xây dựng module"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git log -n 5"}}],
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "schedule", "args": {"DurationSeconds": 45, "Prompt": "Deadman"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Git log completed."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder completed."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất chu trình Triad.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res = _run_hook_cli({"transcriptPath": str(t_sched_ok), "terminationReason": "NO_TOOL_CALL"})
+    assert res["decision"] == "allow"
+
+
+def test_gap1_dr03_subagent_report_path_must_be_read_by_orchestrator(tmp_path: Path) -> None:
+    """GAP-1 (DR-01, DR-03): Orchestrator must call read_file on SubAgent's report_path before handoff."""
+    report_file = tmp_path / "qa_report.md"
+    report_file.write_text("# QA Final Report\nPass 100%\n", encoding="utf-8")
+
+    # 1. Unread report blocks handoff with Rule 1.12 citation
+    t_unread = _write_transcript(
+        tmp_path / "t_unread_report.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Thực hiện kiểm thử"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": f"[Message] sender=conv-qa content=Audit complete. report_path={report_file.as_posix()}",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_unread = _run_hook_cli(
+        {"transcriptPath": str(t_unread), "workspacePaths": [str(tmp_path)], "terminationReason": "NO_TOOL_CALL"}
+    )
+    assert res_unread["decision"] == "continue"
+    assert "Quy tắc 1.12" in res_unread["reason"]
+    assert "qa_report.md" in res_unread["reason"]
+
+    # 2. Reading report allows handoff
+    t_read = _write_transcript(
+        tmp_path / "t_read_report.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Thực hiện kiểm thử"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": f"[Message] sender=conv-qa content=Audit complete. report_path={report_file.as_posix()}",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "read_file", "args": {"Path": str(report_file)}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "# QA Final Report\nPass 100%\n"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất và đã đọc báo cáo QA.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_read = _run_hook_cli(
+        {"transcriptPath": str(t_read), "workspacePaths": [str(tmp_path)], "terminationReason": "NO_TOOL_CALL"}
+    )
+    assert res_read["decision"] == "allow"
+
+
+def test_gap2_dr02_precision_role_classification_and_marketing_audit(tmp_path: Path) -> None:
+    """GAP-2 (DR-02): Content_Critic does not satisfy Compliance_Critic; Design_Reviewer does not satisfy Code Critic."""
+    # 1. Marketing Triad with Content Critic only -> Blocked for missing Compliance Critic
+    t_mkt_content_only = _write_transcript(
+        tmp_path / "t_mkt_content_only.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Viết bài marketing"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Web Researcher"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Dossier ok."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Content Creator"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Draft ok."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Content Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Angle approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Bàn giao.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_mkt = _run_hook_cli({"transcriptPath": str(t_mkt_content_only), "terminationReason": "NO_TOOL_CALL"})
+    assert res_mkt["decision"] == "continue"
+    assert "Compliance Critic" in res_mkt["reason"]
+
+    # 2. App Triad with Design Reviewer only (no Code Critic) -> Blocked for missing Code Critic
+    t_app_design_only = _write_transcript(
+        tmp_path / "t_app_design_only.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build feature"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Design Reviewer"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Spec approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Code done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Tests pass."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Bàn giao.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_app = _run_hook_cli({"transcriptPath": str(t_app_design_only), "terminationReason": "NO_TOOL_CALL"})
+    assert res_app["decision"] == "continue"
+    assert "Code Critic" in res_app["reason"]
+
+
+def test_gap4_dr04_branch_blindness_vuln05_detection_and_resolution(tmp_path: Path) -> None:
+    """GAP-4 (DR-04): Maker on branch/share + QA on inherit without workspace sync triggers VULN-05 continue."""
+    # 1. Unsynchronized branch triggers decision == "continue"
+    t_branch_blind = _write_transcript(
+        tmp_path / "t_branch_blind.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build isolated feature"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"TypeName": "self", "Role": "Builder", "Workspace": "branch"},
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done in branch."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash", "Workspace": "inherit"},
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_bb = _run_hook_cli({"transcriptPath": str(t_branch_blind), "terminationReason": "NO_TOOL_CALL"})
+    assert res_bb["decision"] == "continue"
+    assert "VULN-05 (Branch Blindness)" in res_bb["reason"]
+
+    # 2. Executing workspace synchronization command allows turn closure
+    t_branch_synced = _write_transcript(
+        tmp_path / "t_branch_synced.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build isolated feature"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"TypeName": "self", "Role": "Builder", "Workspace": "branch"},
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done in branch."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git merge builder-branch"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Fast-forward merge."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash", "Workspace": "inherit"},
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_synced = _run_hook_cli({"transcriptPath": str(t_branch_synced), "terminationReason": "NO_TOOL_CALL"})
+    assert res_synced["decision"] == "allow"
+
+
+def test_content_critic_does_not_satisfy_code_critic_in_app_triad(tmp_path: Path) -> None:
+    """AC-2 / DR-02: Content Critic, Angle Critic, Compliance Critic, E2E Critic must NOT satisfy Code Critic in App Triad."""
+    for role_name in ("Content Critic", "Angle Critic", "Compliance Critic", "E2E Critic"):
+        c = classify_subagent_role({"Role": role_name})
+        assert c["is_code_critic"] is False, f"{role_name} wrongly classified as is_code_critic"
+
+    t_app_content_critic = _write_transcript(
+        tmp_path / "t_app_content_critic.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Xây dựng tính năng thanh toán"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Content Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Content reviewed."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Bàn giao.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res = _run_hook_cli({"transcriptPath": str(t_app_content_critic), "terminationReason": "NO_TOOL_CALL"})
+    assert res["decision"] == "continue"
+    assert "Code Critic" in res["reason"]
+
+
+def test_fix_b_edge_case_schedule_before_subagent_without_run_command_flagged(tmp_path: Path) -> None:
+    """Fix-B Edge Case: schedule called before subagent WITHOUT any preceding run_command is flagged."""
+    t_sched_no_cmd = _write_transcript(
+        tmp_path / "t_sched_no_cmd.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build feature"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "schedule", "args": {"DurationSeconds": 60, "Prompt": "No command timer"}}],
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res = _run_hook_cli({"transcriptPath": str(t_sched_no_cmd), "terminationReason": "NO_TOOL_CALL"})
+    assert res["decision"] == "block"
+    assert "Zero-Polling" in res["reason"]
+
+

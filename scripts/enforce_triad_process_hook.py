@@ -47,6 +47,8 @@ if hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 GUARD_MARKER = "[TRIAD-PROCESS-GATE]"
 OTHER_HOOK_MARKERS = (
     GUARD_MARKER,
@@ -90,16 +92,57 @@ SUBAGENT_HEADER_MARKERS = (
     "<subagent_reminder>",
 )
 
+REPORT_PATH_KV_RE = re.compile(
+    r"(?i)\b(?:report_path|report|báo\s*cáo)\s*[:=]\s*[`\"']?([^\s`\"'\r\n]+(?:\.md|\.json))[`\"']?"
+)
+REPORT_PATH_LINK_RE = re.compile(
+    r"\[(?:report|báo\s*cáo|spec)\]\((?:file:///?)?([^\s\)\r\n]+(?:\.md|\.json))\)",
+    re.IGNORECASE,
+)
+REPORT_PATH_TOKEN_RE = re.compile(
+    r"[`\"']((?:[A-Za-z]:[\\/]|(?:\.gemini|brain|\.brain|artifacts)[\\/])[^\s`\"'\r\n]+(?:\.md|\.json))[`\"']",
+    re.IGNORECASE,
+)
+
+DESIGN_REVIEWER_RE = re.compile(
+    r"\b(?:design[\s_-]*reviewer|design[\s_-]*critic|architectural[\s_-]*reviewer)\b",
+    re.IGNORECASE,
+)
+CODE_CRITIC_RE = re.compile(
+    r"\b(?:code[\s_-]*critic|code[\s_-]*reviewer|critic)\b",
+    re.IGNORECASE,
+)
+COMPLIANCE_CRITIC_RE = re.compile(
+    r"\b(?:compliance[\s_-]*critic|policy[\s_-]*critic|compliance[\s_-]*auditor)\b",
+    re.IGNORECASE,
+)
+CONTENT_CRITIC_RE = re.compile(
+    r"\b(?:content[\s_-]*critic|content[\s_-]*reviewer|angle[\s_-]*critic)\b",
+    re.IGNORECASE,
+)
+E2E_ENGINEER_RE = re.compile(
+    r"\b(?:e2e[\s_-]*engineer|e2e[\s_-]*maker|playwright[\s_-]*engineer)\b",
+    re.IGNORECASE,
+)
+E2E_CRITIC_RE = re.compile(
+    r"\b(?:e2e[\s_-]*critic|e2e[\s_-]*reviewer)\b",
+    re.IGNORECASE,
+)
+APP_MAKER_RE = re.compile(
+    r"\b(?:builder|maker|coder|implementer|developer|e2e[\s_-]*engineer)\b",
+    re.IGNORECASE,
+)
+# Excludes Design_Reviewer and Content_Critic to prevent App Triad bypass
 EXEC_CRITIC_RE = re.compile(
-    r"\b(?:code[\s_-]*critic|compliance[\s_-]*critic|critic|code[\s_-]*reviewer)\b",
+    r"\b(?:code[\s_-]*critic|compliance[\s_-]*critic|code[\s_-]*reviewer|critic|e2e[\s_-]*critic)\b",
     re.IGNORECASE,
 )
 QA_AUDITOR_RE = re.compile(
     r"\b(?:qa[\s_-]*auditor|qa|auditor|checker|verifier)\b",
     re.IGNORECASE,
 )
-APP_MAKER_RE = re.compile(
-    r"\b(?:builder|maker|coder|implementer|developer)\b",
+WORKSPACE_SYNC_CMD_RE = re.compile(
+    r"\b(?:git\s+(?:checkout|merge|cherry-pick|worktree|pull)|sync_workspace_for_qa|sync_qa_branch|sync_qa_workspace)\b",
     re.IGNORECASE,
 )
 MKT_CREATOR_RE = re.compile(
@@ -454,6 +497,23 @@ def _is_invocation_awaiting_wakeup(turn_steps: list[dict[str, Any]], inv_idx: in
     return False
 
 
+def _resolve_candidate_report_path(raw_path: str, payload: dict[str, Any] | None) -> Path:
+    """Resolve a candidate report path, anchoring relative paths to workspacePaths[0] or REPO_ROOT."""
+    base_dir = REPO_ROOT
+    if isinstance(payload, dict):
+        ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths")
+        if isinstance(ws_paths, list) and ws_paths and ws_paths[0]:
+            base_dir = Path(ws_paths[0]).resolve()
+    cleaned = raw_path.strip()
+    if cleaned.lower().startswith("file:///"):
+        cleaned = cleaned[8:]
+    elif cleaned.lower().startswith("file://"):
+        cleaned = cleaned[7:]
+    cleaned = urllib.parse.unquote(cleaned).strip()
+    p = Path(cleaned)
+    return p.resolve() if p.is_absolute() else (base_dir / p).resolve()
+
+
 def classify_subagent_role(tc_args: dict[str, Any]) -> dict[str, Any]:
     """Classify an `invoke_subagent` call primarily via cleaned `(Role, TypeName, AgentName)`."""
     role_str = _clean_arg_val(tc_args.get("Role") or tc_args.get("role"))
@@ -476,10 +536,35 @@ def classify_subagent_role(tc_args: dict[str, Any]) -> dict[str, Any]:
 
     header_text = " ".join(parts).strip()
 
-    is_exec_critic = bool(EXEC_CRITIC_RE.search(header_text))
-    is_qa = bool(QA_AUDITOR_RE.search(header_text))
-    is_app_maker = bool(APP_MAKER_RE.search(header_text)) and not (is_exec_critic or is_qa)
-    is_mkt_creator = bool(MKT_CREATOR_RE.search(header_text)) and not (is_exec_critic or is_qa)
+    is_design_reviewer = bool(DESIGN_REVIEWER_RE.search(header_text))
+    is_content_critic = bool(CONTENT_CRITIC_RE.search(header_text))
+    is_compliance_critic = bool(COMPLIANCE_CRITIC_RE.search(header_text))
+    is_e2e_engineer = bool(E2E_ENGINEER_RE.search(header_text))
+    is_e2e_critic = bool(E2E_CRITIC_RE.search(header_text))
+    is_code_critic = bool(CODE_CRITIC_RE.search(header_text)) and not (
+        is_design_reviewer or is_content_critic or is_compliance_critic or is_e2e_critic
+    )
+
+    # EXEC_CRITIC excludes Design_Reviewer and Content_Critic
+    is_exec_critic = (
+        bool(EXEC_CRITIC_RE.search(header_text))
+        and not is_design_reviewer
+        and not is_content_critic
+    )
+
+    # Fix-A: if a subagent matches Design_Reviewer (or Code_Critic / Content_Critic / E2E_Critic / Compliance_Critic),
+    # it must NOT be classified as is_qa = True even if Role contains the word "Auditor".
+    is_critic_or_reviewer = (
+        is_design_reviewer
+        or is_code_critic
+        or is_compliance_critic
+        or is_content_critic
+        or is_e2e_critic
+        or is_exec_critic
+    )
+    is_qa = bool(QA_AUDITOR_RE.search(header_text)) and not is_critic_or_reviewer
+    is_app_maker = (bool(APP_MAKER_RE.search(header_text)) or is_e2e_engineer) and not (is_critic_or_reviewer or is_qa)
+    is_mkt_creator = bool(MKT_CREATOR_RE.search(header_text)) and not (is_critic_or_reviewer or is_qa or is_app_maker)
     is_researcher = (type_name.lower() == "research") or bool(RESEARCHER_RE.search(header_text))
 
     return {
@@ -487,6 +572,12 @@ def classify_subagent_role(tc_args: dict[str, Any]) -> dict[str, Any]:
         "type_name": type_name,
         "agent_name": agent_name,
         "header_text": header_text,
+        "is_design_reviewer": is_design_reviewer,
+        "is_code_critic": is_code_critic,
+        "is_compliance_critic": is_compliance_critic,
+        "is_content_critic": is_content_critic,
+        "is_e2e_engineer": is_e2e_engineer,
+        "is_e2e_critic": is_e2e_critic,
         "is_exec_critic": is_exec_critic,
         "is_qa": is_qa,
         "is_app_maker": is_app_maker,
@@ -535,7 +626,11 @@ def evaluate_transcript(
     last_planner_step: dict[str, Any] | None = None
     non_exempt_mutations: list[str] = []
     subagent_invocations: list[tuple[int, dict[str, Any]]] = []
-    schedule_without_bg_cmd_steps: list[int] = []
+    run_cmd_steps: list[int] = []
+    schedule_steps: list[int] = []
+    read_file_paths: set[str] = set()
+    candidate_report_paths: list[str] = []
+    has_workspace_sync = False
     last_kill_all_idx = -1
     tier2_text_fragments: list[str] = []
 
@@ -560,12 +655,31 @@ def evaluate_transcript(
                 tier2_text_fragments.append(content)
 
         step_tcs = _extract_step_tool_calls(step)
-        step_tc_names = {name for name, _ in step_tcs}
-        if "schedule" in step_tc_names and "run_command" not in step_tc_names:
-            schedule_without_bg_cmd_steps.append(step_idx)
-
         for tc_name, tc_args in step_tcs:
-            if tc_name in MUTATION_TOOL_NAMES:
+            if tc_name in ("run_command", "bash", "execute_command", "shell", "run_terminal_cmd", "cmd"):
+                run_cmd_steps.append(step_idx)
+                cmd_line = _clean_arg_val(tc_args.get("CommandLine") or tc_args.get("command") or "")
+                if WORKSPACE_SYNC_CMD_RE.search(cmd_line):
+                    has_workspace_sync = True
+            elif tc_name in ("sync_workspace_for_qa", "sync_qa_branch", "sync_qa_workspace"):
+                has_workspace_sync = True
+            elif tc_name == "schedule":
+                schedule_steps.append(step_idx)
+            elif tc_name in ("read_file", "view_file", "read_text_file", "read_multiple_files") or tc_name.endswith((":read_file", ":read_text_file", ":view_file")):
+                for key in ("Path", "path", "TargetFile", "target_file", "FilePath", "file_path", "filename"):
+                    val = _clean_arg_val(tc_args.get(key))
+                    if val:
+                        resolved = _resolve_candidate_report_path(val, eff_payload)
+                        read_file_paths.add(resolved.as_posix().lower())
+                for list_key in ("files", "paths", "TargetFiles"):
+                    val_list = tc_args.get(list_key)
+                    if isinstance(val_list, list):
+                        for item in val_list:
+                            item_str = _clean_arg_val(item)
+                            if item_str:
+                                resolved = _resolve_candidate_report_path(item_str, eff_payload)
+                                read_file_paths.add(resolved.as_posix().lower())
+            elif tc_name in MUTATION_TOOL_NAMES:
                 for p in _extract_mutation_paths(tc_name, tc_args):
                     if not is_exempt_orchestrator_path(p, eff_payload):
                         if p not in non_exempt_mutations:
@@ -583,6 +697,14 @@ def evaluate_transcript(
                 action_val = _clean_arg_val(tc_args.get("Action") or tc_args.get("action"))
                 if action_val.lower() == "kill_all":
                     last_kill_all_idx = step_idx
+
+        s_text = f"{content}\n{_step_text(step)}"
+        if "[Message]" in s_text:
+            for regex in (REPORT_PATH_KV_RE, REPORT_PATH_LINK_RE, REPORT_PATH_TOKEN_RE):
+                for match in regex.finditer(s_text):
+                    cand_path = match.group(1).strip()
+                    if cand_path and cand_path not in candidate_report_paths:
+                        candidate_report_paths.append(cand_path)
 
         step_tool = _normalize_tool_name(step.get("tool") or step.get("name") or "")
         if step_tool in MUTATION_TOOL_NAMES:
@@ -639,9 +761,12 @@ def evaluate_transcript(
 
     # Check 2 (VULN-01B): Completed SubAgent Triad completeness & Rule 17 kill_all closure
     classified = [classify_subagent_role(tc_args) for _, tc_args in subagent_invocations]
-    has_app_maker = any(c["is_app_maker"] for c in classified)
+    has_app_maker = any(c["is_app_maker"] and not c["is_e2e_engineer"] for c in classified)
+    has_e2e_engineer = any(c["is_e2e_engineer"] for c in classified)
     has_mkt_creator = any(c["is_mkt_creator"] for c in classified)
-    has_exec_critic = any(c["is_exec_critic"] for c in classified)
+    has_code_critic = any(c["is_code_critic"] for c in classified)
+    has_compliance_critic = any(c["is_compliance_critic"] for c in classified)
+    has_e2e_critic = any(c["is_e2e_critic"] for c in classified)
     has_qa = any(c["is_qa"] for c in classified)
     has_researcher = any(c["is_researcher"] for c in classified)
 
@@ -649,15 +774,19 @@ def evaluate_transcript(
 
     missing_roles: list[str] = []
     if has_app_maker:
-        if not is_tier2 and not has_exec_critic:
+        if not is_tier2 and not has_code_critic:
             missing_roles.append("Code Critic")
         if not has_qa:
             missing_roles.append("QA Auditor")
 
+    if has_e2e_engineer:
+        if not (has_e2e_critic or has_qa):
+            missing_roles.append("E2E Critic hoặc QA Auditor")
+
     if has_mkt_creator:
         if not has_researcher:
             missing_roles.append("Web Researcher")
-        if not has_exec_critic:
+        if not has_compliance_critic:
             missing_roles.append("Compliance Critic")
 
     last_subagent_invoke_idx = subagent_invocations[-1][0]
@@ -666,18 +795,26 @@ def evaluate_transcript(
     # Check 2b (BUG-08): Chronological ordering (post-QA/Critic Maker mutations),
     # Rule 1.11 (Explicit Model Tiering), and Rule 1.10 (schedule timer alongside SubAgent)
     unreviewed_maker_violations: list[str] = []
-    last_app_maker_pos = max((i for i, c in enumerate(classified) if c["is_app_maker"]), default=-1)
-    last_exec_critic_pos = max((i for i, c in enumerate(classified) if c["is_exec_critic"]), default=-1)
+    last_app_maker_pos = max((i for i, c in enumerate(classified) if c["is_app_maker"] and not c["is_e2e_engineer"]), default=-1)
+    last_e2e_eng_pos = max((i for i, c in enumerate(classified) if c["is_e2e_engineer"]), default=-1)
+    last_code_critic_pos = max((i for i, c in enumerate(classified) if c["is_code_critic"]), default=-1)
+    last_compliance_critic_pos = max((i for i, c in enumerate(classified) if c["is_compliance_critic"]), default=-1)
+    last_e2e_critic_pos = max((i for i, c in enumerate(classified) if c["is_e2e_critic"]), default=-1)
     last_qa_pos = max((i for i, c in enumerate(classified) if c["is_qa"]), default=-1)
     last_mkt_creator_pos = max((i for i, c in enumerate(classified) if c["is_mkt_creator"]), default=-1)
 
-    if has_app_maker and not missing_roles:
-        if (not is_tier2 and last_exec_critic_pos < last_app_maker_pos) or (last_qa_pos < last_app_maker_pos):
+    if last_app_maker_pos >= 0 and not missing_roles:
+        if (not is_tier2 and last_code_critic_pos < last_app_maker_pos) or (last_qa_pos < last_app_maker_pos):
             unreviewed_maker_violations.append(
                 "Vi phạm thứ tự Dynamic Triad (Rule 1.1): Lần gọi Builder/Maker cuối cùng diễn ra SAU Critic/QA Auditor và chưa được thẩm định lại"
             )
-    if has_mkt_creator and not missing_roles:
-        if last_exec_critic_pos < last_mkt_creator_pos:
+    if last_e2e_eng_pos >= 0 and not missing_roles:
+        if last_e2e_critic_pos < last_e2e_eng_pos and last_qa_pos < last_e2e_eng_pos:
+            unreviewed_maker_violations.append(
+                "Vi phạm thứ tự Dynamic Triad E2E: Lần gọi E2E Engineer cuối cùng diễn ra SAU E2E Critic/QA Auditor và chưa được kiểm thử lại"
+            )
+    if last_mkt_creator_pos >= 0 and not missing_roles:
+        if last_compliance_critic_pos < last_mkt_creator_pos:
             unreviewed_maker_violations.append(
                 "Vi phạm thứ tự Dynamic Marketing Triad (Rule 3): Lần gọi Creator cuối cùng diễn ra SAU Compliance Critic và chưa được thẩm định lại"
             )
@@ -692,10 +829,24 @@ def evaluate_transcript(
             )
 
     schedule_violations: list[str] = []
-    if schedule_without_bg_cmd_steps and len(subagent_invocations) > 0:
-        schedule_violations.append(
-            "Vi phạm Quy tắc 1.10 (Zero-Polling): Cấm gọi `schedule` timer khi kích hoạt `invoke_subagent`"
-        )
+    first_subagent_idx = subagent_invocations[0][0] if subagent_invocations else None
+    for sched_idx in schedule_steps:
+        if first_subagent_idx is not None:
+            if sched_idx < first_subagent_idx:
+                if any(rc_idx <= sched_idx for rc_idx in run_cmd_steps):
+                    continue
+                else:
+                    schedule_violations.append(
+                        "Vi phạm Quy tắc 1.10 (Zero-Polling): Cấm gọi `schedule` timer khi không có tiến trình chạy ngầm qua `run_command`"
+                    )
+                    break
+            else:
+                has_recent_run_cmd = any(rc_idx in (sched_idx, sched_idx - 1) for rc_idx in run_cmd_steps)
+                if not has_recent_run_cmd:
+                    schedule_violations.append(
+                        "Vi phạm Quy tắc 1.10 (Zero-Polling): Cấm gọi `schedule` timer khi kích hoạt `invoke_subagent`"
+                    )
+                    break
 
     if unreviewed_maker_violations or model_tier_violations or schedule_violations:
         block_issues = unreviewed_maker_violations + model_tier_violations + schedule_violations
@@ -730,6 +881,47 @@ def evaluate_transcript(
             "reason": (
                 f"{GUARD_MARKER} Phát hiện vi phạm quy trình điều phối tác tử: "
                 f"{'; '.join(issues)}. Yêu cầu hoàn tất đầy đủ các bước còn thiếu trước khi bàn giao."
+            ),
+        }
+
+    # Check 3 (VULN-05): Branch Blindness Guard
+    maker_workspaces: list[tuple[int, str]] = []
+    qa_workspaces: list[tuple[int, str]] = []
+    for (step_idx, tc_args), c in zip(subagent_invocations, classified):
+        ws_val = _clean_arg_val(tc_args.get("Workspace") or tc_args.get("workspace") or "inherit").lower()
+        if c["is_app_maker"] or c["is_mkt_creator"]:
+            if ws_val in ("branch", "share"):
+                maker_workspaces.append((step_idx, ws_val))
+        if c["is_qa"]:
+            qa_workspaces.append((step_idx, ws_val))
+
+    if maker_workspaces and any(ws == "inherit" for _, ws in qa_workspaces) and not has_workspace_sync:
+        maker_mode = maker_workspaces[-1][1]
+        return {
+            "decision": "continue",
+            "reason": (
+                f"{GUARD_MARKER} Phát hiện vi phạm VULN-05 (Branch Blindness): "
+                f"Maker chạy trên Workspace='{maker_mode}', nhưng QA Auditor chạy trên Workspace='inherit' "
+                "mà chưa thực hiện đồng bộ nhánh. QA có nguy cơ kiểm thử trên mã nguồn cũ của nhánh cha. "
+                "Yêu cầu Quản đốc thực hiện đồng bộ workspace trước khi QA nghiệm thu."
+            ),
+        }
+
+    # Check 4 (Rule 1.12): SubAgent Report Path Read Verification Gate
+    unread_reports: list[str] = []
+    for cand_raw in candidate_report_paths:
+        cand_resolved = _resolve_candidate_report_path(cand_raw, eff_payload)
+        cand_norm = cand_resolved.as_posix().lower()
+        if cand_norm not in read_file_paths:
+            unread_reports.append(cand_raw)
+
+    if unread_reports:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chốt chặn đọc Artifact): "
+                f"Quản đốc chưa đọc báo cáo đầy đủ tại '{unread_reports[0]}' do SubAgent cung cấp. "
+                "Yêu cầu gọi read_file kiểm tra nội dung trước khi kết thúc lượt."
             ),
         }
 

@@ -690,7 +690,23 @@ def run_targeted_pytest(
     if not test_files:
         return None
 
-    cmd = [sys.executable, "-m", "pytest", "--import-mode=importlib", *[str(p) for p in test_files], "-q"]
+    if os.name == "nt" and (REPO_ROOT / "scripts" / "run_pytest_windows.py").is_file():
+        cmd = [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "run_pytest_windows.py"),
+            "--import-mode=importlib",
+            *[str(p) for p in test_files],
+            "-q",
+        ]
+    else:
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--import-mode=importlib",
+            *[str(p) for p in test_files],
+            "-q",
+        ]
     try:
         proc = subprocess.run(
             cmd,

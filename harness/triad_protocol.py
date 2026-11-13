@@ -53,6 +53,8 @@ class TriadHandoffV2:
     acceptance_criteria_matrix: List[Dict[str, Any]] = field(default_factory=list)
     digest: Optional[str] = None
     report_path: Optional[str] = None
+    workspace_mode: str = "inherit"  # "inherit" | "branch" | "share"
+    workspace_path: Optional[str] = None
     evidence_paths: List[str] = field(default_factory=list)
     schema: str = SCHEMA_V2_URI
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -74,6 +76,10 @@ class TriadHandoffV2:
             d["digest"] = self.digest
         if self.report_path:
             d["report_path"] = self.report_path
+        if self.workspace_mode:
+            d["workspace_mode"] = self.workspace_mode
+        if self.workspace_path:
+            d["workspace_path"] = self.workspace_path
         if self.evidence_paths:
             d["evidence_paths"] = self.evidence_paths
         if self.metadata:
@@ -88,6 +94,7 @@ class TriadHandoffV2:
 def validate_handoff_v2(
     payload: Dict[str, Any],
     require_report_path: bool = False,
+    verify_report_exists: bool = False,
 ) -> Tuple[bool, List[str]]:
     """Kiểm tra tính hợp lệ của payload Triad Handoff Contract v2.
 
@@ -165,6 +172,10 @@ def validate_handoff_v2(
     if "report_path" in payload and report_path is not None:
         if not isinstance(report_path, str) or not report_path.strip():
             errors.append("'report_path' phải là chuỗi không rỗng (non-empty string)")
+        elif verify_report_exists:
+            rp_path = Path(report_path.strip()).resolve()
+            if not rp_path.exists():
+                errors.append(f"Tệp 'report_path' không tồn tại trên hệ thống tệp: '{report_path}'")
     elif require_report_path:
         errors.append("Thiếu trường bắt buộc 'report_path' (non-empty string)")
 
@@ -178,6 +189,12 @@ def validate_handoff_v2(
                 if not isinstance(item, str) or not item.strip():
                     errors.append(f"Mục evidence_paths[{idx}] phải là chuỗi không rỗng (non-empty string)")
 
+    # 10. Kiểm tra workspace_mode (nếu có)
+    workspace_mode = payload.get("workspace_mode")
+    if workspace_mode is not None:
+        if not isinstance(workspace_mode, str) or workspace_mode.strip() not in ("inherit", "branch", "share"):
+            errors.append(f"Giá trị 'workspace_mode' không hợp lệ: '{workspace_mode}' (phải là 'inherit', 'branch' hoặc 'share')")
+
     is_valid = len(errors) == 0
     return is_valid, errors
 
@@ -185,6 +202,7 @@ def validate_handoff_v2(
 def parse_handoff_v2(
     data: Union[str, Dict[str, Any]],
     require_report_path: bool = False,
+    verify_report_exists: bool = False,
 ) -> TriadHandoffV2:
     """Parse và xác thực payload Handoff Contract v2.
     
@@ -200,7 +218,11 @@ def parse_handoff_v2(
     else:
         raise HandoffValidationError("Payload handoff phải là dict hoặc chuỗi JSON")
 
-    is_valid, errors = validate_handoff_v2(payload, require_report_path=require_report_path)
+    is_valid, errors = validate_handoff_v2(
+        payload,
+        require_report_path=require_report_path,
+        verify_report_exists=verify_report_exists,
+    )
     if not is_valid:
         raise HandoffValidationError("Handoff Schema v2 vi phạm:\n- " + "\n- ".join(errors))
 
@@ -214,6 +236,8 @@ def parse_handoff_v2(
         acceptance_criteria_matrix=payload.get("acceptance_criteria_matrix", []),
         digest=payload.get("digest"),
         report_path=payload.get("report_path"),
+        workspace_mode=str(payload.get("workspace_mode") or "inherit").strip(),
+        workspace_path=payload.get("workspace_path"),
         evidence_paths=payload.get("evidence_paths") or [],
         schema=payload.get("$schema") or payload.get("schema") or SCHEMA_V2_URI,
         metadata=payload.get("metadata", {}),

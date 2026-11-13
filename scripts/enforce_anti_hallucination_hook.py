@@ -117,6 +117,18 @@ VERIFICATION_CMD_RE = re.compile(
     re.IGNORECASE,
 )
 
+VERIFICATION_RUNNER_RE = re.compile(
+    r"\b(?:pytest|py\.test|unittest|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|"
+    r"yarn\s+test|vitest|jest|ruff|mypy|py_compile|compileall|tsc|biome|eslint|"
+    r"flake8|cargo\s+test|go\s+test|(?:harness_doctor|run_pytest_windows|run_verification|clean_state_check)(?:\.py)?)\b",
+    re.IGNORECASE,
+)
+
+SPECULATIVE_TERMS_RE = re.compile(
+    r"\b(?:should\s+work|probably|maybe|chắc\s+là|có\s+lẽ|hy\s+vọng)\b",
+    re.IGNORECASE,
+)
+
 BENIGN_NON_TEST_CMD_RE = re.compile(
     r"^\s*(?:git\s+(?:status|diff|log|branch|show|rev-parse|ls-files)|"
     r"ls|dir|Get-ChildItem|rg|grep|findstr|cat|type|Get-Content|pwd|echo|Write-Output|whoami)\b",
@@ -375,11 +387,12 @@ def extract_turn_context_detailed(steps: list[dict[str, Any]]) -> dict[str, Any]
                 api_chunks.append(content.strip())
                 if (
                     "[Message]" in content
-                    and re.search(r"\b(?:pytest|unittest)\b", content, re.IGNORECASE)
+                    and VERIFICATION_RUNNER_RE.search(content)
                     and (
                         CANONICAL_TEST_PASS_RE.search(content)
                         or SUBAGENT_EXIT_ZERO_RE.search(content)
                     )
+                    and not SPECULATIVE_TERMS_RE.search(content)
                 ):
                     verification_chunks.append(content.strip())
                     verification_chunks.append("Command exited with code 0")

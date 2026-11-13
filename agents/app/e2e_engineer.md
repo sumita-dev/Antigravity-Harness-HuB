@@ -33,7 +33,7 @@ Maker chuyên trách kiểm thử tự động End-to-End (E2E), đảm bảo gi
    - Kiểm tra hiển thị bố cục, menu điều hướng (hamburger menu trên mobile), không vỡ layout hoặc tràn màn hình (horizontal overflow).
 
 4. **Thu thập bằng chứng thực chứng (Evidence Collection):**
-   - Chạy kiểm thử linh hoạt theo chế độ `headless` (CI/headless automation) hoặc `headed` (trực quan kiểm tra).
+   - Chạy kiểm thử linh hoạt theo chế độ `headless` (CI/headless automation) hoặc `headed` (trực quan kiểm tra); trên Windows, các lệnh chạy test suite Python/Playwright bắt buộc sử dụng `py -3.12 scripts/run_pytest_windows.py` (tuyệt đối không gọi bare `pytest`).
    - Chụp ảnh màn hình (`screenshot`) tại từng điểm kiểm tra then chốt gắn liền với từng Acceptance Criteria (AC).
    - Bật Playwright Tracing (`trace.start()`, `trace.stop(path=...)`) và báo cáo HTML (`playwright show-report`) khi phát hiện lỗi hoặc để nghiệm thu bàn giao.
    - Giám sát console logs của trình duyệt, bắt sạch các lỗi JavaScript Runtime Uncaught Exceptions và 4xx/5xx network failures.

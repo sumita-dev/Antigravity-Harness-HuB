@@ -44,10 +44,11 @@ def enable_subprocess_normalizer() -> None:
     """Make child Python interpreters launched by tests inherit the same fix."""
     repo_root = Path(__file__).resolve().parents[1]
     shim_dir = Path(__file__).resolve().parent / "pytest_windows_shim"
+    cwd = str(Path.cwd().resolve())
     inherited = os.environ.get("PYTHONPATH", "")
     os.environ["PYTEST_WINDOWS_NORMALIZE_TEMP_MODE"] = "1"
     os.environ["PYTHONPATH"] = os.pathsep.join(
-        item for item in (str(shim_dir), str(repo_root), inherited) if item
+        item for item in (cwd, str(shim_dir), str(repo_root), inherited) if item
     )
 
 
@@ -92,6 +93,9 @@ def main() -> int:
         return 2
     install_mode_normalizer()
     enable_subprocess_normalizer()
+    cwd = str(Path.cwd().resolve())
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
     tier, args = resolve_tier_args(sys.argv[1:])
     if not any(arg == "--basetemp" or arg.startswith("--basetemp=") for arg in args):
         temp_root = Path(os.environ.get("TEMP") or os.environ.get("TMP") or Path.cwd())
