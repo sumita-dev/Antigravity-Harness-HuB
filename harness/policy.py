@@ -18,7 +18,7 @@ def resolve_runtime_policy(role, config=None, metadata=None):
         raise ValueError(f'Unknown model tier: {tier}')
     metadata = metadata or {}
     declared = metadata.get('model', tier)
-    if declared != tier:
+    if declared != tier and not (declared == 'inherit' and tier == 'pro'):
         raise ValueError(f'Declared model {declared} disagrees with configured {tier}')
     if metadata.get('enable_subagent_tools', False):
         raise ValueError('Nested subagents prohibited; Chief dispatches decomposition')

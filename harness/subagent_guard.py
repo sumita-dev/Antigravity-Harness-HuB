@@ -231,30 +231,48 @@ class SubagentGuard:
             "status": "CLEAN",
         }
 
-    def record_handoff(self, handoff_data: Dict[str, Any]) -> Any:
+    def record_handoff(self, handoff_data: Dict[str, Any], require_report_path: bool = False) -> Any:
         """Ghi nhận và xác thực Triad Handoff Contract v2."""
         from harness.triad_protocol import parse_handoff_v2
-        return parse_handoff_v2(handoff_data)
+        return parse_handoff_v2(handoff_data, require_report_path=require_report_path)
 
-    def sync_qa_workspace(self, maker_branch: str, target_dir: Optional[Path] = None) -> Dict[str, Any]:
+    def sync_qa_workspace(
+        self,
+        maker_branch: str,
+        target_dir: Optional[Path] = None,
+        allow_dirty: bool = False,
+    ) -> Dict[str, Any]:
         """Đồng bộ nhánh của Maker sang QA workspace (Chống VULN-05)."""
         from harness.triad_protocol import sync_workspace_for_qa
         dest = target_dir or self.repo_root
-        return sync_workspace_for_qa(maker_branch, dest, repo_root=self.repo_root)
+        return sync_workspace_for_qa(
+            maker_branch,
+            dest,
+            repo_root=self.repo_root,
+            allow_dirty=allow_dirty,
+        )
 
 
-def validate_triad_handoff(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
+def validate_triad_handoff(
+    payload: Dict[str, Any],
+    require_report_path: bool = False,
+) -> Tuple[bool, List[str]]:
     """Hàm module-level xác thực payload Triad Handoff v2."""
     from harness.triad_protocol import validate_handoff_v2
-    return validate_handoff_v2(payload)
+    return validate_handoff_v2(payload, require_report_path=require_report_path)
 
 
-def sync_qa_branch(maker_branch: str, target_dir: Optional[Path] = None, repo_root: Optional[Path] = None) -> Dict[str, Any]:
+def sync_qa_branch(
+    maker_branch: str,
+    target_dir: Optional[Path] = None,
+    repo_root: Optional[Path] = None,
+    allow_dirty: bool = False,
+) -> Dict[str, Any]:
     """Hàm module-level đồng bộ branch giữa Maker và QA Auditor."""
     from harness.triad_protocol import sync_workspace_for_qa
     root = Path(repo_root or REPO_ROOT).resolve()
     dest = target_dir or root
-    return sync_workspace_for_qa(maker_branch, dest, repo_root=root)
+    return sync_workspace_for_qa(maker_branch, dest, repo_root=root, allow_dirty=allow_dirty)
 
 
 def list_idle_subagents(repo_root: Optional[Path] = None) -> List[SubagentInfo]:

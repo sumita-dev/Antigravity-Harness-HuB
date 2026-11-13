@@ -197,14 +197,14 @@ def run_probe_def_01(work_dir: Path) -> dict[str, Any]:
         "branch=app" in app_msg
         and "skill=app" in app_msg
         and "plugins/code/skills/app/SKILL.md" in app_msg
-        and "Architect (pro) -> Design Reviewer (flash) -> Builder (pro) -> Code Critic (flash) -> QA Auditor (flash)"
+        and "Architect (pro) -> Design Reviewer (inherit) -> Builder (pro) -> Code Critic (inherit) -> QA Auditor (flash)"
         in app_msg
     )
     mkt_ok = (
         "branch=marketing" in mkt_msg
         and "skill=boc-phot-storytelling" in mkt_msg
         and "plugins/marketing/skills/boc-phot-storytelling/SKILL.md" in mkt_msg
-        and "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (flash)" in mkt_msg
+        and "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (inherit)" in mkt_msg
     )
     dedup_ok = dedup_out.get("injectSteps") == []
 

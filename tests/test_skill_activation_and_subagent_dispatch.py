@@ -155,7 +155,7 @@ def test_pre_invocation_hook_injects_on_initial_turn_and_skips_subsequent_steps(
     assert "branch=app" in app_msg
     assert "skill=security-review" in app_msg
     assert "plugins/code/skills/security-review/SKILL.md" in app_msg
-    assert "Code Critic (flash)" in app_msg
+    assert "Code Critic (inherit)" in app_msg
     assert "QA Auditor (flash)" in app_msg
 
     # 2. Marketing task on invocationNum=1
@@ -171,7 +171,7 @@ def test_pre_invocation_hook_injects_on_initial_turn_and_skips_subsequent_steps(
     assert "branch=marketing" in mkt_msg
     assert "skill=boc-phot-storytelling" in mkt_msg
     assert "plugins/marketing/skills/boc-phot-storytelling/SKILL.md" in mkt_msg
-    assert "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (flash)" in mkt_msg
+    assert "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (inherit)" in mkt_msg
 
     # 3. Subsequent invocation within same turn (invocationNum=2) must NOT re-inject
     step2_payload = {
@@ -244,16 +244,16 @@ def test_subagent_dispatch_composes_task_skill_and_enforces_model_tiers() -> Non
     assert "cong-thuc-viet-content-by-noti-v4" in creator_data["skill_selection"]["skills"]
     assert creator_data["skill_selection"]["chars"] > 1000
 
-    # 3. Verify Explicit Model Tiering across all Triad roles (Maker=pro, Critic/QA=flash)
+    # 3. Verify Explicit Model Tiering across all Triad roles (Maker/Critic=pro, QA=flash)
     all_agents = get_all_agents(str(REPO_ROOT / "agents"))
     assert all_agents["architect"]["model"] == "pro"
-    assert all_agents["design_reviewer"]["model"] == "flash"
+    assert all_agents["design_reviewer"]["model"] == "pro"
     assert all_agents["builder"]["model"] == "pro"
-    assert all_agents["code_critic"]["model"] == "flash"
+    assert all_agents["code_critic"]["model"] == "pro"
     assert all_agents["qa_auditor"]["model"] == "flash"
     assert all_agents["web_researcher"]["model"] == "pro"
     assert all_agents["creator"]["model"] == "pro"
-    assert all_agents["compliance_critic"]["model"] == "flash"
+    assert all_agents["compliance_critic"]["model"] == "pro"
 
 
 # =============================================================================
@@ -313,7 +313,7 @@ def test_orchestrator_end_to_end_triad_and_skill_load_trajectory() -> None:
         "CHECKER",
     ]
     actors = [s["payload"].get("actor") for s in mkt_ctx.trace_steps if "actor" in s.get("payload", {})]
-    assert actors == ["web_researcher", "creator", "compliance_critic", "compliance_critic"]
+    assert actors == ["web_researcher", "creator", "content_critic", "compliance_critic"]
 
     # 3. Circuit Breaker Escalation after 2 rejections
     esc_ctx, esc_verdict = orc.process_task(

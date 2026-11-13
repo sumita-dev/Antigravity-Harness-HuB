@@ -77,7 +77,7 @@ def test_detect_polling_loops_violation():
 
 
 def test_detect_model_inheritance_waste_catches_critic_and_qa():
-    """Bắt lỗi khi Critic hoặc QA Auditor dùng Model='inherit'."""
+    """Rule 1.11: Cho phép Critic dùng Model='inherit', nhưng bắt lỗi khi QA Auditor dùng Model='inherit'."""
     records = [
         {
             "step_index": 1,
@@ -103,9 +103,9 @@ def test_detect_model_inheritance_waste_catches_critic_and_qa():
         }
     ]
     violations = detect_model_inheritance_waste(records)
-    assert len(violations) == 2
+    assert len(violations) == 1
     roles = [v["role"] for v in violations]
-    assert "Code Critic" in roles
+    assert "Code Critic" not in roles
     assert "QA Auditor" in roles
 
 

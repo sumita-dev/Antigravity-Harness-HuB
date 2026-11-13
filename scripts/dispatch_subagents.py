@@ -13,7 +13,12 @@ from harness.skills.router import SkillRouter
 APP_STAGES = {"architect": "DESIGN", "design_reviewer": "DESIGN_REVIEW",
               "builder": "IMPLEMENTATION", "code_critic": "CRITIQUE", "qa_auditor": "AUDIT",
               "e2e_engineer": "AUDIT", "e2e_critic": "AUDIT", "apple_design_critic": "DESIGN_REVIEW"}
-MARKETING_STAGES = {"web_researcher": "RESEARCH", "creator": "CREATION", "compliance_critic": "AUDIT"}
+MARKETING_STAGES = {
+    "web_researcher": "RESEARCH",
+    "creator": "CREATION",
+    "content_critic": "CRITIQUE",
+    "compliance_critic": "AUDIT",
+}
 ALL_STAGES = {**APP_STAGES, **MARKETING_STAGES}
 
 if hasattr(sys.stdout, "reconfigure"):

@@ -5,19 +5,19 @@
   },
   "roles": {
     "architect": "pro",
-    "design_reviewer": "flash",
+    "design_reviewer": "pro",
     "builder": "pro",
-    "code_critic": "flash",
+    "code_critic": "pro",
     "qa_auditor": "flash",
     "web_researcher": "pro",
     "creator": "pro",
     "builder_creator": "pro",
     "qa": "flash",
-    "compliance_critic": "flash",
-    "content_critic": "flash",
+    "compliance_critic": "pro",
+    "content_critic": "pro",
     "apple_design_critic": "flash",
     "e2e_engineer": "pro",
-    "e2e_critic": "flash"
+    "e2e_critic": "pro"
   },
   "limits": {
     "max_critique_rounds": 2,

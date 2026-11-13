@@ -22,8 +22,8 @@ Cổng hỏi/chốt ý định: Architect → Design Reviewer → Sếp duyệt 
 8. **Biên Bản Giao Nhận (Handoff Protocol — Maker ➔ Critic ➔ QA Auditor):** Metadata, Context, Acceptance Criteria `[ ] Checklist`, Evidence (diffs, logs, test outputs) và Verdict (`PASS`/`FAIL`, tối đa 2 lần retry trước khi `ESCALATED`).
 9. **Tự Động Điều Phối Profile Plugin (Autonomous Profile Switching Gate):** Tự chuyển profile qua `switch-profile.ps1` hoặc `config.json`: Kỹ thuật -> `code`; Marketing -> `marketing`; Lai ghép -> `all`.
 10. **Cấm Polling Chủ Động, Đón Reactive Wakeup, Dead-man's Switch & Stream Command Safety (Zero-Polling Invariant):** CẤM gọi `manage_task` (status) trong loop; dừng turn đón Reactive Wakeup. Dead-man's Switch (`schedule`) CHỈ kích hoạt khi chạy CLI ngầm dài hạn qua `run_command` (`45s` Fast, `240s` Full/Batch) chống ngủ đông. TUYỆT ĐỐI CẤM gọi `schedule` timer khi kích hoạt SubAgent (`invoke_subagent`), vì SubAgent đã có Reactive Wakeup. **STDIN DevNull Guard & Stream Safety:** Khóa cứng `stdin=subprocess.DEVNULL`. Lệnh stream (`rg`, `grep`, `findstr`) BẮT BUỘC có Explicit Target Path (`.` hoặc đường dẫn cụ thể), không để trống tránh block STDIN.
-11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `Model: "flash"` hoặc `"flash_lite"`. Chỉ Maker giải thuật phức tạp mới kế thừa model gốc.
-12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload):** Subagent gửi về digest < 100 từ kèm hash, exit code, verdict. Log dài/diff ghi ra disk/artifact directory.
+11. **Ép Phân Tầng Model Tường Minh (Explicit Model Tiering):** QA Auditor (chạy test/probe tất định) dùng `Model: "flash"` hoặc `"flash_lite"`. Các Critic phân tích sâu (`Code_Critic`, `Design_Reviewer`, `Compliance_Critic`, `Content_Critic`, `E2E_Critic`) dùng `Model: "inherit"` để ngang tầm Maker.
+12. **Biên Bản Giao Nhận Tinh Gọn (Lean Handoff Payload) & Chốt Chặn Đọc Artifact:** Subagent gửi về `digest < 100 từ` chỉ dùng để định tuyến nội bộ giữa các agent, kèm `report_path`, hash, exit code, verdict. Log dài/diff ghi ra disk/artifact directory; Quản đốc BẮT BUỘC đọc file `report_path` đầy đủ của Critic/QA trước khi viết báo cáo cuối cho Sếp.
 13. **Cơ Chế Cắt Phiên Tự Động & Chống Mờ Ngữ Cảnh (Session Rollover Enforcer):** Chạm 35-40 turns hoặc transcript > 200KB: Quản đốc kết xuất tiến độ sang `$OBSIDIAN_VAULT_PATH/wiki/projects/<ten-du-an>/_session-handoff.md` và đề xuất Sếp gõ `/compact` hoặc thread mới. Context Telemetry: GREEN (<=35 turns, <180KB) không chèn; YELLOW (35-40 turns, 180-240KB) hoặc RED (>40 turns, >250KB) bắt buộc chèn thẻ Telemetry cuối câu trả lời kèm khuyến nghị `/compact`.
 14. **Rào Chắn Chống Ảo Giác Tự Động & Kỷ Luật Phạm Vi (Autonomous Anti-Hallucination & Anti-Scope-Reduction Invariant):**
     - Kích hoạt tự động không cần gõ lệnh.
@@ -89,6 +89,7 @@ Kích hoạt từ `plugins/<plugin>/skills/<skill>/SKILL.md`:
 - **Bảo toàn độ chính xác kỹ thuật:** Giữ đầy đủ mã lệnh, đường dẫn file, log lỗi thực tế và thông số kỹ thuật.
 - **Tư vấn trước - Sửa mã sau (Consult Before Mutate):** Nếu yêu cầu chưa rõ ràng, luôn hỏi và chốt qua `ask_question` trước khi can thiệp vào code.
 - **Bằng chứng thực chứng:** Mọi kết luận đều dẫn xuất từ trích dẫn file mã nguồn, log hoặc kết quả lệnh thực tế.
+- **Pre-Delivery Falsification & Output Schema Trình Sếp:** Trước khi gửi báo cáo hoàn thành cho Sếp, BẮT BUỘC tự phản biện và trình bày đủ 4 phần: (1) Kết quả & Thay đổi thực tế, (2) Phản biện tự thân (Giả định ngầm, Edge-case, Điểm mù), (3) Bằng chứng thực chứng (lệnh, exit code, log/path), (4) Phạm vi chưa kiểm chứng / Rủi ro còn lại.
 
 ---
 

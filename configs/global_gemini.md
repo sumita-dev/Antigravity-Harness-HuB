@@ -43,8 +43,8 @@
 
 ## 4. Kỷ Luật Thực Thi & Ngân Sách Ngữ Cảnh (Execution Discipline)
 1. **Zero-Polling & Dead-man's Switch:** CẤM gọi `manage_task(status)` trong loop; dừng turn đón Reactive Wakeup. Dead-man's Switch (`schedule`) CHỈ kích hoạt khi chạy lệnh CLI ngầm nguy cơ treo (`45s` Fast-Tier, `240s` Full-Tier). CẤM gọi `schedule` cho SubAgent.
-2. **Ép Phân Tầng Model:** CẤM dùng `Model: "inherit"` cho Critic/QA. Critic dùng `Model: "flash"`, QA dùng `"flash"` hoặc `"flash_lite"`.
-3. **Lean Handoff Payload:** Subagent gửi digest < 100 từ kèm hash, exit code, verdict. Log dài ghi ra disk/artifact.
+2. **Ép Phân Tầng Model:** QA Auditor (test/probe tất định) dùng `Model: "flash"` hoặc `"flash_lite"`. Các Critic phân tích sâu (`Code_Critic`, `Design_Reviewer`, `Compliance_Critic`, `Content_Critic`, `E2E_Critic`) dùng `Model: "inherit"` để ngang tầm Maker.
+3. **Lean Handoff Payload & Chốt Chặn Đọc Artifact:** Subagent gửi digest < 100 từ kèm `report_path`, hash, exit code, verdict. Log dài ghi ra disk/artifact; Quản đốc BẮT BUỘC đọc file `report_path` đầy đủ của Critic/QA trước khi báo cáo Sếp.
 4. **Session Rollover Enforcer:** Khi chạm 35-40 turns hoặc transcript > 200KB, tự xuất tiến độ sang `$OBSIDIAN_VAULT_PATH/wiki/_session-handoff.md` và hướng dẫn Sếp gõ `/compact` hoặc mở phiên mới. Telemetry hiển thị khi YELLOW (35-40 turns, 180-240KB) hoặc RED (> 40 turns, > 250KB).
 5. **Context Budget Economics:** Trần `always_on_max` phải được bảo vệ; chuyển chi tiết vào Skill/Script/SubAgent on-demand.
 

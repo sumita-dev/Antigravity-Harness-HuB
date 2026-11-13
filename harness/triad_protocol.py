@@ -52,6 +52,8 @@ class TriadHandoffV2:
     modified_files: List[Dict[str, Any]] = field(default_factory=list)
     acceptance_criteria_matrix: List[Dict[str, Any]] = field(default_factory=list)
     digest: Optional[str] = None
+    report_path: Optional[str] = None
+    evidence_paths: List[str] = field(default_factory=list)
     schema: str = SCHEMA_V2_URI
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -70,6 +72,10 @@ class TriadHandoffV2:
             d["spec_sha256"] = self.spec_sha256
         if self.digest:
             d["digest"] = self.digest
+        if self.report_path:
+            d["report_path"] = self.report_path
+        if self.evidence_paths:
+            d["evidence_paths"] = self.evidence_paths
         if self.metadata:
             d["metadata"] = self.metadata
         return d
@@ -79,7 +85,10 @@ class TriadHandoffV2:
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
 
-def validate_handoff_v2(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
+def validate_handoff_v2(
+    payload: Dict[str, Any],
+    require_report_path: bool = False,
+) -> Tuple[bool, List[str]]:
     """Kiểm tra tính hợp lệ của payload Triad Handoff Contract v2.
 
     Trả về:
@@ -151,11 +160,32 @@ def validate_handoff_v2(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
         if len(words) > 100:
             errors.append(f"Digest vượt quá giới hạn 100 từ theo Rule 1.12 (đếm được {len(words)} từ)")
 
+    # 8. Kiểm tra report_path (Hợp đồng bàn giao & Chốt chặn đọc Artifact)
+    report_path = payload.get("report_path")
+    if "report_path" in payload and report_path is not None:
+        if not isinstance(report_path, str) or not report_path.strip():
+            errors.append("'report_path' phải là chuỗi không rỗng (non-empty string)")
+    elif require_report_path:
+        errors.append("Thiếu trường bắt buộc 'report_path' (non-empty string)")
+
+    # 9. Kiểm tra evidence_paths (nếu có, phải là list các non-empty string)
+    if "evidence_paths" in payload and payload["evidence_paths"] is not None:
+        ep = payload["evidence_paths"]
+        if not isinstance(ep, list):
+            errors.append("'evidence_paths' bắt buộc phải là một danh sách (list)")
+        else:
+            for idx, item in enumerate(ep):
+                if not isinstance(item, str) or not item.strip():
+                    errors.append(f"Mục evidence_paths[{idx}] phải là chuỗi không rỗng (non-empty string)")
+
     is_valid = len(errors) == 0
     return is_valid, errors
 
 
-def parse_handoff_v2(data: Union[str, Dict[str, Any]]) -> TriadHandoffV2:
+def parse_handoff_v2(
+    data: Union[str, Dict[str, Any]],
+    require_report_path: bool = False,
+) -> TriadHandoffV2:
     """Parse và xác thực payload Handoff Contract v2.
     
     Ném ra HandoffValidationError nếu payload không đạt chuẩn.
@@ -170,7 +200,7 @@ def parse_handoff_v2(data: Union[str, Dict[str, Any]]) -> TriadHandoffV2:
     else:
         raise HandoffValidationError("Payload handoff phải là dict hoặc chuỗi JSON")
 
-    is_valid, errors = validate_handoff_v2(payload)
+    is_valid, errors = validate_handoff_v2(payload, require_report_path=require_report_path)
     if not is_valid:
         raise HandoffValidationError("Handoff Schema v2 vi phạm:\n- " + "\n- ".join(errors))
 
@@ -183,6 +213,8 @@ def parse_handoff_v2(data: Union[str, Dict[str, Any]]) -> TriadHandoffV2:
         modified_files=payload.get("modified_files", []),
         acceptance_criteria_matrix=payload.get("acceptance_criteria_matrix", []),
         digest=payload.get("digest"),
+        report_path=payload.get("report_path"),
+        evidence_paths=payload.get("evidence_paths") or [],
         schema=payload.get("$schema") or payload.get("schema") or SCHEMA_V2_URI,
         metadata=payload.get("metadata", {}),
     )
@@ -198,6 +230,7 @@ def sync_workspace_for_qa(
     maker_branch: str,
     target_workspace: Union[str, Path],
     repo_root: Optional[Union[str, Path]] = None,
+    allow_dirty: bool = False,
 ) -> Dict[str, Any]:
     """Đồng bộ mã nguồn từ nhánh làm việc của Maker sang workspace của QA Auditor (Chống VULN-05 Branch Blindness).
 
@@ -240,6 +273,27 @@ def sync_workspace_for_qa(
 
         commit_sha = cp.stdout.strip()
         result["commit_sha"] = commit_sha
+
+        # Kiểm tra working tree tại root trước khi checkout commit_sha
+        status_cp = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+        if status_cp.returncode != 0:
+            result["synced"] = False
+            result["message"] = f"Lỗi kiểm tra git status tại '{root}': {status_cp.stderr.strip()}"
+            return result
+
+        if status_cp.stdout.strip() and not allow_dirty:
+            result["synced"] = False
+            result["message"] = (
+                f"Working tree tại '{root}' có thay đổi chưa commit (uncommitted/untracked); "
+                "yêu cầu commit hoặc sync cả working tree để tránh mất file của Maker."
+            )
+            return result
 
         # Nếu target_workspace là chính root repo hoặc worktree khác có .git
         if target_dir.exists() and (target_dir / ".git").exists():

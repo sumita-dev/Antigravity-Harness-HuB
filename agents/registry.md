@@ -13,7 +13,7 @@ Bảng này là metadata và hợp đồng prompt, không phải schema API Anti
 | `E2E_Critic` | app | E2E_REVIEW | agents/app/e2e_critic.md | Đọc kịch bản/screenshots/traces; kiểm 100% AC, không sửa file |
 | `Web_Researcher` | marketing | RESEARCH | agents/marketing/web_researcher.md | Đọc/search; ghi dossier/evidence |
 | `Creator` | marketing | CREATION | agents/marketing/creator.md | Đọc dossier; ghi draft/artifacts |
-| `Content_Critic` | marketing | CRITIQUE | agents/marketing/compliance_critic.md | Soi logic, angle, voice of customer, không sửa draft |
+| `Content_Critic` | marketing | CRITIQUE | agents/marketing/content_critic.md | Soi logic, angle, voice of customer, không sửa draft |
 | `Compliance_Critic` | marketing | AUDIT | agents/marketing/compliance_critic.md | Đọc artifacts; ghi report/evidence, không sửa draft/source |
 | `Synthesizer` | cross | Sau task | agents/synthesizer.md | Chưng cất skill theo phạm vi được giao |
 

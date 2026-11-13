@@ -260,3 +260,81 @@ def test_sync_workspace_for_qa_mechanism(tmp_path: Path):
     res = sync_workspace_for_qa("feature-branch", tmp_path, repo_root=tmp_path)
     assert res["synced"] is True
     assert "filesystem fallback" in res["message"]
+
+
+def test_triad_handoff_v2_report_and_evidence_paths():
+    """Pha 1: Kiểm tra report_path, evidence_paths và require_report_path=True."""
+    base = {
+        "task_id": "T-REPORT-01",
+        "commit_sha": "1234567890abcdef",
+        "verification_receipt": {"command": "pytest -q", "exit_code": 0, "stdout_hash": "abc123"},
+        "report_path": "artifacts/qa_report.md",
+        "evidence_paths": ["artifacts/pytest.log", "artifacts/screenshot.png"],
+    }
+    ok, errors = validate_handoff_v2(base, require_report_path=True)
+    assert ok is True
+    assert errors == []
+
+    handoff = parse_handoff_v2(base, require_report_path=True)
+    assert handoff.report_path == "artifacts/qa_report.md"
+    assert handoff.evidence_paths == ["artifacts/pytest.log", "artifacts/screenshot.png"]
+    d = handoff.to_dict()
+    assert d["report_path"] == "artifacts/qa_report.md"
+    assert d["evidence_paths"] == ["artifacts/pytest.log", "artifacts/screenshot.png"]
+
+    # Thiếu report_path khi require_report_path=True -> lỗi
+    no_rp = {k: v for k, v in base.items() if k != "report_path"}
+    ok_missing, err_missing = validate_handoff_v2(no_rp, require_report_path=True)
+    assert ok_missing is False
+    assert any("report_path" in e for e in err_missing)
+    with pytest.raises(HandoffValidationError):
+        parse_handoff_v2(no_rp, require_report_path=True)
+
+    # report_path rỗng -> lỗi ngay cả khi require_report_path=False
+    empty_rp = {**base, "report_path": "   "}
+    ok_empty, err_empty = validate_handoff_v2(empty_rp)
+    assert ok_empty is False
+    assert any("report_path" in e for e in err_empty)
+
+    # evidence_paths sai kiểu hoặc có phần tử rỗng -> lỗi
+    bad_ep = {**base, "evidence_paths": ["valid.log", ""]}
+    ok_ep, err_ep = validate_handoff_v2(bad_ep)
+    assert ok_ep is False
+    assert any("evidence_paths[1]" in e for e in err_ep)
+
+
+def test_sync_workspace_for_qa_dirty_working_tree(tmp_path: Path):
+    """Pha 4: Chặn sync nếu working tree có thay đổi chưa commit trừ khi allow_dirty=True."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def _git(*args):
+        return subprocess.run(
+            ["git", *args],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            check=True,
+        )
+
+    _git("init")
+    _git("config", "user.email", "test@example.com")
+    _git("config", "user.name", "Test User")
+    (repo / "app.py").write_text("print('v1')\n", encoding="utf-8")
+    _git("add", "app.py")
+    _git("commit", "-m", "init")
+    _git("branch", "maker-branch")
+
+    # Tạo file untracked (dirty working tree)
+    (repo / "uncommitted.py").write_text("print('wip')\n", encoding="utf-8")
+
+    res_blocked = sync_workspace_for_qa("maker-branch", repo, repo_root=repo)
+    assert res_blocked["synced"] is False
+    assert "uncommitted/untracked" in res_blocked["message"]
+
+    # Khi allow_dirty=True thì cho phép checkout
+    res_allowed = sync_workspace_for_qa("maker-branch", repo, repo_root=repo, allow_dirty=True)
+    assert res_allowed["synced"] is True

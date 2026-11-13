@@ -465,3 +465,73 @@ def test_circuit_breaker_allows_after_two_retries(tmp_path: Path) -> None:
     res_cli = _run_hook_cli({"transcriptPath": str(t_cb), "terminationReason": "NO_TOOL_CALL"})
     assert res_cli["decision"] == "continue"
     assert "[ESCALATED_HARD_STOP]" in res_cli["reason"]
+
+
+def test_rule_1_11_allows_critic_inherit_blocks_qa_inherit(tmp_path: Path) -> None:
+    """Rule 1.11: Critic được phép Model='inherit', QA Auditor dùng Model='inherit' bị chặn."""
+    t_critic_inherit = _write_transcript(
+        tmp_path / "t_critic_inherit.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Xây dựng module order"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder", "Model": "inherit"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic", "Model": "inherit"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    assert _run_hook_cli({"transcriptPath": str(t_critic_inherit), "terminationReason": "NO_TOOL_CALL"}) == {
+        "decision": "allow"
+    }
+
+    t_qa_inherit = _write_transcript(
+        tmp_path / "t_qa_inherit.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Xây dựng module order"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic", "Model": "inherit"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "inherit"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_qa_block = _run_hook_cli({"transcriptPath": str(t_qa_inherit), "terminationReason": "NO_TOOL_CALL"})
+    assert res_qa_block["decision"] == "block"
+    assert "Model='inherit'" in res_qa_block["reason"]
+    assert "QA Auditor" in res_qa_block["reason"]

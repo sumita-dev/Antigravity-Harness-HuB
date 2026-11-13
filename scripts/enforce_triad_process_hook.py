@@ -685,8 +685,8 @@ def evaluate_transcript(
     model_tier_violations: list[str] = []
     for (_, tc_args), c in zip(subagent_invocations, classified):
         model_val = _clean_arg_val(tc_args.get("Model") or tc_args.get("model")).lower()
-        if (c["is_exec_critic"] or c["is_qa"]) and model_val == "inherit":
-            role_label = c["role"] or "Critic/QA"
+        if c["is_qa"] and model_val == "inherit":
+            role_label = c["role"] or "QA Auditor"
             model_tier_violations.append(
                 f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='inherit' cho {role_label}"
             )

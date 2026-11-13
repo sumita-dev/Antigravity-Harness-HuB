@@ -2,7 +2,7 @@
 
 Chuyên trách phân tích transcript phiên làm việc (.jsonl) để phát hiện lãng phí token:
 1. detect_polling_loops: Phát hiện các chuỗi gọi manage_task(status) liên tiếp (vi phạm Reactive Wakeup).
-2. detect_model_inheritance_waste: Quét các lệnh invoke_subagent dùng Model='inherit' cho Critic/QA/Auditor.
+2. detect_model_inheritance_waste: Quét các lệnh invoke_subagent dùng Model='inherit' cho QA Auditor/Checker nhẹ.
 3. detect_view_file_redundancy: Phát hiện các file bị view_file lặp lại nhiều lần.
 4. calculate_context_growth: Đo lường tốc độ phình to context/tokens qua từng bước.
 5. diagnose_session: Tổng hợp chẩn đoán thành SessionDiagnosticReport với phán quyết (CLEAN / WARNING / EXCESSIVE_WASTE).
@@ -19,17 +19,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 
-# Danh sách từ khoá nhận diện vai trò thẩm định/kiểm thử cần dùng model nhẹ
+# Danh sách từ khoá nhận diện vai trò kiểm thử/audit tất định cần dùng model nhẹ (Rule 1.11)
 LIGHTWEIGHT_ROLES_KEYWORDS = (
-    "critic",
     "qa",
     "auditor",
     "checker",
-    "review",
-    "reviewer",
     "inspector",
-    "compliance",
-    "audit",
 )
 
 
@@ -142,10 +137,11 @@ def detect_polling_loops(records: Sequence[dict]) -> list[dict]:
 
 
 def detect_model_inheritance_waste(records: Sequence[dict]) -> list[dict]:
-    """Quét các lệnh invoke_subagent dùng Model='inherit' cho Critic/QA/Auditor.
+    """Quét các lệnh invoke_subagent dùng Model='inherit' cho QA Auditor / Checker nhẹ.
 
-    Nguyên tắc Antigravity: Các vai trò rà soát độc lập (Critic, QA Auditor, Checker)
-    bắt buộc dùng model flash hoặc flash_lite để tiết kiệm token và tránh suy thoái ngân sách.
+    Nguyên tắc Antigravity (Rule 1.11): Các vai trò kiểm thử tất định (QA Auditor, Checker)
+    bắt buộc dùng model flash hoặc flash_lite để tiết kiệm token; Critic phân tích sâu
+    được phép dùng Model='inherit' để ngang tầm Maker.
     """
     violations: list[dict] = []
 
@@ -437,7 +433,7 @@ def diagnose_session(
         )
     if model_waste_violations:
         recommendations.append(
-            "Ép phân tầng Model tường minh: Cấm dùng Model='inherit' cho Critic/QA, chuyển sang 'flash' hoặc 'flash_lite'."
+            "Ép phân tầng Model tường minh: Cấm dùng Model='inherit' cho QA Auditor/Checker nhẹ, chuyển sang 'flash' hoặc 'flash_lite'."
         )
     if redundancy_violations:
         recommendations.append(

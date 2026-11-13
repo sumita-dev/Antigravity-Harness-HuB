@@ -6,7 +6,7 @@ role: critic
 enable_write_tools: false
 enable_mcp_tools: false
 enable_subagent_tools: false
-model: flash
+model: inherit
 workspace: inherit
 description: >
   Phản biện mã nguồn độc lập ở chặng CRITIQUE: soi Spec GAP, logic boundary conditions,
