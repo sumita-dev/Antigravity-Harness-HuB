@@ -909,10 +909,22 @@ def evaluate_transcript(
     model_tier_violations: list[str] = []
     for (_, tc_args), c in zip(subagent_invocations, classified):
         model_val = _clean_arg_val(tc_args.get("Model") or tc_args.get("model")).lower()
+        is_deep_critic = (
+            c["is_code_critic"]
+            or c["is_design_reviewer"]
+            or c["is_compliance_critic"]
+            or c["is_content_critic"]
+            or c["is_e2e_critic"]
+        )
         if c["is_qa"] and model_val == "inherit":
             role_label = c["role"] or "QA Auditor"
             model_tier_violations.append(
                 f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='inherit' cho {role_label}"
+            )
+        elif is_deep_critic and model_val in ("flash", "flash_lite"):
+            role_label = c["role"] or "Critic"
+            model_tier_violations.append(
+                f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='{model_val}' cho {role_label} (phải dùng Model='inherit')"
             )
 
     schedule_violations: list[str] = []

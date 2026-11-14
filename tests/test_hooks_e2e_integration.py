@@ -95,7 +95,18 @@ def _run_pipeline(payload: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
 
 # TC-INT-01: Full Clean Turn Execution (kèm Rule 1.11)
 def test_tc_int_01_full_clean_turn_execution(tmp_path: Path):
-    """Turn sạch: Không file ảo, có pytest pass thật, Critic/QA dùng Model='flash', kill_all."""
+    """Turn sạch: Không file ảo, có pytest pass thật, Critic dùng Model='inherit', QA dùng Model='flash', đọc đủ report_path, kill_all."""
+    critic_report = tmp_path / "critic_report.md"
+    critic_report.write_text(
+        "\n".join(f"- Critic finding line {i}: OK" for i in range(1, 27)) + "\n",
+        encoding="utf-8",
+    )
+    qa_report = tmp_path / "qa_report.md"
+    qa_report.write_text(
+        "\n".join(f"- QA test result line {i}: PASS" for i in range(1, 27)) + "\n",
+        encoding="utf-8",
+    )
+
     t_path = _write_transcript(
         tmp_path / "transcript.jsonl",
         [
@@ -124,7 +135,7 @@ def test_tc_int_01_full_clean_turn_execution(tmp_path: Path):
                         "args": {
                             "Role": "Code Critic",
                             "TypeName": "app",
-                            "Model": "flash",  # Rule 1.11 Explicit Model Tiering
+                            "Model": "inherit",  # Rule 1.11 Explicit Model Tiering
                             "Prompt": "Kiểm tra mã nguồn",
                         },
                     }
@@ -133,7 +144,10 @@ def test_tc_int_01_full_clean_turn_execution(tmp_path: Path):
             {
                 "type": "SYSTEM_MESSAGE",
                 "source": "SYSTEM",
-                "content": "[Message] sender=sub-critic-1 content=Code Critic: APPROVE không có vi phạm GAP.",
+                "content": (
+                    "[Message] sender=sub-critic-1 content=Code Critic: APPROVE không có vi phạm GAP. "
+                    f"report_path: {critic_report}"
+                ),
             },
             {
                 "type": "PLANNER_RESPONSE",
@@ -145,7 +159,7 @@ def test_tc_int_01_full_clean_turn_execution(tmp_path: Path):
                             "Role": "QA Auditor",
                             "TypeName": "app",
                             "Model": "flash",  # Rule 1.11 Explicit Model Tiering
-                            "Prompt": "Chạy test suite nghiệm thu",
+                            "Prompt": f"Chạy test suite nghiệm thu (tham chiếu {critic_report})",
                         },
                     }
                 ],
@@ -153,7 +167,23 @@ def test_tc_int_01_full_clean_turn_execution(tmp_path: Path):
             {
                 "type": "SYSTEM_MESSAGE",
                 "source": "SYSTEM",
-                "content": "[Message] sender=sub-qa-1 content=QA Auditor: 100% tests pass, verdict PASS.",
+                "content": (
+                    "[Message] sender=sub-qa-1 content=QA Auditor: 100% tests pass, verdict PASS. "
+                    f"report_path: {qa_report}"
+                ),
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Đọc đầy đủ báo cáo từ Critic và QA trước khi dọn dẹp.",
+                "tool_calls": [
+                    {"name": "read_file", "args": {"Path": str(critic_report)}},
+                    {"name": "read_file", "args": {"Path": str(qa_report)}},
+                ],
+            },
+            {
+                "type": "TOOL_RESULT",
+                "tool_name": "read_file",
+                "content": "Read report contents.",
             },
             {
                 "type": "PLANNER_RESPONSE",
@@ -470,7 +500,7 @@ def test_tc_int_07_stop_3_catches_missing_kill_all(tmp_path: Path):
                 "type": "PLANNER_RESPONSE",
                 "content": "Gọi Critic",
                 "tool_calls": [
-                    {"name": "invoke_subagent", "args": {"Role": "Code Critic", "TypeName": "app", "Model": "flash", "Prompt": "Review"}}
+                    {"name": "invoke_subagent", "args": {"Role": "Code Critic", "TypeName": "app", "Model": "inherit", "Prompt": "Review"}}
                 ],
             },
             {"type": "SYSTEM_MESSAGE", "source": "SYSTEM", "content": "[Message] sender=s2 content=pass"},
@@ -501,7 +531,13 @@ def test_tc_int_07_stop_3_catches_missing_kill_all(tmp_path: Path):
 
 # TC-INT-08: Fast-Track / Tier 2 Exemption
 def test_tc_int_08_fast_track_tier2_exemption(tmp_path: Path):
-    """Turn có từ khóa 'hotfix tier 2', gọi Builder -> QA Auditor -> kill_all (bỏ qua Critic)."""
+    """Turn có từ khóa 'hotfix tier 2', gọi Builder -> QA Auditor -> đọc report_path -> kill_all (bỏ qua Critic)."""
+    qa_report = tmp_path / "qa_tier2_report.md"
+    qa_report.write_text(
+        "\n".join(f"- Tier 2 QA check line {i}: PASS" for i in range(1, 27)) + "\n",
+        encoding="utf-8",
+    )
+
     t_path = _write_transcript(
         tmp_path / "transcript.jsonl",
         [
@@ -521,7 +557,15 @@ def test_tc_int_08_fast_track_tier2_exemption(tmp_path: Path):
                     {"name": "invoke_subagent", "args": {"Role": "QA Auditor", "TypeName": "app", "Model": "flash", "Prompt": "Verify"}}
                 ],
             },
-            {"type": "SYSTEM_MESSAGE", "source": "SYSTEM", "content": "[Message] sender=s2 content=QA pass"},
+            {"type": "SYSTEM_MESSAGE", "source": "SYSTEM", "content": f"[Message] sender=s2 content=QA pass report_path: {qa_report}"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Đọc báo cáo QA trước khi dọn dẹp",
+                "tool_calls": [
+                    {"name": "read_file", "args": {"Path": str(qa_report)}}
+                ],
+            },
+            {"type": "TOOL_RESULT", "tool_name": "read_file", "content": "Read QA report."},
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "Dọn dẹp subagents",

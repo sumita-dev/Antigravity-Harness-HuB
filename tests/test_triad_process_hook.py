@@ -9,6 +9,8 @@ import subprocess
 import sys
 from typing import Any
 
+import pytest
+
 from scripts.enforce_triad_process_hook import (
     GUARD_MARKER,
     _clean_arg_val,
@@ -535,6 +537,64 @@ def test_rule_1_11_allows_critic_inherit_blocks_qa_inherit(tmp_path: Path) -> No
     assert res_qa_block["decision"] == "block"
     assert "Model='inherit'" in res_qa_block["reason"]
     assert "QA Auditor" in res_qa_block["reason"]
+
+
+@pytest.mark.parametrize(
+    "critic_role,bad_model",
+    [
+        ("Code Critic", "flash"),
+        ("Design Reviewer", "flash_lite"),
+        ("Compliance Critic", "flash"),
+        ("Content Critic", "flash_lite"),
+        ("E2E Critic", "flash"),
+    ],
+)
+def test_rule_1_11_blocks_critic_flash_or_flash_lite_allows_inherit(
+    tmp_path: Path, critic_role: str, bad_model: str
+) -> None:
+    """Rule 1.11: Critic phân tích sâu dùng Model='flash'/'flash_lite' bị chặn; dùng Model='inherit' được phép."""
+    t_bad = _write_transcript(
+        tmp_path / f"t_{critic_role.lower().replace(' ', '_')}_{bad_model}.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm định đầu ra"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": critic_role, "Model": bad_model}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_block = _run_hook_cli({"transcriptPath": str(t_bad), "terminationReason": "NO_TOOL_CALL"})
+    assert res_block["decision"] == "block"
+    assert "Quy tắc 1.11" in res_block["reason"]
+    assert f"Model='{bad_model}'" in res_block["reason"]
+    assert "Model='inherit'" in res_block["reason"]
+
+    t_ok = _write_transcript(
+        tmp_path / f"t_{critic_role.lower().replace(' ', '_')}_inherit.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm định đầu ra"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": critic_role, "Model": "inherit"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_ok = _run_hook_cli({"transcriptPath": str(t_ok), "terminationReason": "NO_TOOL_CALL"})
+    assert res_ok == {"decision": "allow"}
 
 
 def test_fix_a_design_reviewer_with_auditor_role_allows_inherit_model(tmp_path: Path) -> None:

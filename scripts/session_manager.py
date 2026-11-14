@@ -19,7 +19,9 @@ import posixpath
 import re
 import shutil
 import sqlite3
+import stat
 import sys
+import time
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
@@ -430,13 +432,183 @@ def import_sessions(
     }
 
 
+def _handle_remove_readonly(func, path, exc_info):
+    """Bỏ cờ read-only trên Windows (ví dụ file .git/objects/pack) trước khi xóa."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def _safe_rmtree(path: str) -> None:
+    """Xóa thư mục an toàn kể cả khi chứa file read-only trên Windows."""
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_handle_remove_readonly)
+    else:
+        shutil.rmtree(path, onerror=_handle_remove_readonly)
+
+
+def _get_dir_size(path: str) -> int:
+    """Tính tổng dung lượng (bytes) của toàn bộ tệp trong một thư mục."""
+    total = 0
+    for root, _, files in os.walk(path):
+        for fname in files:
+            fpath = os.path.join(root, fname)
+            try:
+                total += os.path.getsize(fpath)
+            except OSError:
+                pass
+    return total
+
+
+def _prune_sessions_index(index_path: str, deleted_ids: set) -> None:
+    """Xóa entry của các session đã bị xóa khỏi sessions_index.json (hỗ trợ dict hoặc list)."""
+    if not deleted_ids or not os.path.exists(index_path):
+        return
+    try:
+        with open(index_path, "r", encoding="utf-8") as f:
+            index_data = json.load(f)
+    except Exception as e:
+        print(f"[WARN] Khong the doc sessions_index.json de cap nhat: {e}", file=sys.stderr)
+        return
+
+    def _keep_entry(entry) -> bool:
+        if isinstance(entry, dict):
+            return entry.get("conversation_id") not in deleted_ids
+        if isinstance(entry, str):
+            return entry not in deleted_ids
+        return True
+
+    changed = False
+    if isinstance(index_data, dict):
+        convs = index_data.get("conversations")
+        if isinstance(convs, list):
+            filtered = [c for c in convs if _keep_entry(c)]
+            if len(filtered) != len(convs):
+                index_data["conversations"] = filtered
+                if "count" in index_data:
+                    index_data["count"] = len(filtered)
+                changed = True
+    elif isinstance(index_data, list):
+        filtered = [c for c in index_data if _keep_entry(c)]
+        if len(filtered) != len(index_data):
+            index_data = filtered
+            changed = True
+
+    if changed:
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(index_data, f, indent=2, ensure_ascii=False)
+
+
+def prune_sessions(
+    repo_dir: str = None,
+    max_size_mb: float = 400.0,
+    keep_latest: int = 20,
+    dry_run: bool = False,
+    recent_protect_seconds: float = 300.0,
+) -> dict:
+    """
+    Dọn bớt các thư mục session cũ trong <repo_dir>/.sessions khi tổng dung lượng
+    vượt ngưỡng max_size_mb, bảo vệ keep_latest thư mục mới nhất và các thư mục
+    vừa được sửa đổi trong vòng recent_protect_seconds giây.
+    """
+    repo_dir = os.path.abspath(repo_dir or get_default_repo_dir())
+    sessions_dir = os.path.join(repo_dir, ".sessions")
+
+    if not os.path.exists(sessions_dir):
+        return {
+            "status": "success",
+            "dry_run": dry_run,
+            "deleted_count": 0,
+            "deleted_ids": [],
+            "bytes_before": 0,
+            "bytes_after": 0,
+            "freed_bytes": 0,
+            "max_size_mb": max_size_mb,
+            "keep_latest": keep_latest,
+        }
+
+    total_bytes = _get_dir_size(sessions_dir)
+    max_bytes = int(max_size_mb * 1024 * 1024)
+
+    if total_bytes <= max_bytes:
+        return {
+            "status": "success",
+            "dry_run": dry_run,
+            "deleted_count": 0,
+            "deleted_ids": [],
+            "bytes_before": total_bytes,
+            "bytes_after": total_bytes,
+            "freed_bytes": 0,
+            "max_size_mb": max_size_mb,
+            "keep_latest": keep_latest,
+        }
+
+    dir_entries = []
+    with os.scandir(sessions_dir) as it:
+        for entry in it:
+            if entry.is_dir(follow_symlinks=False):
+                try:
+                    mtime = entry.stat(follow_symlinks=False).st_mtime
+                except OSError:
+                    mtime = 0.0
+                dir_entries.append({
+                    "name": entry.name,
+                    "path": entry.path,
+                    "mtime": mtime,
+                    "size": _get_dir_size(entry.path),
+                })
+
+    # Sắp xếp mới nhất trước để bảo vệ keep_latest thư mục mới nhất
+    newest_first = sorted(dir_entries, key=lambda x: x["mtime"], reverse=True)
+    protected_names = {e["name"] for e in newest_first[: max(0, keep_latest)]}
+
+    now = time.time()
+    candidates = [
+        e for e in dir_entries
+        if e["name"] not in protected_names and (now - e["mtime"]) >= recent_protect_seconds
+    ]
+    # Xóa cũ nhất trước
+    candidates.sort(key=lambda x: x["mtime"])
+
+    current_bytes = total_bytes
+    freed_bytes = 0
+    deleted_ids = []
+
+    for entry in candidates:
+        if current_bytes <= max_bytes:
+            break
+        if not dry_run:
+            _safe_rmtree(entry["path"])
+        current_bytes -= entry["size"]
+        freed_bytes += entry["size"]
+        deleted_ids.append(entry["name"])
+
+    if deleted_ids and not dry_run:
+        index_path = os.path.join(sessions_dir, "sessions_index.json")
+        _prune_sessions_index(index_path, set(deleted_ids))
+
+    return {
+        "status": "success",
+        "dry_run": dry_run,
+        "deleted_count": len(deleted_ids),
+        "deleted_ids": deleted_ids,
+        "bytes_before": total_bytes,
+        "bytes_after": max(0, current_bytes),
+        "freed_bytes": freed_bytes,
+        "max_size_mb": max_size_mb,
+        "keep_latest": keep_latest,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Zero-Friction Portable Session Sync for Antigravity")
-    parser.add_argument("--action", choices=["export", "import"], required=True, help="Thao tac: export hoac import")
+    parser.add_argument("--action", choices=["export", "import", "prune"], required=True, help="Thao tac: export, import hoac prune")
     parser.add_argument("--repo-dir", default=None, help="Thu muc repository (mac dinh: thu muc chua script/..)")
     parser.add_argument("--app-data-dir", default=None, help="Thu muc Antigravity app data")
     parser.add_argument("--conversation-id", default=None, help="ID phien cu the can export")
     parser.add_argument("--all", action="store_true", help="Export toan bo phien trong he thong")
+    parser.add_argument("--max-size-mb", type=float, default=400.0, help="Nguong dung luong toi da (MB) cho prune (mac dinh: 400)")
+    parser.add_argument("--keep-latest", type=int, default=20, help="So luong phien moi nhat duoc bao ve khi prune (mac dinh: 20)")
+    parser.add_argument("--dry-run", action="store_true", help="Chay thu prune khong xoa file that")
 
     args = parser.parse_args()
 
@@ -469,6 +641,21 @@ def main():
         else:
             print(f"[ERROR] {res.get('message')}", file=sys.stderr)
             sys.exit(1)
+
+    elif args.action == "prune":
+        prefix = "[DRY-RUN] " if args.dry_run else ""
+        print(f"[*] {prefix}Dang don dep .sessions/ (nguong: {args.max_size_mb} MB, giu lai: {args.keep_latest} phien moi nhat)...")
+        res = prune_sessions(
+            repo_dir=args.repo_dir,
+            max_size_mb=args.max_size_mb,
+            keep_latest=args.keep_latest,
+            dry_run=args.dry_run,
+        )
+        before_mb = res["bytes_before"] / (1024 * 1024)
+        after_mb = res["bytes_after"] / (1024 * 1024)
+        freed_mb = res["freed_bytes"] / (1024 * 1024)
+        print(f"[OK] {prefix}Da don {res['deleted_count']} phien cu (giai phong {freed_mb:.2f} MB).")
+        print(f"     Dung luong truoc: {before_mb:.2f} MB -> Sau: {after_mb:.2f} MB")
 
 
 if __name__ == "__main__":

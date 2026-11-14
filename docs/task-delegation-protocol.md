@@ -81,3 +81,10 @@ Hoặc dưới dạng bảng Markdown tinh gọn:
 | :--- | :--- | :--- |
 | https://example.com/checkout | `curl -I https://example.com/checkout` | HTTP 301 Moved Permanently |
 ```
+
+---
+
+## 5. Quy Chuẩn Handoff & Xuất Artifact Theo Quyền Ghi SubAgent
+- **SubAgent có quyền ghi (`TypeName="self"`):** BẮT BUỘC ghi báo cáo chi tiết ra `report_path` (non-empty, trong `scratch/` hoặc thư mục artifact) và trả về `digest <= 100 từ` theo Structured Envelope (`Verdict | Exit Code | Key Findings | report_path`).
+- **SubAgent Read-Only (`TypeName="research"` — L1 Read-Only Sandbox):** Không có công cụ `write_file`; trả kết quả trực tiếp qua `[Message]` (kèm `send_message`). Quản đốc tự lưu nội dung đó ra `scratch/` nếu cần truyền tiếp cho tác tử downstream (`Creator`, `Builder`, `Critic`).
+- **Trường hợp cần Researcher tự xuất `report_path`:** Quản đốc chủ động gọi `TypeName="self"` kèm chỉ dẫn tường minh chỉ được phép ghi duy nhất vào thư mục `scratch/` để giữ kỷ luật L1 Read-Only đối với mã nguồn chính.

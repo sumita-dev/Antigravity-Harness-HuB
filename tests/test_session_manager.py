@@ -14,6 +14,7 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import time
 from datetime import datetime, timezone
 import pytest
 
@@ -24,6 +25,7 @@ from scripts.session_manager import (
     ensure_conversation_summaries_table,
     export_sessions,
     import_sessions,
+    prune_sessions,
 )
 
 
@@ -255,3 +257,132 @@ def test_error_handling():
         # 2. Import khi không có sessions_index.json
         res_imp = import_sessions(repo_dir=temp_root, app_data_dir=temp_root)
         assert res_imp["status"] == "error"
+
+
+def _create_dummy_session_dir(sessions_dir: str, conv_id: str, size_bytes: int, age_seconds: float) -> str:
+    """Tạo thư mục session giả lập với kích thước và mtime xác định."""
+    c_dir = os.path.join(sessions_dir, conv_id)
+    os.makedirs(c_dir, exist_ok=True)
+    payload_path = os.path.join(c_dir, f"{conv_id}.db")
+    with open(payload_path, "wb") as f:
+        f.write(b"x" * size_bytes)
+    target_mtime = time.time() - age_seconds
+    os.utime(payload_path, (target_mtime, target_mtime))
+    os.utime(c_dir, (target_mtime, target_mtime))
+    return c_dir
+
+
+def test_prune_sessions_dry_run_and_real_prune():
+    with tempfile.TemporaryDirectory() as temp_root:
+        sessions_dir = os.path.join(temp_root, ".sessions")
+        os.makedirs(sessions_dir, exist_ok=True)
+
+        # Tạo 4 session mỗi cái 600 KB (tổng ~2.34 MB) với tuổi khác nhau (> 300s)
+        chunk = 600 * 1024
+        _create_dummy_session_dir(sessions_dir, "s-oldest", chunk, age_seconds=4000)
+        _create_dummy_session_dir(sessions_dir, "s-old-2", chunk, age_seconds=3000)
+        _create_dummy_session_dir(sessions_dir, "s-mid", chunk, age_seconds=2000)
+        _create_dummy_session_dir(sessions_dir, "s-newest", chunk, age_seconds=1000)
+
+        index_path = os.path.join(sessions_dir, "sessions_index.json")
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "version": "1.0",
+                    "count": 4,
+                    "conversations": [
+                        {"conversation_id": "s-oldest"},
+                        {"conversation_id": "s-old-2"},
+                        {"conversation_id": "s-mid"},
+                        {"conversation_id": "s-newest"},
+                    ],
+                },
+                f,
+            )
+
+        # Ngưỡng 1.25 MB (~1280 KB) -> cần xóa 2 thư mục cũ nhất để còn <= 1.25 MB
+        dry_res = prune_sessions(repo_dir=temp_root, max_size_mb=1.25, keep_latest=1, dry_run=True)
+        assert dry_res["status"] == "success"
+        assert dry_res["dry_run"] is True
+        assert dry_res["deleted_ids"] == ["s-oldest", "s-old-2"]
+        assert dry_res["deleted_count"] == 2
+        # Dry-run không được xóa thư mục hoặc sửa index
+        assert os.path.exists(os.path.join(sessions_dir, "s-oldest"))
+        with open(index_path, "r", encoding="utf-8") as f:
+            assert json.load(f)["count"] == 4
+
+        # Prune thật
+        real_res = prune_sessions(repo_dir=temp_root, max_size_mb=1.25, keep_latest=1, dry_run=False)
+        assert real_res["status"] == "success"
+        assert real_res["dry_run"] is False
+        assert real_res["deleted_ids"] == ["s-oldest", "s-old-2"]
+        assert real_res["bytes_after"] <= int(1.25 * 1024 * 1024)
+        assert not os.path.exists(os.path.join(sessions_dir, "s-oldest"))
+        assert not os.path.exists(os.path.join(sessions_dir, "s-old-2"))
+        assert os.path.exists(os.path.join(sessions_dir, "s-mid"))
+        assert os.path.exists(os.path.join(sessions_dir, "s-newest"))
+
+        with open(index_path, "r", encoding="utf-8") as f:
+            idx = json.load(f)
+        assert idx["count"] == 2
+        assert [c["conversation_id"] for c in idx["conversations"]] == ["s-mid", "s-newest"]
+
+
+def test_prune_sessions_protects_keep_latest_and_recent():
+    with tempfile.TemporaryDirectory() as temp_root:
+        sessions_dir = os.path.join(temp_root, ".sessions")
+        os.makedirs(sessions_dir, exist_ok=True)
+
+        chunk = 600 * 1024
+        # s-old đủ cũ (>300s) nhưng nằm ngoài keep_latest=2 -> bị xóa
+        _create_dummy_session_dir(sessions_dir, "s-old", chunk, age_seconds=2000)
+        # s-recent-old cũ hơn 2 cái mới nhất nhưng mới sửa trong vòng 300s -> được bảo vệ
+        _create_dummy_session_dir(sessions_dir, "s-recent-1", chunk, age_seconds=100)
+        _create_dummy_session_dir(sessions_dir, "s-recent-2", chunk, age_seconds=50)
+        _create_dummy_session_dir(sessions_dir, "s-recent-3", chunk, age_seconds=10)
+
+        # Đặt ngưỡng cực nhỏ (0.1 MB) để ép xóa tối đa, nhưng keep_latest=2 + 300s phải giữ lại 3 thư mục recent
+        res = prune_sessions(repo_dir=temp_root, max_size_mb=0.1, keep_latest=2, dry_run=False)
+        assert res["deleted_ids"] == ["s-old"]
+        assert not os.path.exists(os.path.join(sessions_dir, "s-old"))
+        assert os.path.exists(os.path.join(sessions_dir, "s-recent-1"))
+        assert os.path.exists(os.path.join(sessions_dir, "s-recent-2"))
+        assert os.path.exists(os.path.join(sessions_dir, "s-recent-3"))
+
+
+def test_prune_sessions_updates_list_index():
+    with tempfile.TemporaryDirectory() as temp_root:
+        sessions_dir = os.path.join(temp_root, ".sessions")
+        os.makedirs(sessions_dir, exist_ok=True)
+
+        chunk = 600 * 1024
+        _create_dummy_session_dir(sessions_dir, "s-1", chunk, age_seconds=3000)
+        _create_dummy_session_dir(sessions_dir, "s-2", chunk, age_seconds=1000)
+
+        index_path = os.path.join(sessions_dir, "sessions_index.json")
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump([{"conversation_id": "s-1"}, {"conversation_id": "s-2"}], f)
+
+        res = prune_sessions(repo_dir=temp_root, max_size_mb=0.7, keep_latest=1, dry_run=False)
+        assert res["deleted_ids"] == ["s-1"]
+        with open(index_path, "r", encoding="utf-8") as f:
+            idx = json.load(f)
+        assert idx == [{"conversation_id": "s-2"}]
+
+
+def test_prune_sessions_removes_readonly_files():
+    import stat
+
+    with tempfile.TemporaryDirectory() as temp_root:
+        sessions_dir = os.path.join(temp_root, ".sessions")
+        os.makedirs(sessions_dir, exist_ok=True)
+
+        chunk = 600 * 1024
+        ro_dir = _create_dummy_session_dir(sessions_dir, "s-ro", chunk, age_seconds=3000)
+        ro_file = os.path.join(ro_dir, "s-ro.db")
+        os.chmod(ro_file, stat.S_IREAD)
+        _create_dummy_session_dir(sessions_dir, "s-keep", chunk, age_seconds=1000)
+
+        res = prune_sessions(repo_dir=temp_root, max_size_mb=0.7, keep_latest=1, dry_run=False)
+        assert res["deleted_ids"] == ["s-ro"]
+        assert not os.path.exists(ro_dir)
