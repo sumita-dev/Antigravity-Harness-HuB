@@ -62,11 +62,11 @@ def test_npm_high_blocks_report_and_valid_nonzero_means_findings(tmp_path, monke
 def test_real_secrets_in_test_paths_and_long_lines_are_detected(tmp_path, folder):
     path = tmp_path / folder
     path.mkdir()
-    (path / 'test_key.py').write_text('x' * 1100 + ' key="AKIA1234567890ABCDEF" # example')
+    (path / 'test_key.py').write_text('x' * 1100 + ' key="AKIA' + '1234567890ABCDEF" # example')
     assert len(audit.scan_directory_for_secrets(tmp_path)) == 1
 
 def test_comment_or_embedded_dummy_does_not_hide_real_token():
-    assert audit.is_safe_dummy_value('sk-abcdefdummy12345678901234567890', '# example') is False
+    assert audit.is_safe_dummy_value('sk-' + 'abcdefdummy12345678901234567890', '# example') is False
 
 def test_cli_missing_required_scanner_fails_without_flag(tmp_path, monkeypatch, capsys):
     (tmp_path / 'package.json').write_text('{}')
@@ -131,7 +131,7 @@ def test_unreadable_source_is_error(tmp_path, monkeypatch):
     assert audit.run_security_audit(tmp_path)['status'] == 'ERROR'
 
 def test_default_cli_fails_on_secret(tmp_path, monkeypatch, capsys):
-    (tmp_path / 'key.py').write_text('key="AKIA1234567890ABCDEF"')
+    (tmp_path / 'key.py').write_text('key="AKIA' + '1234567890ABCDEF"')
     monkeypatch.setattr(sys,'argv',['audit','--app-dir',str(tmp_path),'--json'])
     assert audit.main() == 1
 

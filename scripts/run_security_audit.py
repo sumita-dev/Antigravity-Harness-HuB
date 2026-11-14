@@ -113,6 +113,11 @@ def is_safe_dummy_value(matched_text: str, line: str) -> bool:
     # Suppress only explicit token prefixes or deliberate inline allowlisting.
     if re.search(r"(?:#|//)\s*(?:nosec|allow-secret|pragma: allowlist secret)\b", line, re.I):
         return True
+    if re.fullmatch(
+        r"\{[A-Za-z0-9_.]+\}|\$\{[A-Za-z0-9_.]+\}|\{\{[A-Za-z0-9_.]+\}\}|<[A-Za-z0-9_.-]+>",
+        matched_text,
+    ):
+        return True
     return bool(re.fullmatch(
         r"(?:sk-(?:proj-|ant-)?|gh[pousr]_)?(?:dummy|fake|mock|placeholder|xxxx|changeme|your_key|your_token|your_secret|replace_me)[A-Za-z0-9_-]*",
         matched_text, re.I,

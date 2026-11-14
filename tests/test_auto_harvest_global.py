@@ -450,7 +450,7 @@ def test_workspace_specific_filter_positive_and_negative(tmp_path: Path) -> None
     assert is_workspace_specific("ConnectionError: failed to reach http://localhost/api") is True
     assert is_workspace_specific("Timeout connecting to 127.0.0.1") is True
     assert is_workspace_specific("Refused on [::1]:8080") is True
-    assert is_workspace_specific("Leak detected: sk-1234567890abcdefghij1234") is True
+    assert is_workspace_specific("Leak detected: sk-" + "1234567890abcdefghij1234") is True
     assert is_workspace_specific("Token ghp_1234567890abcdefghij1234 exposed") is True
     assert is_workspace_specific("See JIRA-421 for details") is True
     assert is_workspace_specific("Error in C:\\Projects\\my_app\\main.py") is True

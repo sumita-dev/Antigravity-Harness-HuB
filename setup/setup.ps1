@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetDirectory = (Join-Path $env:USERPROFILE ".gemini\config"),
     [switch]$SkipSessionRestore,
     [switch]$SkipWatcher
@@ -76,7 +76,7 @@ function Get-RelativeFileMap([string]$SourceRoot, [string]$DestinationPrefix) {
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) { return $map }
     $sourceRootFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd($separator) + $separator
     foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -File -Recurse -Force) {
-        if ($file.FullName -match '[\\/](__pycache__|\.pytest_cache|\.git|\.sessions|\.brain)[\\/]' -or
+        if ($file.FullName -match '[\\/](__pycache__|\.pytest_cache|\.git|\.sessions|\.brain|node_modules)[\\/]' -or
             $file.Extension -in @('.pyc', '.pyo', '.pyd') -or
             $file.Name -in @('.DS_Store', 'Thumbs.db')) {
             continue

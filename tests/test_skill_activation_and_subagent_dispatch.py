@@ -171,7 +171,7 @@ def test_pre_invocation_hook_injects_on_initial_turn_and_skips_subsequent_steps(
     assert "branch=marketing" in mkt_msg
     assert "skill=boc-phot-storytelling" in mkt_msg
     assert "plugins/marketing/skills/boc-phot-storytelling/SKILL.md" in mkt_msg
-    assert "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (inherit)" in mkt_msg
+    assert "Web Researcher (inherit) -> Creator (inherit) -> Compliance Critic (inherit)" in mkt_msg
 
     # 3. Subsequent invocation within same turn (invocationNum=2) must NOT re-inject
     step2_payload = {

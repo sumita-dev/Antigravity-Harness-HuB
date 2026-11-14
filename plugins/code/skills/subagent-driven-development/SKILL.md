@@ -12,7 +12,7 @@ Thực thi kế hoạch kiến trúc bằng cách bẻ nhỏ công việc thành
 **Nguyên tắc cốt lõi:**
 - Fresh subagent trên từng task: Không làm ô nhiễm ngữ cảnh (context pollution).
 - Kiểm soát tiến độ qua sổ cái (Progress Ledger): Phục hồi hoàn hảo sau context compaction.
-- Vòng lặp sửa lỗi có kiểm soát (Fix-Loop cap): Tối đa 5 vòng với cơ chế nâng cấp model (model escalation).
+- Vòng lặp sửa lỗi có kiểm soát (Fix-Loop cap): Ngưỡng mặc định Triad là `critic_rounds <= 2`, `qa_rounds <= 2`, `total_cycles <= 3` (theo `GEMINI.md`); chỉ nâng tối đa 5 vòng khi chạy chế độ SDD tách task phức tạp có nâng cấp model (model escalation).
 - Đánh giá toàn nhánh ở cuối chu trình (Whole-branch final review).
 
 ## Cơ Chế Sổ Cái Tiến Độ (Progress Ledger)
@@ -48,7 +48,7 @@ Khi khôi phục phiên sau compaction: Đọc trực tiếp sổ cái `progress
    - Khởi chạy Reviewer độc lập thẩm định 2 chiều bắt buộc: Tuân thủ Spec (Spec Compliance) VÀ Chất lượng mã nguồn (Task Quality).
    - Reviewer đối soát trực tiếp diff commit với brief và các ràng buộc toàn cục.
 
-4. **Vòng lặp sửa lỗi (Fix-Loop tối đa 5 vòng):**
+4. **Vòng lặp sửa lỗi (Fix-Loop — mặc định Triad `critic<=2, qa<=2, total<=3`; SDD phức tạp tối đa 5 vòng):**
    - Nếu phát hiện lỗi Spec ❌ hoặc lỗi nghiêm trọng (Critical/Important), kích hoạt vòng lặp sửa lỗi.
    - **Vòng 1 - 3:** Tiếp tục giao cho implementer ban đầu sửa (tận dụng ngữ cảnh đã hiểu rõ code).
    - **Vòng 4 - 5 (Model Escalation):** Nếu sau 3 vòng vẫn chưa giải quyết dứt điểm, khởi chạy Implementer mới với model mạnh hơn một bậc (ví dụ nâng từ Flash lên Pro) để phá vỡ bế tắc tư duy.

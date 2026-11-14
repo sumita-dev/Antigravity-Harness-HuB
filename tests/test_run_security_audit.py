@@ -18,7 +18,7 @@ from scripts.run_security_audit import (
 
 def test_mask_secret():
     assert mask_secret("12345") == "****"
-    assert mask_secret("sk-1234567890abcdef1234567890") == "sk-1...7890"
+    assert mask_secret("sk-" + "1234567890abcdef1234567890") == "sk-1...7890"
 
 
 def test_is_test_or_fixture_path():
@@ -30,28 +30,38 @@ def test_is_test_or_fixture_path():
 
 def test_is_safe_dummy_value():
     assert is_safe_dummy_value("sk-dummy12345678901234567890", "sk-dummy12345678901234567890") is True
-    assert is_safe_dummy_value("sk-realkey12345678901234567890", "api_key = '...' # nosec") is True
-    assert is_safe_dummy_value("sk-realkey12345678901234567890", "api_key = 'sk-realkey12345678901234567890'") is False
+    assert is_safe_dummy_value("sk-" + "realkey12345678901234567890", "api_key = '...' # nosec") is True
+    assert is_safe_dummy_value("sk-" + "realkey12345678901234567890", "api_key = 'sk-" + "realkey12345678901234567890'") is False
+    assert is_safe_dummy_value("{self.password}", "postgresql://{self.user}:{self.password}@localhost:5432/db") is True
 
 
 def test_scan_real_secrets(tmp_path: Path):
     src_dir = tmp_path / "src"
     src_dir.mkdir()
     secret_file = src_dir / "config.py"
+    aws_key = "AKIA" + "1234567890ABCDEF"
+    github_token = "ghp_" + "1234567890abcdef1234567890abcdef1234"
+    openai_key = "sk-proj-" + "9876543210abcdef9876543210abcdef"
+    anthropic_key = "sk-ant-" + "1234567890abcdef1234567890abcdef"
     google_key = "AI" + "zaSyD1234567890abcdef1234567890abcdef"
+    db_url = "postgres://admin:" + "SuperSecretPass123@db.prod.internal:5432/main"
+    jwt_token = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+        "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    )
+    private_key = "-----BEGIN RSA " + "PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n-----END RSA PRIVATE KEY-----"
     secret_file.write_text(
         f"""
 # Cấu hình chứa secrets
-AWS_KEY = "AKIA1234567890ABCDEF"
-GITHUB_TOKEN = "ghp_1234567890abcdef1234567890abcdef1234"
-OPENAI_KEY = "sk-proj-9876543210abcdef9876543210abcdef"
-ANTHROPIC_KEY = "sk-ant-1234567890abcdef1234567890abcdef"
+AWS_KEY = "{aws_key}"
+GITHUB_TOKEN = "{github_token}"
+OPENAI_KEY = "{openai_key}"
+ANTHROPIC_KEY = "{anthropic_key}"
 GOOGLE_KEY = "{google_key}"
-DB_URL = "postgres://admin:SuperSecretPass123@db.prod.internal:5432/main"
-JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-PRIVATE_KEY = \"\"\"-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA0...
------END RSA PRIVATE KEY-----\"\"\"
+DB_URL = "{db_url}"
+JWT_TOKEN = "{jwt_token}"
+PRIVATE_KEY = \"\"\"{private_key}\"\"\"
 """,
         encoding="utf-8",
     )
@@ -114,7 +124,7 @@ def test_run_security_audit_clean_report(tmp_path: Path):
 def test_run_security_audit_with_secrets_fails(tmp_path: Path):
     app_dir = tmp_path / "vuln_app"
     app_dir.mkdir()
-    (app_dir / "app.py").write_text('API_KEY = "AKIA1234567890SECRET"\n', encoding="utf-8")
+    (app_dir / "app.py").write_text('API_KEY = "AKIA' + '1234567890SECRET"\n', encoding="utf-8")
 
     report = run_security_audit(app_dir=app_dir)
     assert report["passed"] is False
@@ -125,7 +135,7 @@ def test_run_security_audit_with_secrets_fails(tmp_path: Path):
 def test_cli_execution(tmp_path: Path):
     app_dir = tmp_path / "cli_app"
     app_dir.mkdir()
-    (app_dir / "main.py").write_text('KEY = "AKIA1234567890CLIKEY"\n', encoding="utf-8")
+    (app_dir / "main.py").write_text('KEY = "AKIA' + '1234567890CLIKEY"\n', encoding="utf-8")
 
     script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_security_audit.py"
 

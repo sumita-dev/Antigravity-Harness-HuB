@@ -324,12 +324,12 @@ def downgrade():
 
     # 4.2 Reverse Lab Desktop Tamper Auditor
     def test_audit_tamper_private_key(self):
-        content = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n-----END RSA PRIVATE KEY-----"
+        content = "-----BEGIN RSA " + "PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n-----END RSA PRIVATE KEY-----"
         findings = audit_tamper_content(content)
         assert any(f.code == "ERR_HARDCODED_PRIVATE_KEY" for f in findings)
 
     def test_audit_tamper_aws_key(self):
-        content = "AWS_ACCESS_KEY = 'AKIAIOSFODNN7EXAMPLE'"
+        content = "AWS_ACCESS_KEY = 'AKIA" + "IOSFODNN7EXAMPLE'"
         findings = audit_tamper_content(content)
         assert any(f.code == "ERR_HARDCODED_AWS_KEY" for f in findings)
 

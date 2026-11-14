@@ -1014,32 +1014,6 @@
         "cwv"
       ]
     },
-    "gemini-omni-flash-api": {
-      "branch": "app",
-      "keywords": [
-        "gemini-omni-flash-api",
-        "gemini omni",
-        "gemini-omni-1.1-flash",
-        "text-to-video",
-        "generative video",
-        "first-frame-to-video",
-        "video extension"
-      ]
-    },
-    "modern-web-guidance": {
-      "branch": "app",
-      "keywords": [
-        "modern-web-guidance",
-        "modern web",
-        "html5",
-        "css3",
-        "anchor positioning",
-        "container queries",
-        "view transitions",
-        "web perf",
-        "modern web platform"
-      ]
-    },
     "us-finance-script-auditor": {
       "branch": "marketing",
       "keywords": [

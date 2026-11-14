@@ -12,7 +12,7 @@ Toàn bộ quy trình phát triển ứng dụng tuân thủ nghiêm ngặt các
 | **Pha 1** | **DESIGN** | System Architect (`agents/app/architect.md`) | Lập Spec 5 mục (scope, design, contracts, acceptance criteria, risks). **Bắt buộc có tiêu chí AC-SEED (seed data) và AC-HEALTH (endpoint /health kiểm tra uptime/version/status)**. |
 | **Pha 2** | **DESIGN_REVIEW** | Design Reviewer (`agents/app/design_reviewer.md`) | Thẩm định độc lập theo `rubrics/design_review_rubric.md`. Phán quyết APPROVE / REJECT gắn Spec SHA256. |
 | **Pha 3** | **SIGN_OFF** | Sếp (Human Gate) | Trình đúng Spec SHA256 đã duyệt cho Sếp. Nhận lệnh phê duyệt rõ ràng ("Duyệt", "Bắt đầu code đi"). |
-| **Pha 3.5** | **UI_CONCEPT** | Quản đốc (Orchestrator) & Sếp | Áp dụng cho ứng dụng UI (bypass với Non-UI/CLI). Quản đốc sinh 2–4 ảnh concept bằng `generate_image`, trình chiếu cho Sếp và chốt style qua `ask_question`. Lưu visual guideline vào Spec cho Builder. |
+| **Pha 3.5** | **UI_CONCEPT** | Quản đốc (Orchestrator) & Sếp | Áp dụng cho ứng dụng UI (bypass với Non-UI/CLI). Quản đốc sinh 2–4 ảnh concept bằng `invoke_subagent(TypeName="image-generator", ...)`, trình chiếu cho Sếp và chốt style qua `ask_question`. Lưu visual guideline vào Spec cho Builder. |
 | **Pha 4** | **IMPLEMENTATION** | Developer / Builder (`agents/app/builder.md`) | Lập trình theo TDD & Karpathy, **bám sát concept UI đã chốt**, **bắt buộc tạo file seed data (mockData.json hoặc seed script) và endpoint /health**, cấm app trắng trơn. Chạy test/build và local preview. |
 | **Pha 4.5** | **CRITIQUE** | Code Critic (`agents/app/code_critic.md`) | Soi Spec GAP, boundary conditions, anti-patterns, dirty mocks theo `rubrics/code_critique_rubric.md`. REJECT trả Builder sửa lại trước khi chuyển sang QA. |
 | **Pha 5** | **AUDIT & E2E** | QA Auditor (`agents/app/qa_auditor.md`), E2E Engineer & Critic | Kiểm thử unit/integration độc lập; E2E Playwright POM Desktop/Mobile; giám sát dev server qua `scripts/run_dev_logger.py` (port check & HTTP health check); bàn giao bảng UAT `docs/human-test-sheet-template.md`. |
@@ -25,12 +25,23 @@ Toàn bộ quy trình phát triển ứng dụng tuân thủ nghiêm ngặt các
 2. Pha 0 INTAKE: Phỏng vấn làm rõ 3 tham số cốt lõi (Tech Stack, Lưu trữ, MVP Stories) theo `docs/intake-protocol.md`. Chỉ khi Sếp xác nhận mới chuyển sang Architect.
 3. Gửi brief có project directory riêng: “/app Xây Task Board local, thêm/sửa/xóa, title bắt buộc, todo/doing/done, filter, lưu localStorage, desktop/mobile. Dùng Architect → Design Reviewer → trình anh duyệt đúng Spec → Builder → Code Critic → QA test và browser thật. Không deploy.” Đây là benchmark tùy chọn, chưa phải app được triển khai.
 4. Gemini quản lý checkpoint/artifacts, gọi Architect và Reviewer độc lập. Spec bắt buộc có AC-SEED dữ liệu mẫu và AC-HEALTH endpoint kiểm tra trạng thái. Sếp đọc Spec và chỉ duyệt đúng bản đã review; Gemini giữ nguyên raw human_message/spec_sha256, không giả approval.
-5. Nếu ứng dụng có UI: Kích hoạt Pha 3.5 (UI_CONCEPT). Quản đốc dùng `generate_image` tạo 2–4 ảnh concept với phong cách khác nhau, trình chiếu và dùng `ask_question` để Sếp chọn phong cách. Lưu visual guideline vào Spec trước khi code.
+5. Nếu ứng dụng có UI: Kích hoạt Pha 3.5 (UI_CONCEPT). Quản đốc dùng `invoke_subagent(TypeName="image-generator", ...)` tạo 2–4 ảnh concept với phong cách khác nhau, trình chiếu và dùng `ask_question` để Sếp chọn phong cách. Lưu visual guideline vào Spec trước khi code.
 6. Builder sửa đúng Spec trong checkout thật, bám sát visual guideline đã duyệt, bắt buộc tạo mockData/seed script, triển khai /health, chạy test/build và preview. Code Critic soi GAP/logic. QA nhận cùng checkout, tự rerun commands và kiểm từng AC qua browser. Bàn giao URL còn chạy, evidence, defects/limitations. Thiếu browser giữ NOT_VERIFIED; không suy từ trang đầu rằng luồng chính đã đúng.
 7. Chạy E2E Playwright, giám sát dev server qua `scripts/run_dev_logger.py` (pre-flight port check & HTTP health check), xuất bảng UAT `docs/human-test-sheet-template.md`.
 8. Chạy Pha 5.5 Security Audit qua `scripts/run_security_audit.py --fail-on-critical` đảm bảo Zero Secrets & Zero Critical Vulnerabilities.
 9. Đóng gói launcher 1-click và bộ cấu hình Production qua `scripts/generate_launcher.py --docker`.
 10. Resume cùng task ID bằng status; route stage/next_agent trước keyword. REJECT đầu trả Maker, REJECT thứ hai cùng pha design/critique/audit ESCALATED ngay (Decoupled Circuit Breakers: critic_rounds <= 2, qa_rounds <= 2, total_cycles <= 3). Counters tồn tại qua replacement/restart/revise.
+
+## Phân tầng 2 chế độ vận hành (Execution Modes)
+
+Chọn đúng chế độ ngay từ đầu để tránh dư thừa checkpoint hoặc thiếu bằng chứng:
+
+1. **Fast Triad Mode** *(App nhỏ / Prototype / Feature nhanh)*:
+   - Dùng thẳng `run_workflow` với `workflows/app_triad.py` (hoặc `swarm` khi cần nhiều tác tử song song).
+   - **Không cần** chạy 9 lệnh CLI JSON checkpoint thủ công bên dưới; `run_workflow` tự điều phối Maker (`workspace="share"`) ➔ Code Critic ➔ QA Auditor (`model="flash"`) kèm cầu dao ngắt mạch.
+   - Có thể truyền `Args={"task": "...", "parallel_qa": true}` để chạy song song kiểm thử chức năng + security/static check ở pha QA.
+2. **Strict Audit Mode** *(App lớn / Production Release / Cần bằng chứng pháp lý)*:
+   - Dùng đầy đủ **9 lệnh CLI `run_harness.py`** bên dưới với SHA256 (`spec_sha256`, `manifest_sha256`) và `execution_receipt` ở từng cổng pha.
 
 ## CLI
 
@@ -59,14 +70,14 @@ Pha 3.5 được kích hoạt ngay sau khi Sếp đã ký duyệt Spec ở Pha 3
 - Trực quan hóa cấu trúc layout, phân cấp thông tin, phối màu và thẩm mỹ trước khi Builder viết một dòng code CSS/HTML nào.
 - Tạo visual guideline rõ ràng, ràng buộc trách nhiệm thẩm mỹ cho Builder.
 
-### 2. Tạo 2–4 ảnh Concept bằng công cụ `generate_image`
-Quản đốc sử dụng công cụ `generate_image` để tạo từ 2 đến 4 concept thiết kế với các phong cách trực quan khác nhau:
+### 2. Tạo 2–4 ảnh Concept bằng `invoke_subagent(TypeName="image-generator", ...)`
+Quản đốc gọi `invoke_subagent(TypeName="image-generator", ...)` để tạo từ 2 đến 4 concept thiết kế với các phong cách trực quan khác nhau:
 - **Phong cách 1 (Apple-inspired / Minimal Clean):** Tinh gọn, bo góc mềm mại, typography thanh lịch (SF Pro / Inter), khoảng trắng thoáng đãng, hiệu ứng kính mờ (frosted glass) tinh tế.
 - **Phong cách 2 (Data-Dense Dashboard / Linear-style):** Tối ưu mật độ dữ liệu, đường viền sắc nét, tương phản cao, phím tắt, giao diện làm việc chuyên nghiệp phong cách Linear / Raycast.
 - **Phong cách 3 (Modern SaaS / Vibrant Accent):** Tone màu năng động, card nổi bật, visual hierarchy rõ nét, thân thiện với người dùng cuối.
 - **Phong cách 4 (Dark Mode / Sleek Futuristic):** Chế độ tối cao cấp, điểm nhấn neon/accent tinh tế, giảm mỏi mắt cho người dùng chuyên sâu.
 
-**Template Prompt tạo ảnh qua `generate_image`:**
+**Template Prompt tạo ảnh qua `invoke_subagent(TypeName="image-generator", ...)`:**
 ```text
 Clean modern UI mockup of a [Tên loại ứng dụng, ví dụ: Personal Task Board / Expense Tracker web app].
 Key screens and elements: [Liệt kê các thành phần chính theo Spec, ví dụ: sidebar navigation, Kanban columns todo/doing/done, clean task cards with priority badges, top search bar, stat summary].

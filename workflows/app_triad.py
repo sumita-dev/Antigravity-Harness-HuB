@@ -11,11 +11,12 @@ Invoked via Antigravity `run_workflow` tool:
             "spec_sha256": "<optional-64-hex-sha256>",
             "max_critique_rounds": 2,
             "max_qa_rounds": 2,
+            "parallel_qa": False,  # Optional: run QA Audit + Security/Static check in parallel
         },
     )
 
 Conventions (per `run-workflow/SKILL.md`):
-- Uses `phase()`, `agent(prompt, schema, role, type_name, workspace, model)`, `log()`, and `args`.
+- Uses `phase()`, `agent(prompt, schema, role, type_name, workspace, model)`, `parallel()`, `log()`, and `args`.
 - Schemas `CRITIQUE_VERDICT_SCHEMA` and `AUDIT_VERDICT_SCHEMA` are aligned 1:1 with
   `CritiqueVerdictSchema.to_json_schema()` and `AuditVerdictSchema.to_json_schema()` in
   `harness/triad_protocol.py` (inlined here because `run_workflow` scripts cannot import local modules).
@@ -139,6 +140,7 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
     max_critique_rounds = int(workflow_args.get("max_critique_rounds", 2))
     max_qa_rounds = int(workflow_args.get("max_qa_rounds", 2))
     max_total_cycles = int(workflow_args.get("max_total_cycles", 3))
+    parallel_qa = bool(workflow_args.get("parallel_qa", False))
     total_cycles = 0
 
     # 1. Stateful Maker (Builder) handle in isolated share workspace
@@ -231,14 +233,54 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             f"Maker Handoff:\n{json.dumps(maker_handoff, ensure_ascii=False)}\n\n"
             f"Code Critic Verdict:\n{json.dumps(critique_verdict, ensure_ascii=False)}"
         )
-        qa_verdict = await agent(
-            prompt=qa_prompt,
-            schema=AUDIT_VERDICT_SCHEMA,
-            role=f"QA Auditor (R{qa_idx})",
-            type_name="self",
-            workspace="inherit",
-            model="flash",
-        )
+        if parallel_qa:
+            sec_prompt = (
+                "Role: Security & Static Verifier (Parallel QA).\n"
+                "Invariants: Scan modified files for hardcoded secrets, injection risks, and AST/lint errors; "
+                "attach executed_commands with exit_code == 0 for APPROVE.\n\n"
+                f"Task:\n{task}\n\n"
+                f"Maker Handoff:\n{json.dumps(maker_handoff, ensure_ascii=False)}"
+            )
+            qa_verdict, sec_verdict = await parallel(
+                agent(
+                    prompt=qa_prompt,
+                    schema=AUDIT_VERDICT_SCHEMA,
+                    role=f"QA Auditor (R{qa_idx})",
+                    type_name="self",
+                    workspace="inherit",
+                    model="flash",
+                ),
+                agent(
+                    prompt=sec_prompt,
+                    schema=AUDIT_VERDICT_SCHEMA,
+                    role=f"Security Verifier (R{qa_idx})",
+                    type_name="self",
+                    workspace="inherit",
+                    model="flash",
+                ),
+            )
+            log(f"Parallel Security Verifier R{qa_idx} verdict: {sec_verdict.get('verdict')}")
+            if sec_verdict.get("verdict") != "APPROVE":
+                merged_verdict = (
+                    "ESCALATE"
+                    if "ESCALATE" in (qa_verdict.get("verdict"), sec_verdict.get("verdict"))
+                    else sec_verdict.get("verdict", "REJECT")
+                )
+                qa_verdict = {
+                    **qa_verdict,
+                    "verdict": merged_verdict,
+                    "findings": list(qa_verdict.get("findings") or []) + list(sec_verdict.get("findings") or []),
+                    "summary": f"{qa_verdict.get('summary', '')} | Security: {sec_verdict.get('summary', '')}".strip(" |"),
+                }
+        else:
+            qa_verdict = await agent(
+                prompt=qa_prompt,
+                schema=AUDIT_VERDICT_SCHEMA,
+                role=f"QA Auditor (R{qa_idx})",
+                type_name="self",
+                workspace="inherit",
+                model="flash",
+            )
         log(f"QA Auditor R{qa_idx} verdict: {qa_verdict.get('verdict')}")
 
         if qa_verdict.get("verdict") == "APPROVE":

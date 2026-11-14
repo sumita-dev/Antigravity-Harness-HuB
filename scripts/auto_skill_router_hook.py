@@ -37,7 +37,7 @@ from harness.skills.router import SkillLoader, SkillRouter  # noqa: E402
 
 ROUTER_MARKER = "[AUTO-SKILL-ROUTER]"
 
-DEFAULT_MAKER_MODEL = "pro"
+DEFAULT_MAKER_MODEL = "inherit"
 DEFAULT_CRITIC_MODEL = "inherit"
 DEFAULT_QA_MODEL = "flash"
 

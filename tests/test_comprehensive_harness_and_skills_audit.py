@@ -1662,9 +1662,9 @@ def test_all_69_skills_frontmatter_and_router_classification():
 
 
 def test_all_skill_python_scripts_ast_compile_and_cli_help():
-    """Verify all 19 Python helper scripts under plugins/*/skills/*/scripts/ compile cleanly via AST."""
+    """Verify all 15 Python helper scripts under plugins/*/skills/*/scripts/ compile cleanly via AST."""
     report = audit_all_skills_and_scripts()
-    assert report["total_python_skill_scripts"] == 19
+    assert report["total_python_skill_scripts"] == 15
     for item in report["python_skill_scripts"]:
         assert item["syntax_ok"] is True, f"Syntax error in {item['script']}: {item['syntax_error']}"
 

@@ -15,7 +15,7 @@ Quy trình phát triển ứng dụng native khép kín gồm các pha:
 2. **Pha 1 - DESIGN:** Architect lập Spec 5 mục, bắt buộc có tiêu chí dữ liệu mẫu `AC-SEED`.
 3. **Pha 2 - DESIGN_REVIEW:** Reviewer độc lập thẩm định Spec theo rubric chung.
 4. **Pha 3 - SIGN_OFF:** Trình đúng Spec SHA256 cho Sếp duyệt.
-5. **Pha 3.5 - UI_CONCEPT (Nếu có UI):** Quản đốc sinh 2–4 ảnh concept bằng `generate_image`, Sếp chốt concept qua `ask_question`, lưu visual guideline cho Builder (bypass với non-UI/CLI).
+5. **Pha 3.5 - UI_CONCEPT (Nếu có UI):** Quản đốc sinh 2–4 ảnh concept bằng `invoke_subagent(TypeName="image-generator", ...)`, Sếp chốt concept qua `ask_question`, lưu visual guideline cho Builder (bypass với non-UI/CLI).
 6. **Pha 4 - IMPLEMENTATION:** Builder viết code theo TDD & Karpathy, bám sát visual concept đã duyệt, bắt buộc tạo seed data (mockData.json/seed script), cấm app trắng trơn.
 7. **Pha 5 - AUDIT & E2E & UAT:** QA Auditor kiểm thử AC, E2E Playwright, giám sát dev server qua `scripts/run_dev_logger.py` (port check & HTTP health check), xuất bảng UAT `docs/human-test-sheet-template.md`.
 8. **Pha 6 - PACKAGING:** Tự động sinh launcher 1-click `start-app.bat` và `HDSD-NHANH.md` qua `scripts/generate_launcher.py`.
@@ -51,8 +51,8 @@ CLI nhận nguyên câu `Duyệt`, `Duyệt Spec này`, `Duyệt bản đặc t�
 
 Kích hoạt tự động sau Pha 3 (SIGN_OFF) khi Sếp đã duyệt Spec, áp dụng cho mọi ứng dụng có giao diện UI (với ứng dụng Non-UI / backend thuần túy / CLI thì tự động bypass chuyển thẳng sang Pha 4).
 
-1. **Sinh 2–4 ảnh concept bằng `generate_image`:**
-   - Quản đốc trực tiếp sử dụng công cụ `generate_image` để tạo 2–4 ảnh mockup/concept giao diện thực tế dựa trên User Stories và Design Specs.
+1. **Sinh 2–4 ảnh concept bằng `invoke_subagent(TypeName="image-generator", ...)`:**
+   - Quản đốc gọi `invoke_subagent(TypeName="image-generator", ...)` để tạo 2–4 ảnh mockup/concept giao diện thực tế dựa trên User Stories và Design Specs.
    - Các ảnh concept thể hiện các phong cách trực quan khác nhau (ví dụ: Modern Minimalist / Apple-inspired, Data-dense Dashboard / Linear-style, Vibrant & Friendly, hoặc Dark Mode Neo-brutalist).
    - Prompt tạo ảnh tập trung vào UI màn hình chính, bố cục phân cấp (layout hierarchy), màu sắc chủ đạo, component states, không viền thiết bị ngoài trừ khi được yêu cầu.
 

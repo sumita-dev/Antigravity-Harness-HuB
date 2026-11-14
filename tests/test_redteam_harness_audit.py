@@ -197,14 +197,14 @@ def run_probe_def_01(work_dir: Path) -> dict[str, Any]:
         "branch=app" in app_msg
         and "skill=app" in app_msg
         and "plugins/code/skills/app/SKILL.md" in app_msg
-        and "Architect (pro) -> Design Reviewer (inherit) -> Builder (pro) -> Code Critic (inherit) -> QA Auditor (flash)"
+        and "Architect (inherit) -> Design Reviewer (inherit) -> Builder (inherit) -> Code Critic (inherit) -> QA Auditor (flash)"
         in app_msg
     )
     mkt_ok = (
         "branch=marketing" in mkt_msg
         and "skill=boc-phot-storytelling" in mkt_msg
         and "plugins/marketing/skills/boc-phot-storytelling/SKILL.md" in mkt_msg
-        and "Web Researcher (pro) -> Creator (pro) -> Compliance Critic (inherit)" in mkt_msg
+        and "Web Researcher (inherit) -> Creator (inherit) -> Compliance Critic (inherit)" in mkt_msg
     )
     dedup_ok = dedup_out.get("injectSteps") == []
 
@@ -1103,9 +1103,10 @@ def inspect_global_vs_workspace_hooks() -> dict[str, Any]:
         except Exception:
             pass
 
-    global_has_ahg = any("enforce_anti_hallucination_hook.py" in c for c in global_stop)
-    global_has_vbh = any("verify_before_handoff_hook.py" in c for c in global_stop)
-    global_has_tph = any("enforce_triad_process_hook.py" in c for c in global_stop)
+    global_has_unified_stop = any("unified_stop_pipeline.py" in c for c in global_stop)
+    global_has_ahg = global_has_unified_stop or any("enforce_anti_hallucination_hook.py" in c for c in global_stop)
+    global_has_vbh = global_has_unified_stop or any("verify_before_handoff_hook.py" in c for c in global_stop)
+    global_has_tph = global_has_unified_stop or any("enforce_triad_process_hook.py" in c for c in global_stop)
     global_has_router = any("auto_skill_router_hook.py" in c for c in global_pre)
 
     return {

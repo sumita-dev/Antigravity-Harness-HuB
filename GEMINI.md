@@ -26,7 +26,7 @@
     - Kích hoạt tự động. CẤM thu nhỏ bài toán thành mockup; bắt buộc 2-Tier DoD (State/Persistence + Lifecycle runtime log), `exit code == 0`, `Path.exists()`, GitNexus `impact()`/`context()`, Hard AST checks (Ruff/Biome/ESLint/TS).
     - **Sycophancy Ban & Empirical Gates:** CẤM hùa theo người dùng; CẤM suy đoán API/routing thiếu raw HTTP status (`curl -I`/`Invoke-WebRequest` hoặc `### [EVIDENCE TUPLE]`); CẤM dùng Red Flag Phrases (`should work`, `probably`, `chắc là`...). Chi tiết đầy đủ xem [anti-hallucination-details.md](docs/anti-hallucination-details.md).
 13. **Context Budget Economics & Autonomy Ladder (L1➔L4):** `Skill` ➔ `Script` ➔ `SubAgent` ➔ `Plugin/Hook` ➔ `Always-on text` (`GEMINI.md <= 24,000 bytes`, Prefix Caching giữ phần cố định ở đầu). Mặc định **L3 (Auto-Fix with Human Gate)**; **L4** chỉ khi Sếp gõ `/goal`. Xem [anti-hallucination-details.md](docs/anti-hallucination-details.md).
-14. **SubAgent Lifecycle Closure Invariant:** Sau khi QA Auditor ra phán quyết (PASS/ESCALATED), Quản đốc BẮT BUỘC gọi `manage_subagents(Action="kill_all")` và `subagent_guard.cleanup_triad_cycle()`, cấm để subagent mồ côi.
+14. **SubAgent Lifecycle Closure Invariant:** Sau khi QA Auditor ra phán quyết (PASS/ESCALATED), Quản đốc BẮT BUỘC gọi `manage_subagents(Action="kill_all")` và `subagent_guard.cleanup_triad_cycle()`, cấm để subagent mồ côi. **Ngoại lệ Antigravity 2.0:** KHÔNG gọi `kill_all` với `browser` subagent đang idle nếu còn phục vụ preview/UAT (để tái sử dụng, tiết kiệm token), và KHÔNG cần `kill_all` sau khi `run_workflow` tự kết thúc.
 
 ---
 
@@ -37,9 +37,9 @@
 ---
 
 ## 3. Kỹ Năng & Quy Trình Nhánh Kỹ Thuật (App & Code)
-- **Native App Workflow:** Luồng `Architect ➔ Design Reviewer ➔ Sếp duyệt Spec ➔ [UI: generate_image] ➔ Builder ➔ Code Critic ➔ QA Auditor`. Dùng `workflows/app_triad.py` cho `run_workflow`; chi tiết xem `plugins/code/skills/app/SKILL.md` và [app-workflow-guide.md](docs/app-workflow-guide.md).
+- **Native App Workflow:** Luồng `Architect ➔ Design Reviewer ➔ Sếp duyệt Spec ➔ [UI: image-generator] ➔ Builder ➔ Code Critic ➔ QA Auditor`. Dùng `workflows/app_triad.py` cho `run_workflow`; chi tiết xem `plugins/code/skills/app/SKILL.md` và [app-workflow-guide.md](docs/app-workflow-guide.md).
 - **Skills (`plugins/<plugin>/skills/<skill>/SKILL.md`):**
-  - *Core App & Dev:* `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/gemini-omni-flash-api`, `/modern-web-guidance`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`, `/sdd-spec-kit`.
+  - *Core App & Dev:* `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`, `/sdd-spec-kit`.
   - *GitNexus & UI/A11y:* `/gitnexus-plan`, `/gitnexus-work`, `/gitnexus-review`, `/impeccable`, `/verify-ui`, `/accessibility`, `/apple-inspired-design`.
   - *Hệ Thống & Second Brain:* `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`, `/setup-second-brain`, `/karpathy-second-brain`, `/ingest-source`, `/query-wiki`, `/lint-wiki`, `/second-brain-memory`, `/obsidian-markdown`, `/obsidian-bases`, `/json-canvas`.
 
