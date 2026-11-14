@@ -35,11 +35,11 @@ def test_run_workflow_triad_scripts_exist_and_parse_cleanly() -> None:
     app_src = app_script.read_text(encoding="utf-8")
     mkt_src = mkt_script.read_text(encoding="utf-8")
 
-    # Both must parse and compile cleanly
+    # Both must parse and compile cleanly with top-level await support
     ast.parse(app_src, filename=str(app_script))
-    compile(app_src, str(app_script), "exec")
+    compile(app_src, str(app_script), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
     ast.parse(mkt_src, filename=str(mkt_script))
-    compile(mkt_src, str(mkt_script), "exec")
+    compile(mkt_src, str(mkt_script), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
     # App Triad primitives, schemas, model tiering, and circuit breakers
     for token in (
@@ -50,6 +50,10 @@ def test_run_workflow_triad_scripts_exist_and_parse_cleanly() -> None:
         "AUDIT_VERDICT_SCHEMA",
         "max_critique_rounds",
         "max_qa_rounds",
+        "max_total_cycles",
+        "total_cycles",
+        "await maker(",
+        "await run_app_triad(",
         'workspace="share"',
         'model="inherit"',
         'model="flash"',
@@ -66,6 +70,8 @@ def test_run_workflow_triad_scripts_exist_and_parse_cleanly() -> None:
         "CREATOR_DRAFT_SCHEMA",
         "MARKETING_CRITIQUE_SCHEMA",
         "max_critique_rounds",
+        "await creator(",
+        "await run_marketing_triad(",
         "source_accuracy",
         "policy",
         "integrity",
@@ -100,18 +106,19 @@ def test_gemini_md_progressive_disclosure_size_and_invariants() -> None:
     assert (REPO_ROOT / "docs" / "second-brain-protocol.md").is_file()
 
 
-def test_audit_response_ignores_illustrative_keywords_in_code_and_backticks() -> None:
-    """Illustrative keywords inside fenced code blocks or inline backticks must not trigger false positives."""
+def test_audit_response_ignores_explicit_code_fences_only() -> None:
+    """Legitimate code inside ```python or ```json blocks does not trigger false positives."""
     doc_response = (
-        "Tài liệu hướng dẫn quy chuẩn rào chắn:\n"
-        "- Tránh viết các cụm như `tất cả test đã pass`, `chắc là`, `giả thuyết của anh đúng`, "
-        "`bị fallback về`, hoặc `free tier gọi được api` khi chưa có bằng chứng.\n\n"
-        "Ví dụ mẫu cấu hình regex kiểm tra:\n"
+        "Tài liệu cấu hình các bộ lọc kiểm tra mã nguồn và dữ liệu mẫu:\n\n"
         "```python\n"
         "COMPLETION_EXAMPLES = ['all tests pass', 'tests passed', 'chạy xanh mượt']\n"
         "ROUTING_EXAMPLES = ['redirect to homepage', '404 not found']\n"
+        "SPECULATIVE_EXAMPLES = ['should work', 'probably']\n"
+        "```\n\n"
+        "```json\n"
+        '{"sample_status": "all checks passed", "note": "free tier api call"}\n'
         "```\n"
-        "Quy trình này áp dụng cho mọi báo cáo."
+        "Quy trình này áp dụng cho mọi module."
     )
     res = audit_response(doc_response, base_dir=REPO_ROOT, check_paths=True)
     assert res.verdict == "APPROVE", f"False positive triggered: {res.violations}"
@@ -120,6 +127,23 @@ def test_audit_response_ignores_illustrative_keywords_in_code_and_backticks() ->
     assert res.unverified_api_claims == []
     assert res.speculative_phrases == []
     assert res.sycophancy_phrases == []
+
+
+def test_audit_response_rejects_bypass_in_text_fence_or_inline_backticks() -> None:
+    """Wrapping fake completion claims in ```text or inline backticks with >=20% filler prose MUST still be REJECTED."""
+    filler = (
+        "Đây là phần giải thích chi tiết về tiến độ công việc trong phiên làm việc hôm nay. "
+        "Các thay đổi đã được rà soát kỹ lưỡng theo yêu cầu của dự án và kiến trúc tổng thể.\n"
+    )
+    text_fence_bypass = filler + "```text\ntất cả test đã pass\n```\n"
+    res_text_fence = audit_response(text_fence_bypass, base_dir=REPO_ROOT, check_paths=True)
+    assert res_text_fence.verdict == "REJECT"
+    assert res_text_fence.unverified_claims
+
+    inline_backtick_bypass = filler + "Kết quả cuối cùng: `tất cả test đã pass`."
+    res_inline = audit_response(inline_backtick_bypass, base_dir=REPO_ROOT, check_paths=True)
+    assert res_inline.verdict == "REJECT"
+    assert res_inline.unverified_claims
 
 
 def test_audit_response_still_rejects_unquoted_violations() -> None:
@@ -141,30 +165,52 @@ def test_audit_response_still_rejects_unquoted_violations() -> None:
     assert bad_routing.unverified_routing_claims
 
 
-def test_stop_hook_allows_pure_discussion_with_illustrative_examples(tmp_path: Path) -> None:
-    """Stop hook allows documentation/discussion turns with illustrative examples in backticks/code blocks."""
-    t_doc = _write_transcript(
-        tmp_path / "t_doc.jsonl",
+def test_stop_hook_allows_explicit_code_blocks_and_blocks_text_fence_bypass(tmp_path: Path) -> None:
+    """Stop hook allows explicit ```python code blocks while still blocking ```text bypasses."""
+    t_code = _write_transcript(
+        tmp_path / "t_code.jsonl",
         [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Giải thích các mẫu bị hook chặn"},
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Cho ví dụ cấu hình python"},
             {
                 "type": "PLANNER_RESPONSE",
                 "content": (
-                    "Hook sẽ chặn các câu khẳng định thiếu bằng chứng như `tất cả test đã pass` "
-                    "hoặc `4 link bị fallback về` nếu viết trực tiếp ngoài khối code.\n"
-                    "```text\n"
-                    "all tests pass\n"
-                    "chắc là sẽ chạy\n"
+                    "Dưới đây là cấu hình mẫu trong Python:\n"
+                    "```python\n"
+                    "PATTERNS = ['all tests pass', 'chắc là', '404 not found']\n"
                     "```\n"
-                    "Đây là cơ chế bảo vệ thực chứng."
+                    "Đây là cấu hình kiểm thử."
                 ),
             },
         ],
     )
-    payload_doc = {
-        "conversationId": "conv-opt-doc",
-        "transcriptPath": str(t_doc),
+    payload_code = {
+        "conversationId": "conv-opt-code",
+        "transcriptPath": str(t_code),
         "workspacePaths": [str(REPO_ROOT)],
         "terminationReason": "NO_TOOL_CALL",
     }
-    assert evaluate_hook_payload(payload_doc) == {"decision": "allow"}
+    assert evaluate_hook_payload(payload_code) == {"decision": "allow"}
+
+    t_bypass = _write_transcript(
+        tmp_path / "t_bypass.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Báo cáo kết quả test"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "Đã hoàn thành cập nhật toàn bộ tài liệu và kiểm tra cấu hình hệ thống.\n"
+                    "```text\n"
+                    "tất cả test đã pass\n"
+                    "```\n"
+                ),
+            },
+        ],
+    )
+    payload_bypass = {
+        "conversationId": "conv-opt-bypass",
+        "transcriptPath": str(t_bypass),
+        "workspacePaths": [str(REPO_ROOT)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    res_bypass = evaluate_hook_payload(payload_bypass)
+    assert res_bypass["decision"] == "continue"

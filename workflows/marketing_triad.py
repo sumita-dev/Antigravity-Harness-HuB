@@ -21,7 +21,6 @@ Conventions (per `run-workflow/SKILL.md` and `docs/marketing-workflow-guide.md`)
 
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any, Dict
 
@@ -149,8 +148,14 @@ async def run_marketing_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             "critique": res_critique,
         }
 
-    # 2. Creator -> Draft mapped to Dossier claim IDs
+    # 2. Stateful Creator handle -> Draft mapped to Dossier claim IDs
     phase("Content Creation (Creator)")
+    creator = agent(
+        role="Content Creator",
+        type_name="self",
+        workspace="inherit",
+        model="inherit",
+    )
     creator_prompt = (
         "Role: Content Creator (Maker).\n"
         "Invariants: Draft or revise content strictly grounded in the Research Dossier. "
@@ -159,14 +164,7 @@ async def run_marketing_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
         f"Task:\n{task}\n\n"
         f"Dossier:\n{json.dumps(dossier, ensure_ascii=False)}"
     )
-    draft = await agent(
-        prompt=creator_prompt,
-        schema=CREATOR_DRAFT_SCHEMA,
-        role="Content Creator",
-        type_name="self",
-        workspace="inherit",
-        model="inherit",
-    )
+    draft = await creator(creator_prompt, schema=CREATOR_DRAFT_SCHEMA)
     log(f"Creator draft ready, mapped_claim_ids={draft.get('mapped_claim_ids', [])}")
 
     # 3. Compliance Critic loop (max_critique_rounds = 2)
@@ -223,24 +221,10 @@ async def run_marketing_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             f"Previous Draft:\n{json.dumps(draft, ensure_ascii=False)}\n\n"
             f"Critic Findings:\n{json.dumps(critique, ensure_ascii=False)}"
         )
-        draft = await agent(
-            prompt=rev_prompt,
-            schema=CREATOR_DRAFT_SCHEMA,
-            role=f"Creator Revision (R{round_idx})",
-            type_name="self",
-            workspace="inherit",
-            model="inherit",
-        )
+        draft = await creator(rev_prompt, schema=CREATOR_DRAFT_SCHEMA)
 
     return {"final_status": "ESCALATED", "stage": "UNKNOWN"}
 
 
-if "agent" in globals() and "phase" in globals():
-    _args = globals().get("args", {})
-    _coro = run_marketing_triad(_args)
-    try:
-        _loop = asyncio.get_running_loop()
-        asyncio.ensure_future(_coro)
-    except RuntimeError:
-        _final = asyncio.run(_coro)
-        print(json.dumps(_final, ensure_ascii=False))
+result = await run_marketing_triad(args if "args" in globals() else {})
+print(json.dumps(result, ensure_ascii=False))

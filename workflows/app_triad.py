@@ -26,9 +26,8 @@ Conventions (per `run-workflow/SKILL.md`):
 
 from __future__ import annotations
 
-import asyncio
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 # Aligned with harness.triad_protocol.CritiqueVerdictSchema.to_json_schema()
 CRITIQUE_VERDICT_SCHEMA: Dict[str, Any] = {
@@ -139,9 +138,17 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
     spec_sha256 = str(workflow_args.get("spec_sha256") or "")
     max_critique_rounds = int(workflow_args.get("max_critique_rounds", 2))
     max_qa_rounds = int(workflow_args.get("max_qa_rounds", 2))
+    max_total_cycles = int(workflow_args.get("max_total_cycles", 3))
+    total_cycles = 0
 
-    # 1. Maker (Builder) in isolated share workspace
+    # 1. Stateful Maker (Builder) handle in isolated share workspace
     phase("Implementation (Maker)")
+    maker = agent(
+        role="Maker / Builder",
+        type_name="self",
+        workspace="share",
+        model="inherit",
+    )
     maker_prompt = (
         "Role: App Builder (Maker).\n"
         "Invariants: Follow Karpathy principles, run deterministic tests/linters before handoff, "
@@ -149,20 +156,14 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
         f"Spec SHA256: {spec_sha256 or 'N/A'}\n\n"
         f"Task:\n{task}"
     )
-    maker_handoff = await agent(
-        prompt=maker_prompt,
-        schema=MAKER_HANDOFF_SCHEMA,
-        role="App Builder (Maker)",
-        type_name="self",
-        workspace="share",
-        model="inherit",
-    )
+    maker_handoff = await maker(maker_prompt, schema=MAKER_HANDOFF_SCHEMA)
     log(f"Maker handoff: {json.dumps(maker_handoff, ensure_ascii=False)}")
 
-    # 2. Code Critic loop (max_critique_rounds = 2)
+    # 2. Code Critic loop (max_critique_rounds = 2, total_cycles <= max_total_cycles)
     critique_verdict: Dict[str, Any] = {}
     for round_idx in range(1, max_critique_rounds + 1):
-        phase(f"Code Critique (Round {round_idx}/{max_critique_rounds})")
+        total_cycles += 1
+        phase(f"Code Critique (Round {round_idx}/{max_critique_rounds}, Cycle {total_cycles}/{max_total_cycles})")
         critic_prompt = (
             "Role: Code Critic (Independent Reviewer).\n"
             "Invariants: Read full context, verify GAPs, logic, edge cases, and AC coverage. "
@@ -183,11 +184,16 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
         if critique_verdict.get("verdict") == "APPROVE":
             break
 
-        if round_idx >= max_critique_rounds or critique_verdict.get("verdict") == "ESCALATE":
+        if (
+            round_idx >= max_critique_rounds
+            or total_cycles >= max_total_cycles
+            or critique_verdict.get("verdict") == "ESCALATE"
+        ):
             result = {
                 "final_status": "ESCALATED",
                 "stage": "CRITIQUE",
                 "rounds_used": round_idx,
+                "total_cycles": total_cycles,
                 "critique": critique_verdict,
             }
             log(f"Circuit breaker triggered at Code Critique: {json.dumps(result, ensure_ascii=False)}")
@@ -199,19 +205,24 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             "Fix every finding raised by Code Critic, re-run tests, and commit.\n\n"
             f"Critic Findings:\n{json.dumps(critique_verdict, ensure_ascii=False)}"
         )
-        maker_handoff = await agent(
-            prompt=fix_prompt,
-            schema=MAKER_HANDOFF_SCHEMA,
-            role=f"App Builder Fix (R{round_idx})",
-            type_name="self",
-            workspace="share",
-            model="inherit",
-        )
+        maker_handoff = await maker(fix_prompt, schema=MAKER_HANDOFF_SCHEMA)
 
-    # 3. QA Auditor loop (max_qa_rounds = 2, model="flash")
+    # 3. QA Auditor loop (max_qa_rounds = 2, total_cycles <= max_total_cycles, model="flash")
     qa_verdict: Dict[str, Any] = {}
     for qa_idx in range(1, max_qa_rounds + 1):
-        phase(f"QA Audit (Round {qa_idx}/{max_qa_rounds})")
+        if total_cycles >= max_total_cycles:
+            result = {
+                "final_status": "ESCALATED",
+                "stage": "QA_AUDIT",
+                "rounds_used": qa_idx - 1,
+                "total_cycles": total_cycles,
+                "reason": "max_total_cycles reached before QA Audit",
+            }
+            log(f"Total cycle circuit breaker triggered: {json.dumps(result, ensure_ascii=False)}")
+            return result
+
+        total_cycles += 1
+        phase(f"QA Audit (Round {qa_idx}/{max_qa_rounds}, Cycle {total_cycles}/{max_total_cycles})")
         qa_prompt = (
             "Role: QA Auditor (Independent Verifier).\n"
             "Invariants: Rerun test suite deterministically, verify physical paths, zero secrets, "
@@ -233,6 +244,7 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
         if qa_verdict.get("verdict") == "APPROVE":
             result = {
                 "final_status": "APPROVED",
+                "total_cycles": total_cycles,
                 "maker_handoff": maker_handoff,
                 "critique": critique_verdict,
                 "qa_audit": qa_verdict,
@@ -240,11 +252,16 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             log(f"App Triad APPROVED: {json.dumps(result, ensure_ascii=False)}")
             return result
 
-        if qa_idx >= max_qa_rounds or qa_verdict.get("verdict") == "ESCALATE":
+        if (
+            qa_idx >= max_qa_rounds
+            or total_cycles >= max_total_cycles
+            or qa_verdict.get("verdict") == "ESCALATE"
+        ):
             result = {
                 "final_status": "ESCALATED",
                 "stage": "QA_AUDIT",
                 "rounds_used": qa_idx,
+                "total_cycles": total_cycles,
                 "qa_audit": qa_verdict,
             }
             log(f"Circuit breaker triggered at QA Audit: {json.dumps(result, ensure_ascii=False)}")
@@ -256,24 +273,10 @@ async def run_app_triad(workflow_args: Dict[str, Any]) -> Dict[str, Any]:
             "Fix every test failure or defect reported by QA Auditor and re-run tests.\n\n"
             f"QA Findings:\n{json.dumps(qa_verdict, ensure_ascii=False)}"
         )
-        maker_handoff = await agent(
-            prompt=qa_fix_prompt,
-            schema=MAKER_HANDOFF_SCHEMA,
-            role=f"App Builder QA Fix (R{qa_idx})",
-            type_name="self",
-            workspace="share",
-            model="inherit",
-        )
+        maker_handoff = await maker(qa_fix_prompt, schema=MAKER_HANDOFF_SCHEMA)
 
-    return {"final_status": "ESCALATED", "stage": "UNKNOWN"}
+    return {"final_status": "ESCALATED", "stage": "UNKNOWN", "total_cycles": total_cycles}
 
 
-if "agent" in globals() and "phase" in globals():
-    _args = globals().get("args", {})
-    _coro = run_app_triad(_args)
-    try:
-        _loop = asyncio.get_running_loop()
-        asyncio.ensure_future(_coro)
-    except RuntimeError:
-        _final = asyncio.run(_coro)
-        print(json.dumps(_final, ensure_ascii=False))
+result = await run_app_triad(args if "args" in globals() else {})
+print(json.dumps(result, ensure_ascii=False))

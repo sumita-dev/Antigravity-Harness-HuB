@@ -269,7 +269,8 @@ def test_all_python_scripts_compile():
             continue
         try:
             source = p.read_text(encoding="utf-8")
-            compile(source, str(p), "exec")
+            compile_flags = ast.PyCF_ALLOW_TOP_LEVEL_AWAIT if "workflows" in parts else 0
+            compile(source, str(p), "exec", flags=compile_flags)
         except Exception as e:
             bad_files.append(f"{p.relative_to(REPO)}: {e}")
     assert not bad_files, f"File python bị lỗi cú pháp: {bad_files}"
