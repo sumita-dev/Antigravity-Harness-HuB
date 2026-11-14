@@ -93,14 +93,14 @@ SUBAGENT_HEADER_MARKERS = (
 )
 
 REPORT_PATH_KV_RE = re.compile(
-    r"(?i)\b(?:report_path|report|báo\s*cáo)\s*[:=]\s*[`\"']?([^\s`\"'\r\n]+(?:\.md|\.json))[`\"']?"
+    r"(?i)\b(?:report_path|report|báo\s*cáo)\s*[:=]\s*[`\"']?([^\s`\"'\r\n]+(?:\.md|\.json|\.txt|\.log|\.html|\.csv))[`\"']?"
 )
 REPORT_PATH_LINK_RE = re.compile(
-    r"\[(?:report|báo\s*cáo|spec)\]\((?:file:///?)?([^\s\)\r\n]+(?:\.md|\.json))\)",
+    r"\[(?:report|báo\s*cáo|spec)\]\((?:file:///?)?([^\s\)\r\n]+(?:\.md|\.json|\.txt|\.log|\.html|\.csv))\)",
     re.IGNORECASE,
 )
 REPORT_PATH_TOKEN_RE = re.compile(
-    r"[`\"']((?:[A-Za-z]:[\\/]|(?:\.gemini|brain|\.brain|artifacts)[\\/])[^\s`\"'\r\n]+(?:\.md|\.json))[`\"']",
+    r"[`\"']((?:[A-Za-z]:[\\/]|(?:\.gemini|brain|\.brain|artifacts)[\\/])[^\s`\"'\r\n]+(?:\.md|\.json|\.txt|\.log|\.html|\.csv))[`\"']",
     re.IGNORECASE,
 )
 
@@ -497,6 +497,57 @@ def _is_invocation_awaiting_wakeup(turn_steps: list[dict[str, Any]], inv_idx: in
     return False
 
 
+def _parse_optional_int(val: Any) -> int | None:
+    """Parse optional integer argument (e.g. StartLine/EndLine) from tool_call args."""
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, int):
+        return val
+    cleaned = _clean_arg_val(val)
+    if not cleaned:
+        return None
+    try:
+        return int(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_report_sufficiently_read(
+    cand_resolved: Path,
+    read_ranges: list[tuple[int | None, int | None]] | None,
+) -> tuple[bool, bool]:
+    """Return `(is_read, was_skimmed)` for a candidate report_path.
+
+    If `read_file` was called without StartLine/EndLine, it is treated as a full read.
+    If all calls used StartLine/EndLine covering < 20 lines on a > 30-line file, treat as skimmed.
+    """
+    if not read_ranges:
+        return False, False
+
+    if any(start is None and end is None for start, end in read_ranges):
+        return True, False
+
+    if not cand_resolved.is_file():
+        return True, False
+
+    try:
+        total_lines = len(cand_resolved.read_text(encoding="utf-8", errors="ignore").splitlines())
+    except OSError:
+        return True, False
+
+    if total_lines <= 30:
+        return True, False
+
+    for start, end in read_ranges:
+        eff_start = start if (start is not None and start >= 1) else 1
+        eff_end = min(end, total_lines) if (end is not None and end >= 1) else total_lines
+        covered = max(0, eff_end - eff_start + 1)
+        if covered >= 20 or covered >= total_lines:
+            return True, False
+
+    return False, True
+
+
 def _resolve_candidate_report_path(raw_path: str, payload: dict[str, Any] | None) -> Path:
     """Resolve a candidate report path, anchoring relative paths to workspacePaths[0] or REPO_ROOT."""
     base_dir = REPO_ROOT
@@ -628,8 +679,10 @@ def evaluate_transcript(
     subagent_invocations: list[tuple[int, dict[str, Any]]] = []
     run_cmd_steps: list[int] = []
     schedule_steps: list[int] = []
-    read_file_paths: set[str] = set()
+    read_file_calls: dict[str, list[tuple[int | None, int | None]]] = {}
     candidate_report_paths: list[str] = []
+    has_subagent_message = False
+    missing_handoff_context_violations: list[str] = []
     has_workspace_sync = False
     last_kill_all_idx = -1
     tier2_text_fragments: list[str] = []
@@ -666,11 +719,19 @@ def evaluate_transcript(
             elif tc_name == "schedule":
                 schedule_steps.append(step_idx)
             elif tc_name in ("read_file", "view_file", "read_text_file", "read_multiple_files") or tc_name.endswith((":read_file", ":read_text_file", ":view_file")):
+                start_line = _parse_optional_int(
+                    tc_args.get("StartLine") or tc_args.get("start_line") or tc_args.get("startLine")
+                )
+                end_line = _parse_optional_int(
+                    tc_args.get("EndLine") or tc_args.get("end_line") or tc_args.get("endLine")
+                )
                 for key in ("Path", "path", "TargetFile", "target_file", "FilePath", "file_path", "filename"):
                     val = _clean_arg_val(tc_args.get(key))
                     if val:
                         resolved = _resolve_candidate_report_path(val, eff_payload)
-                        read_file_paths.add(resolved.as_posix().lower())
+                        read_file_calls.setdefault(resolved.as_posix().lower(), []).append(
+                            (start_line, end_line)
+                        )
                 for list_key in ("files", "paths", "TargetFiles"):
                     val_list = tc_args.get(list_key)
                     if isinstance(val_list, list):
@@ -678,7 +739,9 @@ def evaluate_transcript(
                             item_str = _clean_arg_val(item)
                             if item_str:
                                 resolved = _resolve_candidate_report_path(item_str, eff_payload)
-                                read_file_paths.add(resolved.as_posix().lower())
+                                read_file_calls.setdefault(resolved.as_posix().lower(), []).append(
+                                    (start_line, end_line)
+                                )
             elif tc_name in MUTATION_TOOL_NAMES:
                 for p in _extract_mutation_paths(tc_name, tc_args):
                     if not is_exempt_orchestrator_path(p, eff_payload):
@@ -693,13 +756,37 @@ def evaluate_transcript(
                 if prompt_val:
                     stripped_prompt = FIXED_PREFIX_BLOCK_RE.sub("", prompt_val)
                     tier2_text_fragments.append(stripped_prompt)
+                if candidate_report_paths:
+                    role_info = classify_subagent_role(tc_args)
+                    is_downstream = (
+                        role_info["is_code_critic"]
+                        or role_info["is_compliance_critic"]
+                        or role_info["is_e2e_critic"]
+                        or role_info["is_content_critic"]
+                        or role_info["is_design_reviewer"]
+                        or role_info["is_qa"]
+                        or role_info["is_mkt_creator"]
+                    )
+                    if is_downstream:
+                        has_ref = any(
+                            (rp in prompt_val)
+                            or (rp.replace("\\", "/") in prompt_val)
+                            or (Path(rp).name in prompt_val)
+                            for rp in candidate_report_paths
+                        )
+                        if not has_ref:
+                            role_label = role_info["role"] or "SubAgent"
+                            missing_handoff_context_violations.append(
+                                f"Prompt của {role_label} chưa tham chiếu report_path từ bước trước ({Path(candidate_report_paths[-1]).name})"
+                            )
             elif tc_name == "manage_subagents":
                 action_val = _clean_arg_val(tc_args.get("Action") or tc_args.get("action"))
                 if action_val.lower() == "kill_all":
                     last_kill_all_idx = step_idx
 
         s_text = f"{content}\n{_step_text(step)}"
-        if "[Message]" in s_text:
+        if "[Message]" in s_text and not is_planner and not any(m in s_text for m in OTHER_HOOK_MARKERS):
+            has_subagent_message = True
             for regex in (REPORT_PATH_KV_RE, REPORT_PATH_LINK_RE, REPORT_PATH_TOKEN_RE):
                 for match in regex.finditer(s_text):
                     cand_path = match.group(1).strip()
@@ -907,13 +994,50 @@ def evaluate_transcript(
             ),
         }
 
-    # Check 4 (Rule 1.12): SubAgent Report Path Read Verification Gate
+    # Check 4 (Rule 1.12): SubAgent Report Path Presence, Full Read & Downstream Context Gate
+    has_critic_or_qa_ran = has_qa or has_code_critic or has_compliance_critic or has_e2e_critic
+    if has_subagent_message and has_critic_or_qa_ran and not candidate_report_paths:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Lean Handoff & Chốt chặn đọc Artifact): "
+                "SubAgent (Critic/QA) đã gửi [Message] nhưng không đính kèm 'report_path' hợp lệ. "
+                "Yêu cầu SubAgent cung cấp 'report_path' và Quản đốc gọi read_file đọc đầy đủ trước khi kết thúc lượt."
+            ),
+        }
+
+    if missing_handoff_context_violations:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chuyển tiếp ngữ cảnh Handoff): "
+                f"{'; '.join(missing_handoff_context_violations)}. "
+                "Yêu cầu truyền rõ report_path vào Prompt của SubAgent kế tiếp để tránh mất ngữ cảnh."
+            ),
+        }
+
     unread_reports: list[str] = []
+    skimmed_reports: list[str] = []
     for cand_raw in candidate_report_paths:
         cand_resolved = _resolve_candidate_report_path(cand_raw, eff_payload)
         cand_norm = cand_resolved.as_posix().lower()
-        if cand_norm not in read_file_paths:
+        is_read, was_skimmed = _is_report_sufficiently_read(
+            cand_resolved, read_file_calls.get(cand_norm)
+        )
+        if was_skimmed:
+            skimmed_reports.append(cand_raw)
+        elif not is_read:
             unread_reports.append(cand_raw)
+
+    if skimmed_reports:
+        return {
+            "decision": "continue",
+            "reason": (
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chống đọc lướt Artifact): "
+                f"Quản đốc chỉ đọc lướt một phần nhỏ (< 20 dòng) của báo cáo '{skimmed_reports[0]}'. "
+                "Yêu cầu gọi read_file đọc đầy đủ nội dung báo cáo trước khi kết thúc lượt."
+            ),
+        }
 
     if unread_reports:
         return {

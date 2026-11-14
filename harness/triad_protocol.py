@@ -95,6 +95,7 @@ def validate_handoff_v2(
     payload: Dict[str, Any],
     require_report_path: bool = False,
     verify_report_exists: bool = False,
+    strict_lean_handoff: bool = False,
 ) -> Tuple[bool, List[str]]:
     """Kiểm tra tính hợp lệ của payload Triad Handoff Contract v2.
 
@@ -160,24 +161,67 @@ def validate_handoff_v2(
         if not isinstance(ac_matrix, list):
             errors.append("'acceptance_criteria_matrix' bắt buộc phải là một danh sách (list)")
 
-    # 7. Kiểm tra digest (Rule 1.12: < 100 từ)
+    # 7. Kiểm tra digest (Rule 1.12: <= 100 từ + chống võ đoán / sycophancy)
     digest = payload.get("digest")
     if digest and isinstance(digest, str):
         words = digest.strip().split()
         if len(words) > 100:
             errors.append(f"Digest vượt quá giới hạn 100 từ theo Rule 1.12 (đếm được {len(words)} từ)")
 
+        from harness.validators.hallucination_detector import audit_response
+
+        audit_res = audit_response(digest, check_paths=False)
+        if audit_res.speculative_phrases:
+            errors.append(
+                f"Digest chứa ngôn ngữ võ đoán không được phép (Rule 1.12/1.14): {', '.join(audit_res.speculative_phrases)}"
+            )
+        if audit_res.sycophancy_phrases:
+            errors.append(
+                f"Digest chứa ngôn ngữ hùa theo người dùng / Sycophancy (Rule 1.12/1.14): {', '.join(audit_res.sycophancy_phrases)}"
+            )
+
     # 8. Kiểm tra report_path (Hợp đồng bàn giao & Chốt chặn đọc Artifact)
     report_path = payload.get("report_path")
+    has_non_empty_report_path = isinstance(report_path, str) and bool(report_path.strip())
     if "report_path" in payload and report_path is not None:
-        if not isinstance(report_path, str) or not report_path.strip():
+        if not has_non_empty_report_path:
             errors.append("'report_path' phải là chuỗi không rỗng (non-empty string)")
         elif verify_report_exists:
             rp_path = Path(report_path.strip()).resolve()
             if not rp_path.exists():
                 errors.append(f"Tệp 'report_path' không tồn tại trên hệ thống tệp: '{report_path}'")
+            elif not rp_path.is_file():
+                errors.append(f"Đường dẫn 'report_path' không phải là tệp hợp lệ: '{report_path}'")
+            else:
+                try:
+                    if rp_path.stat().st_size <= 0:
+                        errors.append(f"Tệp 'report_path' rỗng (0 bytes): '{report_path}'")
+                    else:
+                        content_stripped = rp_path.read_text(encoding="utf-8", errors="ignore").strip()
+                        if (
+                            not content_stripped
+                            or content_stripped.upper() in ("TODO", "TBD", "N/A", "NONE", "PLACEHOLDER")
+                            or re.fullmatch(r"[.\s_-]+", content_stripped)
+                        ):
+                            errors.append(
+                                f"Tệp 'report_path' chỉ chứa nội dung placeholder rỗng: '{report_path}'"
+                            )
+                except OSError as exc:
+                    errors.append(f"Không thể đọc tệp 'report_path': '{report_path}' ({exc})")
     elif require_report_path:
         errors.append("Thiếu trường bắt buộc 'report_path' (non-empty string)")
+
+    # 8b. Strict Lean Handoff (GAP-01): khi digest được cung cấp ở chế độ strict_lean_handoff=True,
+    # bắt buộc phải có report_path hoặc evidence_paths không rỗng.
+    if strict_lean_handoff and digest and isinstance(digest, str) and digest.strip():
+        raw_ep = payload.get("evidence_paths")
+        has_non_empty_evidence = isinstance(raw_ep, list) and any(
+            isinstance(item, str) and bool(item.strip()) for item in raw_ep
+        )
+        if not has_non_empty_report_path and not has_non_empty_evidence:
+            errors.append(
+                "Strict Lean Handoff (Rule 1.12): khi gửi 'digest' bắt buộc phải đính kèm 'report_path' hoặc 'evidence_paths' không rỗng"
+            )
 
     # 9. Kiểm tra evidence_paths (nếu có, phải là list các non-empty string)
     if "evidence_paths" in payload and payload["evidence_paths"] is not None:
@@ -203,6 +247,7 @@ def parse_handoff_v2(
     data: Union[str, Dict[str, Any]],
     require_report_path: bool = False,
     verify_report_exists: bool = False,
+    strict_lean_handoff: bool = False,
 ) -> TriadHandoffV2:
     """Parse và xác thực payload Handoff Contract v2.
     
@@ -222,6 +267,7 @@ def parse_handoff_v2(
         payload,
         require_report_path=require_report_path,
         verify_report_exists=verify_report_exists,
+        strict_lean_handoff=strict_lean_handoff,
     )
     if not is_valid:
         raise HandoffValidationError("Handoff Schema v2 vi phạm:\n- " + "\n- ".join(errors))

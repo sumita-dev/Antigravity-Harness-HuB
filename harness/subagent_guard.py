@@ -236,6 +236,7 @@ class SubagentGuard:
         handoff_data: Dict[str, Any],
         require_report_path: bool = False,
         verify_report_exists: bool = False,
+        strict_lean_handoff: bool = False,
     ) -> Any:
         """Ghi nhận và xác thực Triad Handoff Contract v2."""
         from harness.triad_protocol import parse_handoff_v2
@@ -243,6 +244,7 @@ class SubagentGuard:
             handoff_data,
             require_report_path=require_report_path,
             verify_report_exists=verify_report_exists,
+            strict_lean_handoff=strict_lean_handoff,
         )
 
     def sync_qa_workspace(
@@ -266,6 +268,7 @@ def validate_triad_handoff(
     payload: Dict[str, Any],
     require_report_path: bool = False,
     verify_report_exists: bool = False,
+    strict_lean_handoff: bool = False,
 ) -> Tuple[bool, List[str]]:
     """Hàm module-level xác thực payload Triad Handoff v2."""
     from harness.triad_protocol import validate_handoff_v2
@@ -273,6 +276,7 @@ def validate_triad_handoff(
         payload,
         require_report_path=require_report_path,
         verify_report_exists=verify_report_exists,
+        strict_lean_handoff=strict_lean_handoff,
     )
 
 

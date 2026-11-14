@@ -61,6 +61,6 @@ Prompt:
 ## 4. Quy Trình Tiếp Nhận & Nghiệm Thu Handoff Từ Subagent
 
 1. **Reactive Wakeup:** Quản đốc dừng turn, không gọi polling loop, chờ hệ thống tự đánh thức khi subagent hoàn tất.
-2. **Đối soát biên bản:** Quản đốc kiểm tra tin nhắn digest và đọc lướt artifact tại `scratch/`.
+2. **Đối soát biên bản:** Quản đốc kiểm tra tin nhắn digest (`<= 100 từ`) và dùng `read_file` đọc đầy đủ phần kết luận & bằng chứng trong `report_path` tại `scratch/` (cấm chỉ đọc lướt vài dòng).
 3. **Phản hồi cho Sếp:** Tổng hợp báo cáo tinh gọn, dẫn link file artifact và trích dẫn `[[wikilink]]` nguồn.
 4. **Compounding:** Nếu kết quả nghiên cứu có giá trị lũy tiến cao, Quản đốc đề xuất với Sếp tạo trang wiki chính thức mới trong `wiki/`.
