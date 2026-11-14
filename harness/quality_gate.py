@@ -1,8 +1,17 @@
 from enum import Enum
+import json
 import subprocess
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from harness.state_machine import HarnessState
+
+_SHORT_MOCK_EXEMPTIONS = frozenset({
+    "VERDICT: APPROVE",
+    "VERDICT: REJECT",
+    "VERDICT: ESCALATE",
+    "ESCALATE_HUMAN",
+    "Test passed. VERDICT: APPROVE",
+})
 
 class Verdict(str, Enum):
     """Là str-Enum nên vẫn so sánh được với chuỗi ('APPROVE'), đồng thời có .name/.value."""
@@ -102,13 +111,122 @@ class AdversarialQualityGate:
         task_context.record_step("GATE_RESOLVED", {"choice": choice, "target_state": target_state.name})
         return task_context.safe_transition(target_state)
 
-    def evaluate_critique(self, task_context, critic_output: str) -> Verdict:
+    def _run_hallucination_gate(
+        self,
+        task_context,
+        output_text: str,
+        *,
+        check_paths: bool = False,
+        base_dir: Optional[Any] = None,
+        extra_execution_logs: Optional[List[Dict[str, Any]]] = None,
+    ):
+        """Extract EXECUTE steps from task_context.trace_steps and run audit_response()."""
+        from harness.validators.hallucination_detector import audit_response
+
+        execution_logs: List[Dict[str, Any]] = []
+        trace_steps = getattr(task_context, "trace_steps", None)
+        if isinstance(trace_steps, list):
+            for step in trace_steps:
+                if isinstance(step, dict) and step.get("step") == "EXECUTE":
+                    payload = step.get("payload")
+                    if isinstance(payload, dict):
+                        execution_logs.append(payload)
+        if extra_execution_logs:
+            execution_logs.extend(extra_execution_logs)
+
+        return audit_response(
+            output_text,
+            base_dir=base_dir,
+            execution_logs=execution_logs or None,
+            check_paths=check_paths,
+        )
+
+    @staticmethod
+    def _try_extract_structured_payload(raw_output: Union[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Return dict if raw_output is a dict or a JSON object string with 'verdict'."""
+        if isinstance(raw_output, dict):
+            return raw_output
+        if isinstance(raw_output, str):
+            stripped = raw_output.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, dict) and "verdict" in parsed:
+                        return parsed
+                except Exception:
+                    return None
+        return None
+
+    def evaluate_critique(
+        self,
+        task_context,
+        critic_output: Union[str, Dict[str, Any]],
+        *,
+        enforce_hallucination_guard: bool = True,
+        strict_paths: bool = False,
+        base_dir: Optional[Any] = None,
+    ) -> Verdict:
         """Đánh giá phản biện từ Critic (soi GAP, logic, edge cases)."""
-        task_context.record_step("CRITIC", {"raw": critic_output.strip()[:200]})
-        if "VERDICT: APPROVE" in critic_output:
+        structured = self._try_extract_structured_payload(critic_output)
+        if structured is not None:
+            from harness.triad_protocol import validate_critique_payload
+
+            is_valid, schema_errors = validate_critique_payload(structured)
+            if not is_valid:
+                task_context.record_step(
+                    "CRITIC",
+                    {"raw": json.dumps(structured, ensure_ascii=False)[:200], "schema_errors": schema_errors},
+                )
+                if not task_context.increment_critique(self.max_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+                task_context.safe_transition(HarnessState.REJECTED)
+                task_context.safe_transition(HarnessState.IMPLEMENTATION)
+                return Verdict.REJECT
+
+            verdict_str = str(structured["verdict"]).strip()
+            verdict_token = f"VERDICT: {verdict_str}"
+            text_parts = [str(structured.get("summary") or "")]
+            text_parts.extend(str(f) for f in (structured.get("findings") or []))
+            text_parts.extend(str(r) for r in (structured.get("recommendations") or []))
+            text_for_gate = "\n".join(p for p in text_parts if p)
+            raw_preview = json.dumps(structured, ensure_ascii=False)[:200]
+        else:
+            verdict_token = str(critic_output)
+            text_for_gate = verdict_token
+            raw_preview = verdict_token.strip()[:200]
+
+        if enforce_hallucination_guard and text_for_gate.strip() not in _SHORT_MOCK_EXEMPTIONS:
+            audit_res = self._run_hallucination_gate(
+                task_context,
+                text_for_gate,
+                check_paths=strict_paths,
+                base_dir=base_dir,
+            )
+            if audit_res.verdict == "REJECT":
+                task_context.record_step(
+                    "HALLUCINATION_GATE",
+                    {
+                        "stage": "CRITIC",
+                        "verdict": audit_res.verdict,
+                        "score": audit_res.score,
+                        "violations": list(audit_res.violations),
+                    },
+                )
+                if not task_context.increment_critique(self.max_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+                task_context.safe_transition(HarnessState.REJECTED)
+                task_context.safe_transition(HarnessState.IMPLEMENTATION)
+                return Verdict.REJECT
+
+        task_context.record_step("CRITIC", {"raw": raw_preview})
+        if "VERDICT: APPROVE" in verdict_token:
             task_context.safe_transition(HarnessState.AUDIT)
             return Verdict.APPROVE
-        elif "VERDICT: REJECT" in critic_output:
+        elif "VERDICT: REJECT" in verdict_token:
             if not task_context.increment_critique(self.max_rounds):
                 return Verdict.ESCALATE
             if not task_context.check_total_cycles(self.max_total_cycles):
@@ -116,7 +234,7 @@ class AdversarialQualityGate:
             task_context.safe_transition(HarnessState.REJECTED)
             task_context.safe_transition(HarnessState.IMPLEMENTATION)
             return Verdict.REJECT
-        elif "VERDICT: ESCALATE" in critic_output or "ESCALATE_HUMAN" in critic_output:
+        elif "VERDICT: ESCALATE" in verdict_token or "ESCALATE_HUMAN" in verdict_token:
             task_context.transition(HarnessState.ESCALATED)
             return Verdict.ESCALATE
         else:
@@ -143,12 +261,54 @@ class AdversarialQualityGate:
                 return True, exit_code, payload
         return False, None, payload if isinstance(payload, dict) else None
 
-    def evaluate_audit(self, task_context, checker_output: str, direct_to_qa: bool = True) -> Verdict:
+    def evaluate_audit(
+        self,
+        task_context,
+        checker_output: Union[str, Dict[str, Any]],
+        direct_to_qa: bool = True,
+        *,
+        enforce_hallucination_guard: bool = True,
+        strict_paths: bool = False,
+        base_dir: Optional[Any] = None,
+    ) -> Verdict:
         """Đánh giá kiểm định từ QA Auditor (test thật, security scan, health check)."""
+        structured = self._try_extract_structured_payload(checker_output)
+        extra_exec_logs: Optional[List[Dict[str, Any]]] = None
+        if structured is not None:
+            from harness.triad_protocol import validate_audit_payload
+
+            is_valid, schema_errors = validate_audit_payload(structured)
+            if not is_valid:
+                task_context.record_step(
+                    "CHECKER",
+                    {"raw": json.dumps(structured, ensure_ascii=False)[:200], "schema_errors": schema_errors},
+                )
+                if not task_context.increment_qa(self.max_qa_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+                task_context.safe_transition(HarnessState.REJECTED)
+                task_context.safe_transition(HarnessState.IMPLEMENTATION)
+                return Verdict.REJECT
+
+            verdict_str = str(structured["verdict"]).strip()
+            verdict_token = f"VERDICT: {verdict_str}"
+            text_parts = [str(structured.get("summary") or "")]
+            text_parts.extend(str(f) for f in (structured.get("findings") or []))
+            text_for_gate = "\n".join(p for p in text_parts if p)
+            raw_preview = json.dumps(structured, ensure_ascii=False)[:200]
+            extra_exec_logs = [
+                c for c in (structured.get("executed_commands") or []) if isinstance(c, dict)
+            ]
+        else:
+            verdict_token = str(checker_output)
+            text_for_gate = verdict_token
+            raw_preview = verdict_token.strip()[:200]
+
         has_exec_fail, exec_exit_code, exec_payload = self._check_latest_execution_step(task_context)
-        if "VERDICT: APPROVE" in checker_output and has_exec_fail:
+        if "VERDICT: APPROVE" in verdict_token and has_exec_fail:
             reason = f"Rejected: latest EXECUTE step has non-zero exit_code ({exec_exit_code})"
-            task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200], "reason": reason})
+            task_context.record_step("CHECKER", {"raw": raw_preview, "reason": reason})
             already_counted = bool(exec_payload and exec_payload.get("_qa_counted") and not exec_payload.get("_audit_checked"))
             if exec_payload is not None:
                 exec_payload["_audit_checked"] = True
@@ -163,12 +323,38 @@ class AdversarialQualityGate:
             task_context.safe_transition(HarnessState.IMPLEMENTATION)
             return Verdict.REJECT
 
-        task_context.record_step("CHECKER", {"raw": checker_output.strip()[:200]})
-        if "VERDICT: APPROVE" in checker_output:
+        if enforce_hallucination_guard and text_for_gate.strip() not in _SHORT_MOCK_EXEMPTIONS:
+            audit_res = self._run_hallucination_gate(
+                task_context,
+                text_for_gate,
+                check_paths=strict_paths,
+                base_dir=base_dir,
+                extra_execution_logs=extra_exec_logs,
+            )
+            if audit_res.verdict == "REJECT":
+                task_context.record_step(
+                    "HALLUCINATION_GATE",
+                    {
+                        "stage": "AUDIT",
+                        "verdict": audit_res.verdict,
+                        "score": audit_res.score,
+                        "violations": list(audit_res.violations),
+                    },
+                )
+                if not task_context.increment_qa(self.max_qa_rounds):
+                    return Verdict.ESCALATE
+                if not task_context.check_total_cycles(self.max_total_cycles):
+                    return Verdict.ESCALATE
+                task_context.safe_transition(HarnessState.REJECTED)
+                task_context.safe_transition(HarnessState.IMPLEMENTATION)
+                return Verdict.REJECT
+
+        task_context.record_step("CHECKER", {"raw": raw_preview})
+        if "VERDICT: APPROVE" in verdict_token:
             if getattr(task_context, "state", None) != HarnessState.APPROVED:
                 task_context.transition(HarnessState.APPROVED)
             return Verdict.APPROVE
-        elif "VERDICT: REJECT" in checker_output:
+        elif "VERDICT: REJECT" in verdict_token:
             # Lỗi kỹ thuật / test fail -> tăng qa_rounds
             if not task_context.increment_qa(self.max_qa_rounds):
                 return Verdict.ESCALATE
@@ -178,7 +364,7 @@ class AdversarialQualityGate:
             # Smart Feedback Loop: nếu direct_to_qa (lỗi kỹ thuật/test fail/secret leak), trả về IMPLEMENTATION để sửa và sau đó quay thẳng AUDIT
             task_context.safe_transition(HarnessState.IMPLEMENTATION)
             return Verdict.REJECT
-        elif "VERDICT: ESCALATE" in checker_output or "ESCALATE_HUMAN" in checker_output:
+        elif "VERDICT: ESCALATE" in verdict_token or "ESCALATE_HUMAN" in verdict_token:
             task_context.transition(HarnessState.ESCALATED)
             return Verdict.ESCALATE
         else:

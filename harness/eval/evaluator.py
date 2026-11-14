@@ -70,8 +70,9 @@ class TrajectoryEvaluator:
     before context/impact), and order violations.
     """
 
-    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[dict[str, Any]] = None, *, strict_adk: Optional[bool] = None) -> None:
         self.config = config or {}
+        self.strict_adk = bool(self.config.get("strict_adk", False)) if strict_adk is None else bool(strict_adk)
         self._eval_ready = is_eval_ready()
 
     def evaluate(
@@ -96,6 +97,7 @@ class TrajectoryEvaluator:
             Dictionary containing evaluation verdict, score, mode, and diagnostics.
         """
         crit = criteria or {}
+        adk_error: Optional[str] = None
 
         # If native ADK evaluator is loaded and configured for trajectory evals
         if self._eval_ready:
@@ -113,10 +115,17 @@ class TrajectoryEvaluator:
                     "summary": getattr(native_result, "summary", "Native ADK Trajectory Evaluation complete."),
                 }
             except Exception as exc:
+                if self.strict_adk:
+                    raise
+                adk_error = str(exc)
                 logger.warning("ADK TrajectoryEvaluator execution failed: %s. Using deterministic fallback.", exc)
 
         # Deterministic Evaluation
-        return self._evaluate_deterministic(trajectory, crit)
+        res = self._evaluate_deterministic(trajectory, crit)
+        if adk_error is not None:
+            res["mode"] = "deterministic_on_adk_error"
+            res["adk_error"] = adk_error
+        return res
 
     def _evaluate_deterministic(
         self,
@@ -293,8 +302,9 @@ class PolicySafetyEvaluator:
     Flags speculative statements ('should work', 'probably', 'chắc là') and forbidden terms.
     """
 
-    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[dict[str, Any]] = None, *, strict_adk: Optional[bool] = None) -> None:
         self.config = config or {}
+        self.strict_adk = bool(self.config.get("strict_adk", False)) if strict_adk is None else bool(strict_adk)
         self._eval_ready = is_eval_ready()
         custom_flags = self.config.get("red_flag_phrases", [])
         self.red_flag_phrases = list(set(DEFAULT_RED_FLAG_PHRASES + custom_flags))
@@ -315,6 +325,7 @@ class PolicySafetyEvaluator:
             Dict containing pass/fail verdict, score, detected phrases, and summary.
         """
         crit = criteria or {}
+        adk_error: Optional[str] = None
 
         # ADK native integration if available
         if self._eval_ready:
@@ -332,9 +343,16 @@ class PolicySafetyEvaluator:
                     "summary": getattr(native_result, "summary", "Native ADK Policy Evaluation complete."),
                 }
             except Exception as exc:
+                if self.strict_adk:
+                    raise
+                adk_error = str(exc)
                 logger.warning("ADK PolicySafetyEvaluator failed: %s. Using deterministic fallback.", exc)
 
-        return self._evaluate_deterministic(content_or_trajectory, crit)
+        res = self._evaluate_deterministic(content_or_trajectory, crit)
+        if adk_error is not None:
+            res["mode"] = "deterministic_on_adk_error"
+            res["adk_error"] = adk_error
+        return res
 
     def _evaluate_deterministic(
         self,
@@ -403,8 +421,9 @@ class FactGroundingEvaluator:
     Verifies claim citation, ungrounded (hallucinated) claims, and grounding coverage.
     """
 
-    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[dict[str, Any]] = None, *, strict_adk: Optional[bool] = None) -> None:
         self.config = config or {}
+        self.strict_adk = bool(self.config.get("strict_adk", False)) if strict_adk is None else bool(strict_adk)
         self._eval_ready = is_eval_ready()
 
     def evaluate(
@@ -425,6 +444,7 @@ class FactGroundingEvaluator:
             Dict containing pass/fail verdict, score, matched/ungrounded claims, and summary.
         """
         crit = criteria or {}
+        adk_error: Optional[str] = None
 
         if self._eval_ready:
             try:
@@ -443,9 +463,16 @@ class FactGroundingEvaluator:
                     "summary": getattr(native_result, "summary", "Native ADK Fact Grounding Evaluation complete."),
                 }
             except Exception as exc:
+                if self.strict_adk:
+                    raise
+                adk_error = str(exc)
                 logger.warning("ADK FactGroundingEvaluator failed: %s. Using deterministic fallback.", exc)
 
-        return self._evaluate_deterministic(content_or_claims, dossier, crit)
+        res = self._evaluate_deterministic(content_or_claims, dossier, crit)
+        if adk_error is not None:
+            res["mode"] = "deterministic_on_adk_error"
+            res["adk_error"] = adk_error
+        return res
 
     def _evaluate_deterministic(
         self,
@@ -585,10 +612,12 @@ class AgentEvaluatorBridge:
     instruction following, policy compliance, and fact grounding.
     """
 
-    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[dict[str, Any]] = None, *, strict_adk: Optional[bool] = None) -> None:
         self.config = config or {}
+        self.strict_adk = bool(self.config.get("strict_adk", False)) if strict_adk is None else bool(strict_adk)
         self._eval_ready = is_eval_ready()
         self._native_evaluator = None
+        self._adk_init_error: Optional[str] = None
 
         if self._eval_ready:
             try:
@@ -596,6 +625,9 @@ class AgentEvaluatorBridge:
                 evaluator_cls = getattr(adk_eval, "AgentEvaluator")
                 self._native_evaluator = evaluator_cls(self.config)
             except Exception as e:
+                if self.strict_adk:
+                    raise
+                self._adk_init_error = str(e)
                 logger.warning(
                     "ADK evaluation module detected but instantiation failed: %s. Using fallback mode.",
                     e,
@@ -603,9 +635,9 @@ class AgentEvaluatorBridge:
                 self._eval_ready = False
 
         # Specialized modular evaluators
-        self.trajectory_evaluator = TrajectoryEvaluator(self.config)
-        self.policy_evaluator = PolicySafetyEvaluator(self.config)
-        self.grounding_evaluator = FactGroundingEvaluator(self.config)
+        self.trajectory_evaluator = TrajectoryEvaluator(self.config, strict_adk=self.strict_adk)
+        self.policy_evaluator = PolicySafetyEvaluator(self.config, strict_adk=self.strict_adk)
+        self.grounding_evaluator = FactGroundingEvaluator(self.config, strict_adk=self.strict_adk)
 
     @property
     def is_ready(self) -> bool:
@@ -619,9 +651,10 @@ class AgentEvaluatorBridge:
     ) -> dict[str, Any]:
         """Evaluate a full execution trajectory against schema and behavioral criteria."""
         criteria = eval_criteria or {}
+        adk_error: Optional[str] = getattr(self, "_adk_init_error", None)
 
         # If native ADK evaluator is loaded, route to it
-        if self._eval_ready and self._native_evaluator is not None:
+        if getattr(self, "_eval_ready", False) and getattr(self, "_native_evaluator", None) is not None:
             try:
                 native_result = self._native_evaluator.evaluate(trajectory, criteria)
                 return {
@@ -633,10 +666,17 @@ class AgentEvaluatorBridge:
                     "summary": getattr(native_result, "summary", "Native ADK Evaluation complete."),
                 }
             except Exception as exc:
+                if getattr(self, "strict_adk", False):
+                    raise
+                adk_error = str(exc)
                 logger.warning("Native ADK evaluation threw exception: %s. Running fallback.", exc)
 
         # Deterministic Fallback Evaluator
-        return self._evaluate_deterministic(trajectory, criteria)
+        res = self._evaluate_deterministic(trajectory, criteria)
+        if adk_error is not None:
+            res["mode"] = "deterministic_on_adk_error"
+            res["adk_error"] = adk_error
+        return res
 
     def evaluate_policy_safety(
         self,

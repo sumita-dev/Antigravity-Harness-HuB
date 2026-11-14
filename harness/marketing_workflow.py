@@ -87,6 +87,25 @@ class MarketingWorkflowStore:
             'missing_paths': list(res.missing_paths),
         }
 
+    @classmethod
+    def validate_structured_verdict(cls, payload, kind: str = 'audit') -> dict:
+        """Optional schema validation helper for structured verdict payloads."""
+        from harness.triad_protocol import validate_audit_payload, validate_critique_payload
+
+        data = payload
+        if isinstance(payload, str):
+            try:
+                data = json.loads(payload)
+            except Exception as exc:
+                raise WorkflowError(f'Invalid structured verdict JSON: {exc}') from exc
+        if kind == 'critique':
+            ok, errors = validate_critique_payload(data)
+        else:
+            ok, errors = validate_audit_payload(data)
+        if not ok:
+            raise WorkflowError(f"Structured {kind} verdict schema invalid: {'; '.join(errors)}")
+        return data
+
     def __init__(self, root=None):
         self.brain = _safe_path(root or os.environ.get('HARNESS_BRAIN_DIR',
                                 Path(__file__).resolve().parents[1] / '.brain'))
@@ -465,6 +484,8 @@ class MarketingWorkflowStore:
             self._open(state)
             if state['stage'] != 'AUDIT' or not isinstance(payload, dict):
                 raise WorkflowError('Audit requires AUDIT stage')
+            if 'structured_verdict' in payload and payload['structured_verdict'] is not None:
+                self.validate_structured_verdict(payload['structured_verdict'], kind='audit')
             if actor in {state['actors'].get('researcher'), state['actors'].get('creator')}:
                 raise WorkflowError('Checker must differ from researcher and creator')
             self._binding(state, payload)

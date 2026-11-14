@@ -388,3 +388,237 @@ def sync_workspace_for_qa(
         result["message"] = f"Ngoại lệ khi đồng bộ workspace: {exc}"
 
     return result
+
+
+# ==============================================================================
+# Structured Output Schemas (Phase 2)
+# ==============================================================================
+
+ALLOWED_VERDICTS = ("APPROVE", "REJECT", "ESCALATE")
+
+
+@dataclass
+class CritiqueVerdictSchema:
+    """Structured output schema for Critic verdicts (compatible with google.genai response_schema)."""
+
+    verdict: str
+    summary: str
+    findings: List[str] = field(default_factory=list)
+    ac_coverage: List[Dict[str, Any]] = field(default_factory=list)
+    recommendations: List[str] = field(default_factory=list)
+    spec_sha256: Optional[str] = None
+    manifest_sha256: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {
+            "verdict": self.verdict,
+            "summary": self.summary,
+            "findings": list(self.findings),
+            "ac_coverage": list(self.ac_coverage),
+            "recommendations": list(self.recommendations),
+        }
+        if self.spec_sha256 is not None:
+            d["spec_sha256"] = self.spec_sha256
+        if self.manifest_sha256 is not None:
+            d["manifest_sha256"] = self.manifest_sha256
+        return d
+
+    @classmethod
+    def to_json_schema(cls) -> Dict[str, Any]:
+        """Return JSON Schema compatible with google.genai response_schema."""
+        return {
+            "type": "object",
+            "properties": {
+                "verdict": {
+                    "type": "string",
+                    "enum": list(ALLOWED_VERDICTS),
+                    "description": "Critic verdict: APPROVE, REJECT, or ESCALATE.",
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Concise summary of the critique.",
+                },
+                "findings": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of GAPs, logic flaws, or edge-case findings (required when REJECT).",
+                },
+                "ac_coverage": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ac_id": {"type": "string"},
+                            "status": {"type": "string"},
+                            "evidence": {"type": "string"},
+                        },
+                        "required": ["ac_id", "status"],
+                    },
+                    "description": "Acceptance criteria coverage mapping.",
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Actionable remediation steps.",
+                },
+                "spec_sha256": {"type": "string"},
+                "manifest_sha256": {"type": "string"},
+            },
+            "required": ["verdict", "summary", "findings"],
+        }
+
+
+@dataclass
+class AuditVerdictSchema:
+    """Structured output schema for QA Auditor verdicts (compatible with google.genai response_schema)."""
+
+    verdict: str
+    summary: str
+    executed_commands: List[Dict[str, Any]] = field(default_factory=list)
+    findings: List[str] = field(default_factory=list)
+    evidence_paths: List[str] = field(default_factory=list)
+    spec_sha256: Optional[str] = None
+    manifest_sha256: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {
+            "verdict": self.verdict,
+            "summary": self.summary,
+            "executed_commands": list(self.executed_commands),
+            "findings": list(self.findings),
+            "evidence_paths": list(self.evidence_paths),
+        }
+        if self.spec_sha256 is not None:
+            d["spec_sha256"] = self.spec_sha256
+        if self.manifest_sha256 is not None:
+            d["manifest_sha256"] = self.manifest_sha256
+        return d
+
+    @classmethod
+    def to_json_schema(cls) -> Dict[str, Any]:
+        """Return JSON Schema compatible with google.genai response_schema."""
+        return {
+            "type": "object",
+            "properties": {
+                "verdict": {
+                    "type": "string",
+                    "enum": list(ALLOWED_VERDICTS),
+                    "description": "QA Auditor verdict: APPROVE, REJECT, or ESCALATE.",
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Concise summary of the QA audit.",
+                },
+                "executed_commands": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string"},
+                            "exit_code": {"type": "integer"},
+                            "stdout": {"type": "string"},
+                            "stderr": {"type": "string"},
+                        },
+                        "required": ["command", "exit_code"],
+                    },
+                    "description": "Executed verification commands with exit codes (required with exit_code == 0 when APPROVE).",
+                },
+                "findings": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of defects or test failures found.",
+                },
+                "evidence_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Paths to test logs, screenshots, or reports.",
+                },
+                "spec_sha256": {"type": "string"},
+                "manifest_sha256": {"type": "string"},
+            },
+            "required": ["verdict", "summary", "executed_commands"],
+        }
+
+
+def validate_critique_payload(payload: Any) -> Tuple[bool, List[str]]:
+    """Validate a structured CritiqueVerdictSchema payload.
+
+    Enforces that REJECT critique requires non-empty findings.
+    """
+    errors: List[str] = []
+    if not isinstance(payload, dict):
+        return False, ["Critique payload must be a dict"]
+
+    verdict = payload.get("verdict")
+    if not isinstance(verdict, str) or verdict.strip() not in ALLOWED_VERDICTS:
+        errors.append(f"Invalid 'verdict': {verdict!r} (must be one of {ALLOWED_VERDICTS})")
+
+    summary = payload.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        errors.append("Missing or empty required field 'summary'")
+
+    findings = payload.get("findings")
+    if findings is not None and not isinstance(findings, list):
+        errors.append("'findings' must be a list of strings")
+        findings_list: List[Any] = []
+    else:
+        findings_list = list(findings) if findings is not None else []
+        for idx, item in enumerate(findings_list):
+            if not isinstance(item, str) or not item.strip():
+                errors.append(f"findings[{idx}] must be a non-empty string")
+
+    if isinstance(verdict, str) and verdict.strip() == "REJECT":
+        valid_findings = [f for f in findings_list if isinstance(f, str) and f.strip()]
+        if not valid_findings:
+            errors.append("REJECT critique requires non-empty 'findings'")
+
+    return len(errors) == 0, errors
+
+
+def validate_audit_payload(payload: Any) -> Tuple[bool, List[str]]:
+    """Validate a structured AuditVerdictSchema payload.
+
+    Enforces that APPROVE audit requires non-empty executed_commands with exit_code == 0.
+    """
+    errors: List[str] = []
+    if not isinstance(payload, dict):
+        return False, ["Audit payload must be a dict"]
+
+    verdict = payload.get("verdict")
+    if not isinstance(verdict, str) or verdict.strip() not in ALLOWED_VERDICTS:
+        errors.append(f"Invalid 'verdict': {verdict!r} (must be one of {ALLOWED_VERDICTS})")
+
+    summary = payload.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        errors.append("Missing or empty required field 'summary'")
+
+    executed_commands = payload.get("executed_commands")
+    if executed_commands is not None and not isinstance(executed_commands, list):
+        errors.append("'executed_commands' must be a list of command objects")
+        cmds_list: List[Any] = []
+    else:
+        cmds_list = list(executed_commands) if executed_commands is not None else []
+
+    if isinstance(verdict, str) and verdict.strip() == "APPROVE":
+        if not cmds_list:
+            errors.append("APPROVE audit requires non-empty 'executed_commands' with exit_code == 0")
+        else:
+            has_zero_exit = False
+            for idx, cmd in enumerate(cmds_list):
+                if not isinstance(cmd, dict):
+                    errors.append(f"executed_commands[{idx}] must be a dict")
+                    continue
+                cmd_str = cmd.get("command")
+                if not isinstance(cmd_str, str) or not cmd_str.strip():
+                    errors.append(f"executed_commands[{idx}].command must be a non-empty string")
+                ec = cmd.get("exit_code")
+                if not isinstance(ec, int) or isinstance(ec, bool):
+                    errors.append(f"executed_commands[{idx}].exit_code must be an int")
+                elif ec == 0:
+                    has_zero_exit = True
+                else:
+                    errors.append(f"executed_commands[{idx}].exit_code must be 0 for APPROVE (got {ec})")
+            if not has_zero_exit:
+                errors.append("APPROVE audit requires at least one executed_command with exit_code == 0")
+
+    return len(errors) == 0, errors

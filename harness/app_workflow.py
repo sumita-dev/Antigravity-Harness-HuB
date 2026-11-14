@@ -192,6 +192,25 @@ class AppWorkflowStore:
         }
 
     @classmethod
+    def validate_structured_verdict(cls, payload, kind: str = "audit") -> dict:
+        """Optional schema validation helper for structured verdict payloads."""
+        from harness.triad_protocol import validate_audit_payload, validate_critique_payload
+
+        data = payload
+        if isinstance(payload, str):
+            try:
+                data = json.loads(payload)
+            except Exception as exc:
+                raise WorkflowError(f"Invalid structured verdict JSON: {exc}") from exc
+        if kind == "critique":
+            ok, errors = validate_critique_payload(data)
+        else:
+            ok, errors = validate_audit_payload(data)
+        if not ok:
+            raise WorkflowError(f"Structured {kind} verdict schema invalid: {'; '.join(errors)}")
+        return data
+
+    @classmethod
     def get_stage_gate(cls, stage: str) -> dict:
         return cls.STAGE_GATES.get(stage.upper(), {})
 
@@ -672,7 +691,18 @@ class AppWorkflowStore:
         if verdict == "PARTIAL_APPROVE":
             raise WorkflowError("Design review requires full APPROVE, REJECT or ESCALATE")
         actor = _text(actor, "actor")
-        report = _text(report, "report")
+        if isinstance(report, dict):
+            self.validate_structured_verdict(report, kind="critique")
+            report = json.dumps(report, ensure_ascii=False)
+        else:
+            report = _text(report, "report")
+            if report.lstrip().startswith("{"):
+                try:
+                    parsed_report = json.loads(report)
+                except Exception:
+                    parsed_report = None
+                if isinstance(parsed_report, dict) and "verdict" in parsed_report:
+                    self.validate_structured_verdict(parsed_report, kind="critique")
         with self._locked(task_id) as path:
             state = self._load(path)
             self._stage(state, "DESIGN_REVIEW")
@@ -706,7 +736,18 @@ class AppWorkflowStore:
 
     def submit_implementation(self, task_id, actor, report, execution_logs=None):
         actor = _text(actor, "actor")
-        report = _text(report, "report")
+        if isinstance(report, dict):
+            self.validate_structured_verdict(report, kind="critique")
+            report = json.dumps(report, ensure_ascii=False)
+        else:
+            report = _text(report, "report")
+            if report.lstrip().startswith("{"):
+                try:
+                    parsed_report = json.loads(report)
+                except Exception:
+                    parsed_report = None
+                if isinstance(parsed_report, dict) and "verdict" in parsed_report:
+                    self.validate_structured_verdict(parsed_report, kind="critique")
         with self._locked(task_id) as path:
             state = self._load(path)
             self._stage(state, "IMPLEMENTATION")
@@ -768,7 +809,18 @@ class AppWorkflowStore:
         if verdict == "PARTIAL_APPROVE":
             raise WorkflowError("Code review requires full verdict")
         actor = _text(actor, "actor")
-        report = _text(report, "report")
+        if isinstance(report, dict):
+            self.validate_structured_verdict(report, kind="critique")
+            report = json.dumps(report, ensure_ascii=False)
+        else:
+            report = _text(report, "report")
+            if report.lstrip().startswith("{"):
+                try:
+                    parsed_report = json.loads(report)
+                except Exception:
+                    parsed_report = None
+                if isinstance(parsed_report, dict) and "verdict" in parsed_report:
+                    self.validate_structured_verdict(parsed_report, kind="critique")
         with self._locked(task_id) as path:
             state = self._load(path)
             self._stage(state, "CRITIQUE")
@@ -981,6 +1033,8 @@ class AppWorkflowStore:
         actor = _text(actor, "actor")
         if not isinstance(payload, dict):
             raise WorkflowError("audit payload must be object")
+        if "structured_verdict" in payload and payload["structured_verdict"] is not None:
+            self.validate_structured_verdict(payload["structured_verdict"], kind="audit")
         _text(payload.get("report"), "report")
         with self._locked(task_id) as path:
             state = self._load(path)
@@ -1163,7 +1217,18 @@ class AppWorkflowStore:
     def request_browser_verification(self, task_id, actor, report):
         """Record a request only after current independent partial QA exists."""
         actor = _text(actor, "actor")
-        report = _text(report, "report")
+        if isinstance(report, dict):
+            self.validate_structured_verdict(report, kind="critique")
+            report = json.dumps(report, ensure_ascii=False)
+        else:
+            report = _text(report, "report")
+            if report.lstrip().startswith("{"):
+                try:
+                    parsed_report = json.loads(report)
+                except Exception:
+                    parsed_report = None
+                if isinstance(parsed_report, dict) and "verdict" in parsed_report:
+                    self.validate_structured_verdict(parsed_report, kind="critique")
         with self._locked(task_id) as path:
             state = self._load(path)
             self._stage(state, "AUDIT_PENDING_BROWSER")
