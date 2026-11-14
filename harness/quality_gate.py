@@ -10,7 +10,6 @@ _SHORT_MOCK_EXEMPTIONS = frozenset({
     "VERDICT: REJECT",
     "VERDICT: ESCALATE",
     "ESCALATE_HUMAN",
-    "Test passed. VERDICT: APPROVE",
 })
 
 class Verdict(str, Enum):
@@ -197,7 +196,7 @@ class AdversarialQualityGate:
             text_for_gate = verdict_token
             raw_preview = verdict_token.strip()[:200]
 
-        if enforce_hallucination_guard and text_for_gate.strip() not in _SHORT_MOCK_EXEMPTIONS:
+        if enforce_hallucination_guard and not (structured is None and text_for_gate.strip() in _SHORT_MOCK_EXEMPTIONS):
             audit_res = self._run_hallucination_gate(
                 task_context,
                 text_for_gate,
@@ -323,7 +322,7 @@ class AdversarialQualityGate:
             task_context.safe_transition(HarnessState.IMPLEMENTATION)
             return Verdict.REJECT
 
-        if enforce_hallucination_guard and text_for_gate.strip() not in _SHORT_MOCK_EXEMPTIONS:
+        if enforce_hallucination_guard and not (structured is None and text_for_gate.strip() in _SHORT_MOCK_EXEMPTIONS):
             audit_res = self._run_hallucination_gate(
                 task_context,
                 text_for_gate,

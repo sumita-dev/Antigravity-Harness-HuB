@@ -281,7 +281,7 @@ def verify_diff_test_coverage(
             continue
         is_dummy = any(p.search(cmd) for p in _DUMMY_COMMAND_PATTERNS)
         is_real = any(p.search(cmd) for p in _REAL_TEST_COMMAND_PATTERNS)
-        if is_dummy and not is_real:
+        if is_dummy:
             dummy_commands_detected.append(cmd)
         elif is_real:
             real_test_commands.append(cmd)
@@ -296,11 +296,15 @@ def verify_diff_test_coverage(
             reasons.append("No real test runner commands executed")
     else:
         # Check if targeted test commands omit modified test files or modules
-        # A broad suite run (e.g. `pytest`, `python -m pytest -q`) covers all files.
+        # A broad suite run (e.g. `pytest`, `python -m pytest -q`) covers all files,
+        # excluding filtered runs with `-k` or `-m`.
         is_broad_run = any(
-            re.search(r"\bpytest\b(?:\s+-[a-zA-Z0-9=_]+)*\s*$", cmd.strip())
-            or re.search(r"\bpytest\b.*\btests/?\s*$", cmd.strip())
-            or re.search(r"\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b", cmd.strip())
+            not re.search(r"\s-(?:k|m)\b", re.split(r"\bpytest\b", cmd, maxsplit=1, flags=re.IGNORECASE)[-1])
+            and (
+                re.search(r"\bpytest\b(?:\s+-[a-zA-Z0-9=_]+)*\s*$", cmd.strip())
+                or re.search(r"\bpytest\b.*\btests/?\s*$", cmd.strip())
+                or re.search(r"\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b", cmd.strip())
+            )
             for cmd in real_test_commands
         )
         if not is_broad_run and diff_files:

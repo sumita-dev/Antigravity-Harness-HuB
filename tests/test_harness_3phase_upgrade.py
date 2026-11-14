@@ -139,6 +139,14 @@ def test_phase1_enforce_flag_can_disable_guard():
     assert v == Verdict.APPROVE
 
 
+def test_phase1_unstructured_test_passed_without_execute_rejected():
+    gate = AdversarialQualityGate()
+    ctx = _make_ctx(HarnessState.AUDIT)
+    v = gate.evaluate_audit(ctx, "Test passed. VERDICT: APPROVE")
+    assert v == Verdict.REJECT
+    assert any(s["step"] == "HALLUCINATION_GATE" for s in ctx.trace_steps)
+
+
 # ==============================================================================
 # Phase 2: Structured Output Schemas
 # ==============================================================================
@@ -287,6 +295,32 @@ def test_phase3_verify_diff_test_coverage():
     )
     assert res_targeted_miss["is_covered"] is False
     assert "harness/quality_gate.py" in res_targeted_miss["uncovered_files"]
+
+    # Dummy commands containing "pytest" substring -> REJECT
+    res_echo_pytest = verify_diff_test_coverage(
+        diff_files=["harness/quality_gate.py"],
+        executed_commands=['echo "pytest -q"', 'python -c "print(\'pytest\')"'],
+    )
+    assert res_echo_pytest["is_covered"] is False
+    assert len(res_echo_pytest["dummy_commands_detected"]) == 2
+    assert res_echo_pytest["real_test_commands"] == []
+
+    # Filtered pytest runs with -k or -m are not broad runs -> REJECT if modified file uncovered
+    res_filtered_k = verify_diff_test_coverage(
+        diff_files=["harness/quality_gate.py"],
+        executed_commands=["python -m pytest -k test_unrelated"],
+        test_output="1 passed",
+    )
+    assert res_filtered_k["is_covered"] is False
+    assert "harness/quality_gate.py" in res_filtered_k["uncovered_files"]
+
+    res_filtered_m = verify_diff_test_coverage(
+        diff_files=["harness/quality_gate.py"],
+        executed_commands=["pytest -m smoke"],
+        test_output="1 passed",
+    )
+    assert res_filtered_m["is_covered"] is False
+    assert "harness/quality_gate.py" in res_filtered_m["uncovered_files"]
 
 
 def test_phase3_evaluator_strict_adk_and_transparent_error_mode():

@@ -93,6 +93,7 @@ def test_triad_qa_technical_failure_direct_to_qa():
     assert ctx.transition(HarnessState.AUDIT) is True
     assert ctx.state == HarnessState.AUDIT
 
+    ctx.record_step("EXECUTE", {"command": "pytest -q", "exit_code": 0})
     verdict_qa_2 = gate.evaluate_audit(ctx, "Test passed. VERDICT: APPROVE")
     assert verdict_qa_2 == Verdict.APPROVE
     assert ctx.state == HarnessState.APPROVED
