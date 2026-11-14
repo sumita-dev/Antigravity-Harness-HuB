@@ -417,11 +417,11 @@ def test_tc_adv_17_triad_handoff_schema_v2_validation():
         "digest": "Maker completed core validator upgrades with full test coverage.",
     }
 
-    # 1. Payload hợp lệ
-    is_valid, errors = validate_handoff_v2(valid_payload)
+    # 1. Payload hợp lệ (legacy mode without report_path)
+    is_valid, errors = validate_handoff_v2(valid_payload, strict_lean_handoff=False, verify_report_exists=False)
     assert is_valid is True
     assert errors == []
-    handoff_obj = parse_handoff_v2(valid_payload)
+    handoff_obj = parse_handoff_v2(valid_payload, strict_lean_handoff=False, verify_report_exists=False)
     assert isinstance(handoff_obj, TriadHandoffV2)
     assert handoff_obj.task_id == "TASK-2026-11-11-01"
     assert handoff_obj.commit_sha == "a1b2c3d4e5f67890123456789012345678901234"
@@ -452,3 +452,63 @@ def test_tc_adv_17_triad_handoff_schema_v2_validation():
     is_valid_rcpt, errors_rcpt = validate_handoff_v2(bad_payload_no_receipt)
     assert is_valid_rcpt is False
     assert any("verification_receipt" in e for e in errors_rcpt)
+
+
+def test_detect_speculative_and_sycophancy_ignore_inline_and_fenced_code():
+    """Trích dẫn inline code và fenced code block không bị bắt nhầm là võ đoán hoặc sycophancy."""
+    technical_text = (
+        "Ví dụ các pattern bị cấm gồm `should work`, `probably`, `chắc là` "
+        "và `your hypothesis is correct` hoặc `giả thuyết của anh hoàn toàn đúng`.\n"
+        "```python\n"
+        "# This should work and probably pass\n"
+        "msg = 'Your intuition is absolutely spot-on'\n"
+        "```\n"
+        "Đoạn văn bản thường này chỉ mô tả cấu hình bộ lọc."
+    )
+    assert detect_speculative_language(technical_text) == []
+    assert detect_sycophancy(technical_text) == []
+
+    # Văn bản thường ngoài code block vẫn phải bị bắt đúng như cũ
+    prose_violation = (
+        "Cấu hình `should work` đã cập nhật, nhưng code này probably sẽ chạy ổn "
+        "và your hypothesis is correct."
+    )
+    assert "probably" in detect_speculative_language(prose_violation)
+    assert "should work" not in detect_speculative_language(prose_violation)
+    assert len(detect_sycophancy(prose_violation)) >= 1
+
+
+def test_strip_markdown_code_anti_bypass_full_code_block_and_prose_threshold():
+    """Chống bypass khi bọc toàn bộ câu trả lời trong code block (<20% prose) nhưng không false positive khi >20% prose."""
+    # 1. Toàn bộ câu trả lời bọc trong ```markdown ... ``` (0% prose) -> vẫn phải bắt
+    wrapped_markdown = (
+        "```markdown\n"
+        "Hệ thống chắc là đã ổn định và code này should work.\n"
+        "Your intuition is spot-on.\n"
+        "```"
+    )
+    assert len(detect_speculative_language(wrapped_markdown)) >= 1
+    assert len(detect_sycophancy(wrapped_markdown)) >= 1
+
+    # 2. Bọc trong ``` ... ``` kèm prose rất ngắn (<20% tổng độ dài) -> vẫn phải bắt
+    wrapped_plain_with_tiny_prose = (
+        "OK:\n"
+        "```\n"
+        "Đây là báo cáo chi tiết: mọi thứ probably hoạt động tốt và "
+        "your hypothesis is correct hoàn toàn.\n"
+        "```"
+    )
+    assert "probably" in detect_speculative_language(wrapped_plain_with_tiny_prose)
+    assert len(detect_sycophancy(wrapped_plain_with_tiny_prose)) >= 1
+
+    # 3. Văn bản bình thường có xen kẽ inline code và fenced code (>20% prose) -> không false positive
+    normal_mixed_prose = (
+        "Khi kiểm thử bộ lọc, ta cần loại trừ các từ khóa mẫu như `should work` "
+        "hoặc `your hypothesis is correct` nằm trong cặp dấu backtick.\n"
+        "```python\n"
+        "# sample = 'probably'\n"
+        "```\n"
+        "Phần giải thích bằng văn bản thường này chiếm hơn hai mươi phần trăm tổng dung lượng thông điệp."
+    )
+    assert detect_speculative_language(normal_mixed_prose) == []
+    assert detect_sycophancy(normal_mixed_prose) == []

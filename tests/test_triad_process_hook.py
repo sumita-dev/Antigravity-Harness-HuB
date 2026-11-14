@@ -47,15 +47,14 @@ def _run_hook_cli(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_hooks_json_registers_triad_process_hook_at_stop_3() -> None:
-    """Verify Stop[0] remains auto_harvest_global.py and Stop[3] registers enforce_triad_process_hook.py."""
+    """Verify Stop registers unified_stop_pipeline.py (timeout 60) running all 4 Stop gates."""
     for rel in (".agent/hooks.json", ".agents/hooks.json"):
         cfg_path = REPO_ROOT / rel
         data = json.loads(cfg_path.read_text(encoding="utf-8"))
         stop_list = data["auto-code-harvester"]["Stop"]
-        assert len(stop_list) >= 4
-        assert "scripts/auto_harvest_global.py" in stop_list[0]["command"]
-        assert "scripts/enforce_triad_process_hook.py" in stop_list[3]["command"]
-        assert stop_list[3]["timeout"] == 30
+        assert len(stop_list) == 1
+        assert "scripts/unified_stop_pipeline.py" in stop_list[0]["command"]
+        assert stop_list[0]["timeout"] == 60
 
 
 def test_clean_arg_val_unwraps_double_encoded_json_strings() -> None:

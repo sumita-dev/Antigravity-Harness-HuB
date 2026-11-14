@@ -49,15 +49,15 @@ def _run_hook_cli(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_hooks_json_registers_pre_handoff_verification_hook() -> None:
-    """Both .agent/hooks.json and .agents/hooks.json must register verify_before_handoff_hook.py under Stop."""
+    """Both .agent/hooks.json and .agents/hooks.json must register unified_stop_pipeline.py under Stop."""
     for rel_path in (".agent/hooks.json", ".agents/hooks.json"):
         hooks_path = REPO_ROOT / rel_path
         assert hooks_path.is_file(), f"Missing {rel_path}"
         data = json.loads(hooks_path.read_text(encoding="utf-8"))
         stop_hooks = data.get("auto-code-harvester", {}).get("Stop", [])
         commands = [h.get("command", "") for h in stop_hooks if isinstance(h, dict)]
-        assert any("scripts/verify_before_handoff_hook.py" in cmd for cmd in commands), (
-            f"scripts/verify_before_handoff_hook.py not registered in {rel_path}"
+        assert any("scripts/unified_stop_pipeline.py" in cmd for cmd in commands), (
+            f"scripts/unified_stop_pipeline.py not registered in {rel_path}"
         )
 
 

@@ -212,11 +212,11 @@ def test_triad_handoff_v2_schema_contract():
         "digest": "Maker completed Handoff v2 protocol implementation with full verification.",
     }
 
-    ok, errors = validate_handoff_v2(valid_data)
+    ok, errors = validate_handoff_v2(valid_data, strict_lean_handoff=False, verify_report_exists=False)
     assert ok is True
     assert errors == []
 
-    handoff = parse_handoff_v2(valid_data)
+    handoff = parse_handoff_v2(valid_data, strict_lean_handoff=False, verify_report_exists=False)
     assert handoff.task_id == "TASK-2026-11-11-SYNC-01"
     assert handoff.commit_sha == "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"
     assert handoff.verification_receipt["exit_code"] == 0
@@ -226,7 +226,7 @@ def test_triad_handoff_v2_schema_contract():
 
     # Test SubagentGuard.record_handoff
     guard = SubagentGuard()
-    recorded = guard.record_handoff(valid_data)
+    recorded = guard.record_handoff(valid_data, strict_lean_handoff=False, verify_report_exists=False)
     assert recorded.task_id == handoff.task_id
 
 
@@ -272,11 +272,11 @@ def test_triad_handoff_v2_report_and_evidence_paths():
         "report_path": "artifacts/qa_report.md",
         "evidence_paths": ["artifacts/pytest.log", "artifacts/screenshot.png"],
     }
-    ok, errors = validate_handoff_v2(base, require_report_path=True)
+    ok, errors = validate_handoff_v2(base, require_report_path=True, verify_report_exists=False)
     assert ok is True
     assert errors == []
 
-    handoff = parse_handoff_v2(base, require_report_path=True)
+    handoff = parse_handoff_v2(base, require_report_path=True, verify_report_exists=False)
     assert handoff.report_path == "artifacts/qa_report.md"
     assert handoff.evidence_paths == ["artifacts/pytest.log", "artifacts/screenshot.png"]
     d = handoff.to_dict()

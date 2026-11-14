@@ -44,23 +44,26 @@ def _write_transcript(path: Path, steps: list[dict[str, Any]]) -> Path:
 # ---------------------------------------------------------------------------
 def test_gap01_strict_lean_handoff_requires_report_or_evidence_paths() -> None:
     legacy_payload = _base_handoff()
-    # Default backward-compatible mode allows digest without report_path
-    ok_legacy, err_legacy = validate_handoff_v2(legacy_payload)
+    # Explicit legacy mode allows digest without report_path
+    ok_legacy, err_legacy = validate_handoff_v2(
+        legacy_payload, strict_lean_handoff=False, verify_report_exists=False
+    )
     assert ok_legacy is True
     assert err_legacy == []
 
-    # Strict mode rejects digest without report_path and without evidence_paths
-    ok_strict, err_strict = validate_handoff_v2(legacy_payload, strict_lean_handoff=True)
+    # Default (strict_lean_handoff=True) rejects digest without report_path and without evidence_paths
+    ok_strict, err_strict = validate_handoff_v2(legacy_payload, verify_report_exists=False)
     assert ok_strict is False
     assert any("Strict Lean Handoff" in e for e in err_strict)
 
     with pytest.raises(HandoffValidationError):
-        parse_handoff_v2(legacy_payload, strict_lean_handoff=True)
+        parse_handoff_v2(legacy_payload, verify_report_exists=False)
 
     # Strict mode accepts non-empty report_path OR non-empty evidence_paths
     ok_with_rp, err_with_rp = validate_handoff_v2(
         _base_handoff(report_path="artifacts/qa_report.md"),
         strict_lean_handoff=True,
+        verify_report_exists=False,
     )
     assert ok_with_rp is True
     assert err_with_rp == []
@@ -68,6 +71,7 @@ def test_gap01_strict_lean_handoff_requires_report_or_evidence_paths() -> None:
     ok_with_ep, err_with_ep = validate_handoff_v2(
         _base_handoff(evidence_paths=["artifacts/pytest.log"]),
         strict_lean_handoff=True,
+        verify_report_exists=False,
     )
     assert ok_with_ep is True
     assert err_with_ep == []
@@ -131,7 +135,7 @@ def test_gap03_digest_rejects_speculative_and_sycophancy_phrases() -> None:
         digest="Verdict: PASS | Probably works fine and should pass all tests.",
         report_path="artifacts/report.md",
     )
-    ok_spec, err_spec = validate_handoff_v2(spec_payload)
+    ok_spec, err_spec = validate_handoff_v2(spec_payload, verify_report_exists=False)
     assert ok_spec is False
     assert any("võ đoán" in e for e in err_spec)
 
@@ -139,19 +143,20 @@ def test_gap03_digest_rejects_speculative_and_sycophancy_phrases() -> None:
         digest="Your intuition is absolutely spot-on, you hit the nail on the head.",
         report_path="artifacts/report.md",
     )
-    ok_syc, err_syc = validate_handoff_v2(syc_payload)
+    ok_syc, err_syc = validate_handoff_v2(syc_payload, verify_report_exists=False)
     assert ok_syc is False
     assert any("Sycophancy" in e for e in err_syc)
 
 
 # ---------------------------------------------------------------------------
-# GAP-04: Consistent <= 100 words boundary
+# GAP-04: Consistent <= 100 words boundary & <= 1000 chars + path check
 # ---------------------------------------------------------------------------
 def test_gap04_digest_word_limit_100_words_boundary() -> None:
     exact_100 = " ".join(["ok"] * 100)
     ok_100, err_100 = validate_handoff_v2(
         _base_handoff(digest=exact_100, report_path="artifacts/r.md"),
         strict_lean_handoff=True,
+        verify_report_exists=False,
     )
     assert ok_100 is True
     assert err_100 == []
@@ -160,9 +165,31 @@ def test_gap04_digest_word_limit_100_words_boundary() -> None:
     ok_101, err_101 = validate_handoff_v2(
         _base_handoff(digest=over_101, report_path="artifacts/r.md"),
         strict_lean_handoff=True,
+        verify_report_exists=False,
     )
     assert ok_101 is False
     assert any("100 từ" in e for e in err_101)
+
+
+def test_digest_char_limit_1000_and_path_verification(tmp_path: Path) -> None:
+    report_file = tmp_path / "real_report.md"
+    report_file.write_text("# Real Report\nExit code 0.\n", encoding="utf-8")
+
+    # 1. > 1000 chars (even though 1 word) -> rejected
+    long_word_digest = "a" * 1001
+    ok_chars, err_chars = validate_handoff_v2(
+        _base_handoff(digest=long_word_digest, report_path=str(report_file)),
+    )
+    assert ok_chars is False
+    assert any("1000 ký tự" in e for e in err_chars)
+
+    # 2. Digest citing non-existent path with default verify_report_exists=True -> rejected
+    ghost_digest = "Verdict: PASS | Checked `harness/non_existent_phantom_file.py`."
+    ok_path, err_path = validate_handoff_v2(
+        _base_handoff(digest=ghost_digest, report_path=str(report_file)),
+    )
+    assert ok_path is False
+    assert any("đường dẫn không tồn tại" in e for e in err_path)
 
 
 # ---------------------------------------------------------------------------

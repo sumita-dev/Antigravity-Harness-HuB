@@ -352,8 +352,8 @@ def test_hooks_json_configuration() -> None:
 
     handler = stop_handlers[0]
     assert handler.get("type") == "command"
-    assert "scripts/auto_harvest_global.py" in handler.get("command", "")
-    assert handler.get("timeout") == 30
+    assert "scripts/unified_stop_pipeline.py" in handler.get("command", "")
+    assert handler.get("timeout") == 60
 
 
 def test_cli_subprocess_invocation(tmp_path: Path) -> None:

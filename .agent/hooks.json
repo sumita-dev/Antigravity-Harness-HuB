@@ -10,23 +10,8 @@
     "Stop": [
       {
         "type": "command",
-        "command": "python scripts/auto_harvest_global.py",
-        "timeout": 30
-      },
-      {
-        "type": "command",
-        "command": "python scripts/enforce_anti_hallucination_hook.py",
-        "timeout": 30
-      },
-      {
-        "type": "command",
-        "command": "python scripts/verify_before_handoff_hook.py",
-        "timeout": 30
-      },
-      {
-        "type": "command",
-        "command": "python scripts/enforce_triad_process_hook.py",
-        "timeout": 30
+        "command": "python scripts/unified_stop_pipeline.py",
+        "timeout": 60
       }
     ]
   }

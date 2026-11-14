@@ -94,8 +94,8 @@ class TriadHandoffV2:
 def validate_handoff_v2(
     payload: Dict[str, Any],
     require_report_path: bool = False,
-    verify_report_exists: bool = False,
-    strict_lean_handoff: bool = False,
+    verify_report_exists: bool = True,
+    strict_lean_handoff: bool = True,
 ) -> Tuple[bool, List[str]]:
     """Kiểm tra tính hợp lệ của payload Triad Handoff Contract v2.
 
@@ -161,16 +161,25 @@ def validate_handoff_v2(
         if not isinstance(ac_matrix, list):
             errors.append("'acceptance_criteria_matrix' bắt buộc phải là một danh sách (list)")
 
-    # 7. Kiểm tra digest (Rule 1.12: <= 100 từ + chống võ đoán / sycophancy)
+    # 7. Kiểm tra digest (Rule 1.12: <= 100 từ, <= 1000 ký tự + chống võ đoán / sycophancy / path ma)
     digest = payload.get("digest")
     if digest and isinstance(digest, str):
-        words = digest.strip().split()
+        digest_stripped = digest.strip()
+        if len(digest_stripped) > 1000:
+            errors.append(
+                f"Digest vượt quá giới hạn 1000 ký tự theo Rule 1.12 (đếm được {len(digest_stripped)} ký tự)"
+            )
+        words = digest_stripped.split()
         if len(words) > 100:
             errors.append(f"Digest vượt quá giới hạn 100 từ theo Rule 1.12 (đếm được {len(words)} từ)")
 
         from harness.validators.hallucination_detector import audit_response
 
-        audit_res = audit_response(digest, check_paths=False)
+        audit_res = audit_response(digest, check_paths=verify_report_exists)
+        if audit_res.missing_paths:
+            errors.append(
+                f"Digest chứa đường dẫn không tồn tại trên hệ thống tệp (Rule 1.12/1.14): {', '.join(audit_res.missing_paths)}"
+            )
         if audit_res.speculative_phrases:
             errors.append(
                 f"Digest chứa ngôn ngữ võ đoán không được phép (Rule 1.12/1.14): {', '.join(audit_res.speculative_phrases)}"
@@ -246,8 +255,8 @@ def validate_handoff_v2(
 def parse_handoff_v2(
     data: Union[str, Dict[str, Any]],
     require_report_path: bool = False,
-    verify_report_exists: bool = False,
-    strict_lean_handoff: bool = False,
+    verify_report_exists: bool = True,
+    strict_lean_handoff: bool = True,
 ) -> TriadHandoffV2:
     """Parse và xác thực payload Handoff Contract v2.
     
