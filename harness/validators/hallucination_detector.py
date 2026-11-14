@@ -592,13 +592,29 @@ def verify_file_paths(
     }
 
 
+def _strip_markdown_code(text: str) -> str:
+    """Loại bỏ nội dung nằm trong fenced code blocks (```...```) và inline code (`...`).
+
+    Chống bypass: nếu sau khi loại bỏ code block, phần văn bản còn lại rỗng hoặc
+    nhỏ hơn 20% độ dài văn bản gốc, trả về nguyên bản text để không bỏ sót
+    trường hợp bọc toàn bộ câu trả lời trong code block.
+    """
+    stripped = re.sub(r"```[\s\S]*?```", " ", text)
+    stripped = re.sub(r"`[^`\r\n]*`", " ", stripped)
+    stripped_clean = stripped.strip()
+    original_clean = text.strip()
+    if not stripped_clean or len(stripped_clean) < 0.2 * len(original_clean):
+        return text
+    return stripped
+
+
 def detect_speculative_language(text: str) -> List[str]:
     """Trụ cột 2: Quét các từ ngữ võ đoán / phỏng đoán không có căn cứ thực chứng.
 
     Trả về danh sách các cụm từ vi phạm tìm thấy trong text.
     """
     violations: List[str] = []
-    text_lower = text.lower()
+    text_lower = _strip_markdown_code(text).lower()
 
     for pattern in SPECULATIVE_PATTERNS:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
@@ -615,7 +631,7 @@ def detect_sycophancy(text: str) -> List[str]:
     Trả về danh sách các cụm từ vi phạm tìm thấy trong text.
     """
     violations: List[str] = []
-    text_lower = text.lower()
+    text_lower = _strip_markdown_code(text).lower()
 
     for pattern in SYCOPHANCY_PATTERNS:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
@@ -649,7 +665,7 @@ def verify_execution_claims(
         "unverified_claims": [...]
     }
     """
-    text_lower = text.lower()
+    text_lower = _strip_markdown_code(text).lower()
     claims_found: List[str] = []
 
     for pattern in COMPLETION_CLAIM_PATTERNS:
@@ -710,7 +726,7 @@ def verify_api_and_investigation_claims(
     Bắt buộc execution_logs phải chứa raw HTTP status code (HTTP 200, HTTP 401, HTTP 402,
     status_code=, paid_plan_required, v.v.). Nếu không có -> vi phạm.
     """
-    text_lower = text.lower()
+    text_lower = _strip_markdown_code(text).lower()
     claims_found: List[str] = []
 
     for pattern in API_CLAIM_PATTERNS:
@@ -893,7 +909,7 @@ def verify_network_and_routing_claims(
     VÀ raw HTTP status output (HTTP 200, 301, 302, 404, 500,...), hoặc văn bản cung cấp khối
     Lean Evidence Tuple (### [EVIDENCE TUPLE]) hoàn chỉnh.
     """
-    text_lower = text.lower()
+    text_lower = _strip_markdown_code(text).lower()
     claims_found: List[str] = []
 
     for pattern in NETWORK_ROUTING_CLAIM_PATTERNS:
@@ -1187,8 +1203,9 @@ def verify_tool_mutation_balance(
                 if check_text.strip():
                     break
 
-    has_evasive_completion = bool(check_text) and any(
-        re.search(pat, check_text, re.IGNORECASE) for pat in EVASIVE_COMPLETION_PATTERNS
+    stripped_check_text = _strip_markdown_code(check_text) if check_text else ""
+    has_evasive_completion = bool(stripped_check_text) and any(
+        re.search(pat, stripped_check_text, re.IGNORECASE) for pat in EVASIVE_COMPLETION_PATTERNS
     )
 
     has_valid_execution = False
