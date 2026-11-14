@@ -289,6 +289,164 @@ def test_pillar_5_orphan_office_process_and_fix(tmp_path):
 
 
 # =============================================================================
+# STATIC SURFACE VALIDATOR (PHA 2)
+# =============================================================================
+def test_pillar_1_always_on_warn_and_error_thresholds(tmp_path):
+    """Kiểm tra ngưỡng WARN/ERROR always_on mặc định và override qua harness_config.json."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "GEMINI.md").write_text("a" * 100, encoding="utf-8")
+    (rules_dir / "r1.md").write_text("b" * 48_000, encoding="utf-8")
+
+    # Mặc định: > 48,000 và <= 100,000 -> WARN_ALWAYS_ON_OVERBUDGET
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_1_rules()
+    warn_issues = [i for i in issues if i.code == "WARN_ALWAYS_ON_OVERBUDGET"]
+    assert len(warn_issues) == 1
+    assert warn_issues[0].severity == "WARN"
+    assert warn_issues[0].auto_fixable is False
+
+    # Override ngưỡng qua configs/harness_config.json -> kích hoạt ERR_ALWAYS_ON_OVERBUDGET
+    configs_dir = tmp_path / "configs"
+    configs_dir.mkdir(parents=True, exist_ok=True)
+    (configs_dir / "harness_config.json").write_text(
+        json.dumps({"always_on_warn_max": 1000, "always_on_max": 10_000}),
+        encoding="utf-8",
+    )
+    issues_err = doctor.check_pillar_1_rules()
+    err_issues = [i for i in issues_err if i.code == "ERR_ALWAYS_ON_OVERBUDGET"]
+    assert len(err_issues) == 1
+    assert err_issues[0].severity == "ERROR"
+    assert err_issues[0].auto_fixable is False
+
+
+def test_pillar_1_hooks_valid_antigravity_schema(tmp_path):
+    """Kiểm tra hooks.json và .agents/hooks.json hợp lệ theo chuẩn Antigravity 2.0."""
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "pre.py").write_text("print('ok')\n", encoding="utf-8")
+    (scripts_dir / "stop.py").write_text("print('stop')\n", encoding="utf-8")
+
+    valid_hooks = {
+        "auto-code-harvester": {
+            "PreInvocation": [
+                {"type": "command", "command": "python scripts/pre.py", "timeout": 15}
+            ],
+            "Stop": [
+                {"type": "command", "command": "python scripts/stop.py", "timeout": 60}
+            ],
+        }
+    }
+    (tmp_path / "hooks.json").write_text(json.dumps(valid_hooks), encoding="utf-8")
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    (agents_dir / "hooks.json").write_text(json.dumps(valid_hooks), encoding="utf-8")
+
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_1_rules()
+    assert not any(i.code in {"ERR_HOOK_SCHEMA", "WARN_HOOK_EVENT"} for i in issues)
+
+
+def test_pillar_1_hooks_invalid_json_and_schema(tmp_path):
+    """Kiểm tra phát hiện lỗi JSON, sai schema, timeout=True/0, và hook gọi script không tồn tại."""
+    # 1. JSON hỏng ở hooks.json
+    (tmp_path / "hooks.json").write_text("{invalid json", encoding="utf-8")
+    # 2. Sai schema + bool timeout + missing script ở .agents/hooks.json
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    bad_hooks = {
+        "ns": {
+            "PreInvocation": [
+                {"type": "http", "command": "python scripts/missing.py", "timeout": True},
+                {"type": "command", "command": "", "timeout": 0},
+            ]
+        }
+    }
+    (agents_dir / "hooks.json").write_text(json.dumps(bad_hooks), encoding="utf-8")
+
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_1_rules()
+    hook_errors = [i for i in issues if i.code == "ERR_HOOK_SCHEMA"]
+    assert len(hook_errors) >= 5
+    assert any("scripts/missing.py" in i.message for i in hook_errors)
+    assert any("timeout" in i.message for i in hook_errors)
+    assert all(i.auto_fixable is False for i in hook_errors)
+
+
+def test_pillar_1_hooks_unknown_event_warns(tmp_path):
+    """Kiểm tra event lạ trong hooks.json phát sinh WARN_HOOK_EVENT (không phải ERROR)."""
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "ok.py").write_text("print('ok')\n", encoding="utf-8")
+    hooks = {
+        "ns": {
+            "CustomUnknownEvent": [
+                {"type": "command", "command": "python scripts/ok.py", "timeout": 10}
+            ]
+        }
+    }
+    (tmp_path / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
+
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_1_rules()
+    warns = [i for i in issues if i.code == "WARN_HOOK_EVENT"]
+    assert len(warns) == 1
+    assert warns[0].severity == "WARN"
+    assert not any(i.code == "ERR_HOOK_SCHEMA" for i in issues)
+
+
+def test_pillar_2_skill_script_ref_resolution(tmp_path):
+    """Kiểm tra phân giải 3 dạng tham chiếu scripts/*.py trong SKILL.md, lọc placeholder và bắt missing."""
+    # Root script
+    root_scripts = tmp_path / "scripts"
+    root_scripts.mkdir(parents=True, exist_ok=True)
+    (root_scripts / "global_tool.py").write_text("print('global')\n", encoding="utf-8")
+
+    # Skill dir + local scripts
+    skill_dir = tmp_path / "plugins" / "pack" / "skills" / "demo-skill"
+    local_scripts = skill_dir / "scripts"
+    local_scripts.mkdir(parents=True, exist_ok=True)
+    (local_scripts / "local_a.py").write_text("print('a')\n", encoding="utf-8")
+    (local_scripts / "local_b.py").write_text("print('b')\n", encoding="utf-8")
+
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: demo-skill\ndescription: Demo skill\n---\n"
+        "Run `./scripts/local_a.py`, `scripts/local_b.py`, "
+        "`plugins/pack/skills/demo-skill/scripts/local_a.py`, and `scripts/global_tool.py`.\n"
+        "Ignore placeholders: `scripts/foo.py`, `scripts/example.py`, `scripts/path/to/bar.py`.\n"
+        "Missing ref: `scripts/does_not_exist.py`.\n",
+        encoding="utf-8",
+    )
+
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_2_skills()
+    missing = [i for i in issues if i.code == "ERR_SKILL_SCRIPT_MISSING"]
+    assert len(missing) == 1
+    assert "scripts/does_not_exist.py" in missing[0].message
+    assert missing[0].auto_fixable is False
+
+
+def test_pillar_2_python_script_compile_syntax_error(tmp_path):
+    """Kiểm tra phát hiện SyntaxError qua compile() và bỏ qua __pycache__."""
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "good.py").write_text("x = 1 + 2\n", encoding="utf-8")
+    (scripts_dir / "broken.py").write_text("def bad(:\n    pass\n", encoding="utf-8")
+
+    pycache_dir = scripts_dir / "__pycache__"
+    pycache_dir.mkdir(parents=True, exist_ok=True)
+    (pycache_dir / "ignored.py").write_text("def broken_cache(:\n", encoding="utf-8")
+
+    doctor = HarnessDoctor(repo_root=tmp_path)
+    issues = doctor.check_pillar_2_skills()
+    syntax_errs = [i for i in issues if i.code == "ERR_SCRIPT_SYNTAX"]
+    assert len(syntax_errs) == 1
+    assert "scripts/broken.py" in syntax_errs[0].message
+    assert syntax_errs[0].auto_fixable is False
+
+
+# =============================================================================
 # KIỂM THỬ CLI & TÍCH HỢP RUN_HARNESS
 # =============================================================================
 def test_doctor_cli_healthy():

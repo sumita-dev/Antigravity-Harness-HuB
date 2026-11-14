@@ -8,6 +8,7 @@ Pipeline thật (Antigravity) dùng nó để kiểm thử luồng và lấy ski
 import uuid
 from typing import Optional
 
+from harness.evidence_cache import EvaluationCache, EvidenceTreeBuilder
 from harness.quality_gate import AdversarialQualityGate, Verdict
 from harness.runners.app_runner import AppRunner
 from harness.runners.marketing_runner import MarketingRunner
@@ -23,7 +24,13 @@ class ChiefOrchestrator:
         from harness.skills.curator import SkillCurator
         from harness.skills.manager import SkillManager
 
-        self.quality_gate = AdversarialQualityGate(max_rounds=2)
+        self.evaluation_cache = EvaluationCache()
+        self.evidence_builder = EvidenceTreeBuilder()
+        self.quality_gate = AdversarialQualityGate(
+            max_rounds=2,
+            cache=self.evaluation_cache,
+            evidence_builder=self.evidence_builder,
+        )
         self.runners = {
             "app": AppRunner(self.quality_gate),
             "marketing": MarketingRunner(self.quality_gate),
@@ -71,6 +78,7 @@ class ChiefOrchestrator:
                 "active_skill": context.active_skill,
                 "skill_path": context.skill_path,
                 "skill_chars": len(context.skill_instructions or ""),
+                "cache_stats": self.evaluation_cache.stats(),
             },
         )
         self.learning_harvester.harvest(trajectory)

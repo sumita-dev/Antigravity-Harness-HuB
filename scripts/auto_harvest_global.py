@@ -141,6 +141,52 @@ def extract_error_details(content: str, error: str) -> tuple[str, str]:
     return "ExecutionError", "Command execution failed"
 
 
+_WORKSPACE_SPECIFIC_PATTERNS = (
+    re.compile(r"\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0)\b(?::\d+)?|\[::1\](?::\d+)?", re.IGNORECASE),
+    re.compile(r"(?:sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|Bearer\s+[A-Za-z0-9._-]{20,})"),
+    re.compile(r"\b(?:JIRA-\d+|PR\s*#\d+)\b", re.IGNORECASE),
+    re.compile(r"(?:[A-Za-z]:\\(?:Users|Projects|Work|dev)\\|/tmp/)", re.IGNORECASE),
+)
+
+
+def is_workspace_specific(text: str) -> bool:
+    """Detect workspace-specific facts (loopback, real secrets, local tickets, unsanitized local paths)."""
+    if not text:
+        return False
+    return any(pattern.search(text) for pattern in _WORKSPACE_SPECIFIC_PATTERNS)
+
+
+def has_valid_triad_schema(pattern: dict[str, Any]) -> bool:
+    """Verify that a pattern contains non-empty string cue, lesson, and evidence fields."""
+    for field in ("cue", "lesson", "evidence"):
+        val = pattern.get(field)
+        if not isinstance(val, str) or not val.strip():
+            return False
+    return True
+
+
+def build_triad_fields(
+    err_type: str,
+    cause: str,
+    fix_text: str,
+    verify_cmd: str,
+    unique_files: list[str],
+    conversation_id: str,
+) -> dict[str, str]:
+    """Build Triad Lesson Schema fields (cue, lesson, evidence) for a resolved pattern."""
+    cue = f"[{err_type}] {cause} (cmd: {verify_cmd})" if verify_cmd else f"[{err_type}] {cause}"
+    files_str = ",".join(unique_files) if unique_files else "none"
+    evidence = (
+        f"Resolved via {verify_cmd or 'code_modification'} (exit=0); "
+        f"files={files_str}; conv={conversation_id}"
+    )
+    return {
+        "cue": cue,
+        "lesson": fix_text,
+        "evidence": evidence,
+    }
+
+
 def make_dedup_key(error_type: str, cause: str) -> str:
     """Generate a stable deduplication key for error patterns."""
     # Normalize cause: remove hex addresses, numbers, extra whitespace
@@ -148,6 +194,53 @@ def make_dedup_key(error_type: str, cause: str) -> str:
     norm = re.sub(r"\bline \d+\b", "line X", norm, flags=re.IGNORECASE)
     norm = re.sub(r"\s+", " ", norm).strip().lower()
     return f"{error_type.strip().lower()}::{norm[:120]}"
+
+
+def _is_pattern_workspace_specific(pat: dict[str, Any]) -> bool:
+    """Check whether any core field of a pattern contains workspace-specific facts."""
+    fields_to_check = [
+        str(pat.get("cause", "")),
+        str(pat.get("fix", "")),
+        str(pat.get("command", "")),
+        " ".join(str(f) for f in (pat.get("files_modified") or [])),
+    ]
+    return any(is_workspace_specific(text) for text in fields_to_check if text)
+
+
+def _build_resolved_pattern(
+    ae: dict[str, Any],
+    conversation_id: str,
+    verify_cmd: str = "",
+) -> dict[str, Any] | None:
+    """Construct a resolved pattern dict with Triad schema, returning None if workspace-specific."""
+    files = [f["file"] for f in ae["fixes"] if f.get("file")]
+    unique_files = list(dict.fromkeys(files))
+    descs = [f["description"] for f in ae["fixes"] if f.get("description")]
+    fix_text = "; ".join(descs[:3]) if descs else "Fixed via code modification"
+    cmd = verify_cmd or ae.get("command", "")
+    triad = build_triad_fields(
+        err_type=ae["error_type"],
+        cause=ae["cause"],
+        fix_text=fix_text,
+        verify_cmd=cmd,
+        unique_files=unique_files,
+        conversation_id=conversation_id,
+    )
+    pat: dict[str, Any] = {
+        "id": f"pat_{uuid.uuid4().hex[:8]}",
+        "error_type": ae["error_type"],
+        "cause": ae["cause"],
+        "fix": fix_text,
+        "command": cmd,
+        "files_modified": unique_files,
+        "timestamp": ae.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+        "conversation_id": conversation_id,
+        "occurrences": 1,
+        **triad,
+    }
+    if _is_pattern_workspace_specific(pat):
+        return None
+    return pat
 
 
 def harvest_patterns_from_steps(steps: list[dict[str, Any]], conversation_id: str = "") -> list[dict[str, Any]]:
@@ -232,24 +325,12 @@ def harvest_patterns_from_steps(steps: list[dict[str, Any]], conversation_id: st
                         or status == "DONE"
                     )
                     if is_success_cmd:
+                        verify_cmd = cmd_line if tool_name == "run_command" else ""
                         for ae in active_errors:
                             if ae["fixes"]:
-                                files = [f["file"] for f in ae["fixes"] if f.get("file")]
-                                unique_files = list(dict.fromkeys(files))
-                                descs = [f["description"] for f in ae["fixes"] if f.get("description")]
-                                fix_text = "; ".join(descs[:3]) if descs else "Fixed via code modification"
-
-                                resolved_patterns.append({
-                                    "id": f"pat_{uuid.uuid4().hex[:8]}",
-                                    "error_type": ae["error_type"],
-                                    "cause": ae["cause"],
-                                    "fix": fix_text,
-                                    "command": ae.get("command", ""),
-                                    "files_modified": unique_files,
-                                    "timestamp": ae.get("timestamp") or datetime.now(timezone.utc).isoformat(),
-                                    "conversation_id": conversation_id,
-                                    "occurrences": 1
-                                })
+                                pat = _build_resolved_pattern(ae, conversation_id, verify_cmd=verify_cmd)
+                                if pat is not None:
+                                    resolved_patterns.append(pat)
                         active_errors.clear()
 
     # If transcript ended cleanly and there remain active errors with recorded fixes,
@@ -259,22 +340,9 @@ def harvest_patterns_from_steps(steps: list[dict[str, Any]], conversation_id: st
         if last_step.get("status") == "DONE":
             for ae in active_errors:
                 if ae["fixes"]:
-                    files = [f["file"] for f in ae["fixes"] if f.get("file")]
-                    unique_files = list(dict.fromkeys(files))
-                    descs = [f["description"] for f in ae["fixes"] if f.get("description")]
-                    fix_text = "; ".join(descs[:3]) if descs else "Fixed via code modification"
-
-                    resolved_patterns.append({
-                        "id": f"pat_{uuid.uuid4().hex[:8]}",
-                        "error_type": ae["error_type"],
-                        "cause": ae["cause"],
-                        "fix": fix_text,
-                        "command": ae.get("command", ""),
-                        "files_modified": unique_files,
-                        "timestamp": ae.get("timestamp") or datetime.now(timezone.utc).isoformat(),
-                        "conversation_id": conversation_id,
-                        "occurrences": 1
-                    })
+                    pat = _build_resolved_pattern(ae, conversation_id)
+                    if pat is not None:
+                        resolved_patterns.append(pat)
 
     return resolved_patterns
 
@@ -308,6 +376,15 @@ def render_rules_markdown(md_path: Path, patterns: list[dict[str, Any]]) -> None
             lines.append(f"### {idx}. [{err_type}]")
             lines.append(f"- **Nguyên nhân:** `{cause}`")
             lines.append(f"- **Cách khắc phục:** {fix}")
+            cue = pat.get("cue")
+            if isinstance(cue, str) and cue.strip():
+                lines.append(f"- **Cue:** `{cue}`")
+            lesson = pat.get("lesson")
+            if isinstance(lesson, str) and lesson.strip():
+                lines.append(f"- **Lesson:** {lesson}")
+            evidence = pat.get("evidence")
+            if isinstance(evidence, str) and evidence.strip():
+                lines.append(f"- **Evidence:** `{evidence}`")
             if cmd:
                 lines.append(f"- **Lệnh liên quan:** `{cmd}`")
             if files:
@@ -329,7 +406,8 @@ def save_patterns(
     max_patterns: int = DEFAULT_MAX_PATTERNS
 ) -> None:
     """Persist learned patterns to global JSON and markdown rules with deduplication."""
-    if not new_patterns:
+    filtered_new = [p for p in new_patterns if not _is_pattern_workspace_specific(p)]
+    if not filtered_new:
         return
 
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -347,13 +425,15 @@ def save_patterns(
         except Exception:
             existing_patterns = []
 
-    # Map by deduplication key
+    # Map by deduplication key (filter out legacy workspace-specific entries on reload)
     pattern_map: dict[str, dict[str, Any]] = {}
     for pat in existing_patterns:
+        if _is_pattern_workspace_specific(pat):
+            continue
         k = make_dedup_key(pat.get("error_type", ""), pat.get("cause", ""))
         pattern_map[k] = pat
 
-    for pat in new_patterns:
+    for pat in filtered_new:
         k = make_dedup_key(pat.get("error_type", ""), pat.get("cause", ""))
         if k in pattern_map:
             cur = pattern_map[k]
@@ -365,6 +445,12 @@ def save_patterns(
             cur["files_modified"] = merged_files
             if pat.get("conversation_id"):
                 cur["conversation_id"] = pat["conversation_id"]
+            for triad_key in ("cue", "lesson", "evidence"):
+                new_val = pat.get(triad_key)
+                cur_val = cur.get(triad_key, "")
+                if isinstance(new_val, str) and new_val.strip():
+                    if not isinstance(cur_val, str) or len(new_val) >= len(cur_val):
+                        cur[triad_key] = new_val
         else:
             pattern_map[k] = pat
 

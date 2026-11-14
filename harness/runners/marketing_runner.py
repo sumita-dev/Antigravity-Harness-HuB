@@ -24,22 +24,41 @@ class MarketingRunner:
             enable_ppc = kwargs.get("enable_ppc", False) or task_tier == "tier_1"
             if enable_ppc:
                 from harness.propose_probe_compose import ProposeProbeComposeEngine
-                ppc_engine = ProposeProbeComposeEngine()
+                ppc_engine = ProposeProbeComposeEngine(cache=getattr(self.quality_gate, "cache", None))
                 ppc_res = ppc_engine.execute_ppc_pipeline(context, prompt=task_description, force_tier_1=True, **kwargs)
                 context.record_step("PPC_SYNTHESIS", {
                     "tier": "tier_1",
                     "variant_id": getattr(ppc_res.get("composed"), "variant_id", "composed"),
                     "features": getattr(ppc_res.get("composed"), "implemented_features", []),
+                    **({"cached": True} if ppc_res.get("cached") else {}),
                 })
                 if content_artifacts is None:
                     content_artifacts = {}
                 content_artifacts["ppc_composed"] = getattr(ppc_res.get("composed"), "content", "")
                 content_artifacts["status"] = "content_composed_ppc"
 
-            context.record_step(
-                "IMPLEMENTATION",
-                {"actor": "creator", "artifacts": content_artifacts or {"status": "draft_created"}},
-            )
+            impl_payload = {
+                "actor": "creator",
+                "artifacts": content_artifacts or {"status": "draft_created"},
+            }
+            evidence_builder = getattr(self.quality_gate, "evidence_builder", None)
+            if evidence_builder is not None and evidence_builder.should_spill(
+                dossier or "",
+                content_artifacts or {},
+            ):
+                tree = evidence_builder.build(
+                    task_id=str(getattr(context, "task_id", "marketing_task")),
+                    task_prompt=task_description,
+                    deliverables={
+                        "dossier.md": dossier or "",
+                        "content_artifacts": content_artifacts or {},
+                    },
+                    stage="IMPLEMENTATION",
+                    mission_instructions="Inspect full marketing content artifacts in deliverables/.",
+                )
+                impl_payload["evidence_dir"] = str(tree.root)
+
+            context.record_step("IMPLEMENTATION", impl_payload)
         if context.state == HarnessState.IMPLEMENTATION:
             if kwargs.get("fast_track", False):
                 context.transition(HarnessState.AUDIT)  # Fast-Track

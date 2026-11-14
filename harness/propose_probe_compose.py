@@ -14,9 +14,11 @@ Inspired by Infini-AI-Lab/hermit & Dynamic Triad Protocol:
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +31,31 @@ logger = logging.getLogger(__name__)
 class ProposalVariant:
     """A generated proposal variant with style orientation and features."""
     variant_id: str
-    style: str  # 'concise' | 'defensive' | 'composed' | 'baseline' | 'repaired'
+    style: str  # 'concise' | 'defensive' | 'composed' | 'baseline' | 'repaired' | 'invariant' | 'domain'
     content: str
     implemented_features: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    dimension: str = ""  # 'INV' | 'DOM' | 'BASE' | 'COMPOSED' | ''
+
+    def __post_init__(self) -> None:
+        if self.dimension:
+            self.metadata["dimension"] = self.dimension
+        elif isinstance(self.metadata.get("dimension"), str) and self.metadata["dimension"]:
+            self.dimension = self.metadata["dimension"]
+
+
+@dataclass
+class BlindSelectionResult:
+    """Result of deterministic blind candidate selection."""
+    task_id: str
+    mode: str
+    chosen_id: str
+    chosen_label: str
+    chosen_is_base: bool
+    decision: str  # 'COMPOSE' | 'KEEP_BASE' | 'SELECT' | 'FALLBACK'
+    id_map: Dict[str, str] = field(default_factory=dict)
+    dropped: List[str] = field(default_factory=list)
+    why: str = ""
 
 
 @dataclass
@@ -96,18 +119,28 @@ class ProposeEngine:
         )
 
     @staticmethod
-    def generate_contrastive_proposals(scenario: Any) -> Tuple[ProposalVariant, ProposalVariant]:
+    def generate_contrastive_proposals(
+        scenario: Any,
+        *,
+        mode: str = "contrastive",
+    ) -> Tuple[ProposalVariant, ProposalVariant]:
         """
         PPC Propose step: Generates 2 contrastive variants with complementary strengths:
-        - Variant A (Speed & Conciseness): concise, but may miss defensive/policy edge cases.
-        - Variant B (Defensive & Compliance): comprehensive guardrails and edge cases addressed.
+        - mode="contrastive" (default):
+          - Variant A (Speed & Conciseness): concise, but may miss defensive/policy edge cases.
+          - Variant B (Defensive & Compliance): comprehensive guardrails and edge cases addressed.
+        - mode="orthogonal":
+          - Delegates to generate_orthogonal_proposals (INV vs DOM).
         """
+        if mode == "orthogonal":
+            return ProposeEngine.generate_orthogonal_proposals(scenario)
+
         title = getattr(scenario, "title", str(scenario))
         task_id = getattr(scenario, "task_id", "task")
         req_criteria = getattr(scenario, "required_criteria", [])
         blindspot = getattr(scenario, "blindspot_risk", "")
 
-        # Variant A: Clean, concise
+        # Variant A: Clean, concise (INV axis)
         features_a = [c for c in req_criteria if c != blindspot]
         content_a = (
             f"# Solution A (Concise) for {title}\n"
@@ -119,9 +152,10 @@ class ProposeEngine:
             style="concise",
             content=content_a,
             implemented_features=features_a,
+            dimension="INV",
         )
 
-        # Variant B: Comprehensive, defensive
+        # Variant B: Comprehensive, defensive (DOM axis)
         features_b = list(req_criteria)
         content_b = (
             f"# Solution B (Defensive) for {title}\n"
@@ -134,8 +168,60 @@ class ProposeEngine:
             style="defensive",
             content=content_b,
             implemented_features=features_b,
+            dimension="DOM",
         )
         return variant_a, variant_b
+
+    @staticmethod
+    def generate_orthogonal_proposals(scenario: Any) -> Tuple[ProposalVariant, ProposalVariant]:
+        """
+        Orthogonal Propose step: Strictly separates Invariant/Procedural (INV)
+        and Domain/Policy (DOM) axes.
+        """
+        title = getattr(scenario, "title", str(scenario))
+        task_id = getattr(scenario, "task_id", "task")
+        req_criteria = getattr(scenario, "required_criteria", [])
+
+        policy_kw = ("policy", "disclaimer", "mask", "citation", "zero", "schema", "audit")
+        boundary_kw = ("guard", "check", "lock", "empty", "timeout", "rollback", "bound")
+
+        features_inv = [
+            c for c in req_criteria
+            if any(k in c.lower() for k in boundary_kw)
+            or not any(k in c.lower() for k in policy_kw)
+        ]
+        features_dom = [
+            c for c in req_criteria
+            if any(k in c.lower() for k in policy_kw)
+            or not any(k in c.lower() for k in boundary_kw)
+        ]
+
+        content_inv = (
+            f"# Solution INV (Procedural/Invariant) for {title}\n"
+            f"// Invariant Features: {', '.join(features_inv)}\n"
+            f"def execute_invariant(): pass"
+        )
+        var_inv = ProposalVariant(
+            variant_id=f"{task_id}_inv",
+            style="invariant",
+            content=content_inv,
+            implemented_features=features_inv,
+            dimension="INV",
+        )
+
+        content_dom = (
+            f"# Solution DOM (Domain/Policy) for {title}\n"
+            f"// Domain Features: {', '.join(features_dom)}\n"
+            f"def execute_domain(): pass"
+        )
+        var_dom = ProposalVariant(
+            variant_id=f"{task_id}_dom",
+            style="domain",
+            content=content_dom,
+            implemented_features=features_dom,
+            dimension="DOM",
+        )
+        return var_inv, var_dom
 
 
 class ProbeEngine:
@@ -183,6 +269,8 @@ class ProbeEngine:
             conciseness = 0.95
         elif variant.style == "composed":
             conciseness = 0.90
+        elif variant.style in ("invariant", "domain"):
+            conciseness = 0.85
         else:
             conciseness = 0.70
 
@@ -232,12 +320,157 @@ class ComposeEngine:
             style="composed",
             content=composed_content,
             implemented_features=fused_features,
+            dimension="COMPOSED",
             metadata={
                 "fused_from": [variant_a.variant_id, variant_b.variant_id],
                 "injected_features": injected,
                 "score_a": score_a.composite_score,
                 "score_b": score_b.composite_score,
             },
+        )
+
+
+class BlindSelector:
+    """Deterministic blind candidate selector with KEEP_BASE support."""
+
+    @staticmethod
+    def anon_id(index: int) -> str:
+        """Convert zero-based index to Excel-style alphabetic label (A..Z, AA..AZ)."""
+        if index < 0:
+            raise ValueError("index must be >= 0")
+        chars: List[str] = []
+        n = index
+        while True:
+            chars.append(chr(ord("A") + (n % 26)))
+            n = n // 26 - 1
+            if n < 0:
+                break
+        return "".join(reversed(chars))
+
+    @staticmethod
+    def assign_ids(
+        labels: Sequence[str],
+        *,
+        task_id: str,
+        k: int = 1,
+        mode: str = "ppc",
+    ) -> Dict[str, str]:
+        """Deterministically assign anonymized IDs (A, B, ...) using seeded shuffle."""
+        ordered = sorted(labels)
+        seed = hashlib.sha1(f"{task_id}|{k}|{mode}".encode("utf-8")).hexdigest()[:12]
+        rng = random.Random(seed)
+        rng.shuffle(ordered)
+        return {BlindSelector.anon_id(i): label for i, label in enumerate(ordered)}
+
+    @staticmethod
+    def select_best(
+        variants: Sequence[ProposalVariant],
+        scores: Sequence[ProbeScore],
+        *,
+        task_id: str,
+        k: int = 1,
+        mode: str = "ppc",
+        base_variant: Optional[ProposalVariant] = None,
+        base_score: Optional[ProbeScore] = None,
+        keep_base_margin: float = 0.02,
+    ) -> BlindSelectionResult:
+        """
+        Anonymize all candidates (including base_variant if provided) in a unified pool
+        and select the winning candidate or retain base via KEEP_BASE.
+        """
+        if len(variants) != len(scores):
+            raise ValueError("variants and scores must have the same length")
+        if base_variant is not None and base_score is None:
+            raise ValueError("base_score is required when base_variant is provided")
+
+        pool: List[Tuple[ProposalVariant, ProbeScore, bool]] = []
+        if base_variant is not None and base_score is not None:
+            pool.append((base_variant, base_score, True))
+        for v, s in zip(variants, scores):
+            pool.append((v, s, False))
+
+        dropped: List[str] = []
+        valid_pool: List[Tuple[ProposalVariant, ProbeScore, bool]] = []
+        for v, s, is_base in pool:
+            if not v.content.strip():
+                dropped.append(v.variant_id)
+            else:
+                valid_pool.append((v, s, is_base))
+
+        if not valid_pool:
+            return BlindSelectionResult(
+                task_id=task_id,
+                mode=mode,
+                chosen_id="",
+                chosen_label="",
+                chosen_is_base=False,
+                decision="FALLBACK",
+                id_map={},
+                dropped=dropped,
+                why="All candidates had empty content.",
+            )
+
+        id_map = BlindSelector.assign_ids(
+            [v.variant_id for v, _, _ in valid_pool],
+            task_id=task_id,
+            k=k,
+            mode=mode,
+        )
+        label_to_anon = {label: anon for anon, label in id_map.items()}
+
+        non_base = [(v, s) for v, s, is_base in valid_pool if not is_base]
+        base_valid = [(v, s) for v, s, is_base in valid_pool if is_base]
+
+        if not non_base and base_valid:
+            bv, bs = base_valid[0]
+            return BlindSelectionResult(
+                task_id=task_id,
+                mode=mode,
+                chosen_id=label_to_anon[bv.variant_id],
+                chosen_label=bv.variant_id,
+                chosen_is_base=True,
+                decision="KEEP_BASE",
+                id_map=id_map,
+                dropped=dropped,
+                why="Only base_variant was valid.",
+            )
+
+        best_cand_v, best_cand_s = max(non_base, key=lambda item: item[1].composite_score)
+
+        if base_valid:
+            bv, bs = base_valid[0]
+            if (
+                not bs.missing_criteria
+                and bs.composite_score >= best_cand_s.composite_score - keep_base_margin
+            ):
+                chosen_id = label_to_anon[bv.variant_id]
+                return BlindSelectionResult(
+                    task_id=task_id,
+                    mode=mode,
+                    chosen_id=chosen_id,
+                    chosen_label=bv.variant_id,
+                    chosen_is_base=True,
+                    decision="KEEP_BASE",
+                    id_map=id_map,
+                    dropped=dropped,
+                    why=(
+                        f"Retained base ({chosen_id}) within keep_base_margin={keep_base_margin:.2f}: "
+                        f"{bs.composite_score:.3f} >= {best_cand_s.composite_score:.3f} - {keep_base_margin:.2f}"
+                    ),
+                )
+
+        chosen_id = label_to_anon[best_cand_v.variant_id]
+        decision = "COMPOSE" if best_cand_v.style == "composed" else "SELECT"
+        return BlindSelectionResult(
+            task_id=task_id,
+            mode=mode,
+            chosen_id=chosen_id,
+            chosen_label=best_cand_v.variant_id,
+            chosen_is_base=False,
+            decision=decision,
+            id_map=id_map,
+            dropped=dropped,
+            why=f"Selected {chosen_id} ({best_cand_v.variant_id}) with composite_score={best_cand_s.composite_score:.3f}",
         )
 
 
@@ -256,11 +489,80 @@ class ProposeProbeComposeEngine:
     4. Compose: Optimal synthesis with safe fallback mechanism.
     """
 
-    def __init__(self, fallback_on_error: bool = True):
+    def __init__(self, fallback_on_error: bool = True, cache: Optional[Any] = None):
         self.fallback_on_error = fallback_on_error
+        self.cache = cache
         self.proposer = ProposeEngine()
         self.prober = ProbeEngine()
         self.composer = ComposeEngine()
+
+    @staticmethod
+    def _scenario_signature(scenario: Any) -> Any:
+        if isinstance(scenario, dict):
+            return {
+                "task_id": scenario.get("task_id"),
+                "domain": scenario.get("domain") or scenario.get("branch"),
+                "title": scenario.get("title"),
+                "description": scenario.get("description"),
+                "required_criteria": scenario.get("required_criteria"),
+                "blindspot_risk": scenario.get("blindspot_risk"),
+            }
+        if isinstance(scenario, str) or scenario is None:
+            return scenario
+        return {
+            "task_id": getattr(scenario, "task_id", None),
+            "domain": getattr(scenario, "domain", None) or getattr(scenario, "branch", None),
+            "title": getattr(scenario, "title", None),
+            "description": getattr(scenario, "description", None),
+            "required_criteria": getattr(scenario, "required_criteria", None),
+            "blindspot_risk": getattr(scenario, "blindspot_risk", None),
+        }
+
+    @staticmethod
+    def _serialize_variant(variant: ProposalVariant) -> Dict[str, Any]:
+        return {
+            "variant_id": variant.variant_id,
+            "style": variant.style,
+            "content": variant.content,
+            "implemented_features": list(variant.implemented_features),
+            "metadata": dict(variant.metadata),
+            "dimension": variant.dimension,
+        }
+
+    @staticmethod
+    def _deserialize_variant(data: Dict[str, Any]) -> ProposalVariant:
+        return ProposalVariant(
+            variant_id=str(data.get("variant_id", "")),
+            style=str(data.get("style", "")),
+            content=str(data.get("content", "")),
+            implemented_features=list(data.get("implemented_features") or []),
+            metadata=dict(data.get("metadata") or {}),
+            dimension=str(data.get("dimension", "")),
+        )
+
+    @staticmethod
+    def _serialize_probe_score(score: ProbeScore) -> Dict[str, Any]:
+        return {
+            "functional_score": score.functional_score,
+            "boundary_score": score.boundary_score,
+            "policy_score": score.policy_score,
+            "conciseness_score": score.conciseness_score,
+            "passed_criteria": list(score.passed_criteria),
+            "missing_criteria": list(score.missing_criteria),
+            "details": dict(score.details),
+        }
+
+    @staticmethod
+    def _deserialize_probe_score(data: Dict[str, Any]) -> ProbeScore:
+        return ProbeScore(
+            functional_score=float(data.get("functional_score", 0.0)),
+            boundary_score=float(data.get("boundary_score", 0.0)),
+            policy_score=float(data.get("policy_score", 0.0)),
+            conciseness_score=float(data.get("conciseness_score", 0.0)),
+            passed_criteria=list(data.get("passed_criteria") or []),
+            missing_criteria=list(data.get("missing_criteria") or []),
+            details=dict(data.get("details") or {}),
+        )
 
     def is_tier_1(self, task_context: Any) -> bool:
         """
@@ -334,30 +636,56 @@ class ProposeProbeComposeEngine:
 
         return False
 
-    def propose(self, task_context: Any, prompt: str = "", **kwargs) -> List[ProposalVariant]:
+    def propose(
+        self,
+        task_context: Any,
+        prompt: str = "",
+        *,
+        mode: str = "contrastive",
+        **kwargs,
+    ) -> List[ProposalVariant]:
         """
-        Sinh 2 biến thể tương phản (Contrastive Proposals) cho tác vụ.
+        Sinh 2 biến thể tương phản hoặc trực giao (INV vs DOM) cho tác vụ.
         """
         scenario = kwargs.get("scenario") or task_context
         if isinstance(scenario, TaskScenario) or hasattr(scenario, "required_criteria"):
-            var_a, var_b = self.proposer.generate_contrastive_proposals(scenario)
+            var_a, var_b = self.proposer.generate_contrastive_proposals(scenario, mode=mode)
             return [var_a, var_b]
 
         # Trường hợp prompt/text chung
         task_id = getattr(task_context, "task_id", "task")
         req_criteria = kwargs.get("required_criteria", ["core_functionality", "boundary_guard"])
-        
+
+        if mode == "orthogonal":
+            var_a = ProposalVariant(
+                variant_id=f"{task_id}_inv",
+                style="invariant",
+                content=f"# Invariant Implementation\n// Prompt: {prompt}\ndef execute(): return 'inv'",
+                implemented_features=[c for c in req_criteria if "policy" not in c],
+                dimension="INV",
+            )
+            var_b = ProposalVariant(
+                variant_id=f"{task_id}_dom",
+                style="domain",
+                content=f"# Domain Implementation\n// Prompt: {prompt}\ndef execute(): return 'dom'",
+                implemented_features=[c for c in req_criteria if "guard" not in c] or list(req_criteria),
+                dimension="DOM",
+            )
+            return [var_a, var_b]
+
         var_a = ProposalVariant(
             variant_id=f"{task_id}_variant_a",
             style="concise",
             content=f"# Lean Implementation\n// Prompt: {prompt}\ndef execute(): return 'lean'",
             implemented_features=[c for c in req_criteria if "guard" not in c],
+            dimension="INV",
         )
         var_b = ProposalVariant(
             variant_id=f"{task_id}_variant_b",
             style="defensive",
             content=f"# Defensive Implementation\n// Guardrails active\ndef execute(): return 'guarded'",
             implemented_features=list(req_criteria),
+            dimension="DOM",
         )
         return [var_a, var_b]
 
@@ -447,12 +775,14 @@ class ProposeProbeComposeEngine:
         prompt: str = "",
         rubrics: Optional[Any] = None,
         force_tier_1: bool = False,
-        **kwargs
+        base_variant: Optional[ProposalVariant] = None,
+        keep_base_margin: float = 0.02,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Thực thi toàn diện quy trình Propose-Probe-Compose:
         - Kiểm tra Tier: nếu Tier 2 và không ép buộc -> bypass PPC.
-        - Nếu Tier 1 -> Propose ➔ Probe ➔ Compose (với Safe Fallback).
+        - Nếu Tier 1 -> Propose ➔ Probe ➔ Compose ➔ Blind Selection (với Safe Fallback & KEEP_BASE).
         """
         is_t1 = force_tier_1 or self.is_tier_1(task_context)
         if not is_t1:
@@ -466,9 +796,49 @@ class ProposeProbeComposeEngine:
                 "scores": [],
             }
 
-        # Tier 1: Quy trình đầy đủ Propose ➔ Probe ➔ Compose
+        # Tier 1: Quy trình đầy đủ Propose ➔ Probe ➔ Compose ➔ Blind Selection
         scenario_arg = kwargs.pop("scenario", None) or task_context
-        variants = self.propose(task_context, prompt=prompt, scenario=scenario_arg, **kwargs)
+        mode = kwargs.pop("mode", "contrastive")
+
+        fp: Optional[str] = None
+        if self.cache is not None:
+            from harness.evidence_cache import call_fingerprint, compute_deliverables_digest
+
+            scenario_sig = self._scenario_signature(scenario_arg)
+            base_sig = self._serialize_variant(base_variant) if base_variant is not None else None
+            deliverables_digest = compute_deliverables_digest({
+                "scenario": scenario_sig,
+                "base_variant": base_sig,
+            })
+            fp = call_fingerprint(
+                stage="PPC_PIPELINE",
+                task_prompt=prompt,
+                deliverables_digest=deliverables_digest,
+                rubrics=rubrics,
+                extra={
+                    "mode": mode,
+                    "force_tier_1": force_tier_1,
+                    "task_tier": getattr(task_context, "task_tier", None),
+                    "keep_base_margin": keep_base_margin,
+                    "required_criteria": kwargs.get("required_criteria"),
+                    "blindspot_risk": kwargs.get("blindspot_risk"),
+                    "enable_ppc": kwargs.get("enable_ppc"),
+                },
+            )
+            cached = self.cache.get(fp)
+            if cached is not None:
+                return {
+                    "tier": cached.get("tier", "tier_1"),
+                    "ppc_active": bool(cached.get("ppc_active", True)),
+                    "variants": [self._deserialize_variant(v) for v in (cached.get("variants") or [])],
+                    "scores": [self._deserialize_probe_score(s) for s in (cached.get("scores") or [])],
+                    "composed": self._deserialize_variant(cached["composed"]),
+                    "decision": cached.get("decision"),
+                    "selection": dict(cached.get("selection") or {}),
+                    "cached": True,
+                }
+
+        variants = self.propose(task_context, prompt=prompt, mode=mode, scenario=scenario_arg, **kwargs)
         scores = self.probe(variants, rubrics=rubrics, scenario=scenario_arg, **kwargs)
         composed = self.compose(
             probe_results=scores,
@@ -479,10 +849,58 @@ class ProposeProbeComposeEngine:
             scenario=scenario_arg,
             **kwargs
         )
-        return {
+        composed_score = self.prober.probe_variant(scenario_arg, composed, rubrics=rubrics)
+        base_score = (
+            self.prober.probe_variant(scenario_arg, base_variant, rubrics=rubrics)
+            if base_variant is not None
+            else None
+        )
+        task_id = str(
+            getattr(scenario_arg, "task_id", None)
+            or (scenario_arg.get("task_id") if isinstance(scenario_arg, dict) else None)
+            or "task"
+        )
+        selection = BlindSelector.select_best(
+            [composed, *variants],
+            [composed_score, *scores],
+            task_id=task_id,
+            k=1,
+            mode=f"ppc_{mode}",
+            base_variant=base_variant,
+            base_score=base_score,
+            keep_base_margin=keep_base_margin,
+        )
+
+        final_composed = composed
+        if selection.decision == "KEEP_BASE" and base_variant is not None:
+            final_composed = base_variant
+        elif selection.chosen_label:
+            for cand in [composed, *variants]:
+                if cand.variant_id == selection.chosen_label:
+                    final_composed = cand
+                    break
+
+        result = {
             "tier": "tier_1",
             "ppc_active": True,
             "variants": variants,
             "scores": scores,
-            "composed": composed,
+            "composed": final_composed,
+            "decision": selection.decision,
+            "selection": selection.__dict__,
         }
+        if self.cache is not None and fp is not None:
+            self.cache.put(
+                fp,
+                {
+                    "tier": "tier_1",
+                    "ppc_active": True,
+                    "variants": [self._serialize_variant(v) for v in variants],
+                    "scores": [self._serialize_probe_score(s) for s in scores],
+                    "composed": self._serialize_variant(final_composed),
+                    "decision": selection.decision,
+                    "selection": dict(selection.__dict__),
+                },
+                stage="PPC_PIPELINE",
+            )
+        return result

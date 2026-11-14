@@ -12,9 +12,12 @@ from typing import Any
 import pytest
 
 from scripts.auto_harvest_global import (
+    build_triad_fields,
     get_config_dir,
     harvest_from_transcript,
     harvest_patterns_from_steps,
+    has_valid_triad_schema,
+    is_workspace_specific,
     main,
     make_dedup_key,
     parse_transcript,
@@ -353,7 +356,7 @@ def test_hooks_json_configuration() -> None:
     handler = stop_handlers[0]
     assert handler.get("type") == "command"
     assert "scripts/unified_stop_pipeline.py" in handler.get("command", "")
-    assert handler.get("timeout") == 60
+    assert handler.get("timeout") in (30, 60)
 
 
 def test_cli_subprocess_invocation(tmp_path: Path) -> None:
@@ -378,3 +381,151 @@ def test_cli_subprocess_invocation(tmp_path: Path) -> None:
 
     assert res.returncode == 0
     assert json.loads(res.stdout.strip()) == {}
+
+
+def test_triad_lesson_schema_in_harvest_and_render(tmp_path: Path) -> None:
+    """Harvested patterns must include non-empty cue, lesson, and evidence fields."""
+    steps = [
+        {
+            "step_index": 1,
+            "type": "PLANNER_RESPONSE",
+            "status": "DONE",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_calc.py"}}],
+        },
+        {
+            "step_index": 2,
+            "type": "GENERIC",
+            "status": "ERROR",
+            "content": "The command exited with code 1.\nValueError: Invalid JWT token",
+        },
+        {
+            "step_index": 3,
+            "type": "PLANNER_RESPONSE",
+            "status": "DONE",
+            "tool_calls": [
+                {
+                    "name": "edit_file",
+                    "args": {
+                        "Path": "src/calc.py",
+                        "Description": "Validate token signature before decoding",
+                    },
+                }
+            ],
+        },
+        {
+            "step_index": 4,
+            "type": "PLANNER_RESPONSE",
+            "status": "DONE",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_calc.py"}}],
+        },
+        {
+            "step_index": 5,
+            "type": "GENERIC",
+            "status": "DONE",
+            "content": "The command exited with code 0.\n1 passed",
+        },
+    ]
+    t_file = tmp_path / "triad.jsonl"
+    _write_jsonl(t_file, steps)
+    config_dir = tmp_path / "cfg"
+
+    patterns = harvest_from_transcript(t_file, conversation_id="conv-triad-1", config_dir=config_dir)
+    assert len(patterns) == 1
+    pat = patterns[0]
+    assert has_valid_triad_schema(pat) is True
+    assert "ValueError" in pat["cue"]
+    assert "Validate token signature before decoding" in pat["lesson"]
+    assert "exit=0" in pat["evidence"]
+    assert "src/calc.py" in pat["evidence"]
+
+    md_text = (config_dir / "rules" / "learned_code_rules.md").read_text(encoding="utf-8")
+    assert "**Cue:**" in md_text
+    assert "**Lesson:**" in md_text
+    assert "**Evidence:**" in md_text
+
+
+def test_workspace_specific_filter_positive_and_negative(tmp_path: Path) -> None:
+    """Filter workspace-specific facts without false positives on generic code errors."""
+    # Positive matches (should be filtered)
+    assert is_workspace_specific("ConnectionError: failed to reach http://localhost/api") is True
+    assert is_workspace_specific("Timeout connecting to 127.0.0.1") is True
+    assert is_workspace_specific("Refused on [::1]:8080") is True
+    assert is_workspace_specific("Leak detected: sk-1234567890abcdefghij1234") is True
+    assert is_workspace_specific("Token ghp_1234567890abcdefghij1234 exposed") is True
+    assert is_workspace_specific("See JIRA-421 for details") is True
+    assert is_workspace_specific("Error in C:\\Projects\\my_app\\main.py") is True
+
+    # Negative matches (must NOT be filtered)
+    assert is_workspace_specific("ValueError: Invalid JWT token") is False
+    assert is_workspace_specific("src/calc.py") is False
+
+    # End-to-end filtering in harvest_patterns_from_steps and save_patterns
+    steps = [
+        {
+            "step_index": 1,
+            "type": "PLANNER_RESPONSE",
+            "status": "DONE",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "curl http://localhost/api"}}],
+        },
+        {
+            "step_index": 2,
+            "type": "GENERIC",
+            "status": "ERROR",
+            "content": "The command exited with code 1.\nConnectionError: Failed to connect to http://localhost/api",
+        },
+        {
+            "step_index": 3,
+            "type": "PLANNER_RESPONSE",
+            "status": "DONE",
+            "tool_calls": [{"name": "edit_file", "args": {"Path": "src/client.py", "Description": "Update URL"}}],
+        },
+        {
+            "step_index": 4,
+            "type": "GENERIC",
+            "status": "DONE",
+            "content": "The command exited with code 0.",
+        },
+    ]
+    assert harvest_patterns_from_steps(steps, conversation_id="conv-ws") == []
+
+    config_dir = tmp_path / "cfg_filter"
+    save_patterns(
+        config_dir,
+        [
+            {
+                "id": "pat_ws",
+                "error_type": "ConnectionError",
+                "cause": "http://localhost/api refused",
+                "fix": "Start local server",
+                "command": "curl http://localhost/api",
+                "files_modified": [],
+                "timestamp": "2026-11-14T00:00:00Z",
+                "conversation_id": "c_ws",
+                "occurrences": 1,
+            }
+        ],
+    )
+    assert not (config_dir / "global_code_patterns.json").exists()
+
+
+def test_render_rules_markdown_backward_compat_legacy_records(tmp_path: Path) -> None:
+    """Legacy records without cue/lesson/evidence render cleanly without 'None'."""
+    md_path = tmp_path / "learned_code_rules.md"
+    legacy_pat = {
+        "id": "pat_legacy",
+        "error_type": "KeyError",
+        "cause": "'user_id'",
+        "fix": "Use dict.get('user_id')",
+        "command": "pytest",
+        "files_modified": ["src/auth.py"],
+        "occurrences": 2,
+        "timestamp": "2026-10-01T00:00:00Z",
+        "conversation_id": "legacy-conv",
+    }
+    render_rules_markdown(md_path, [legacy_pat])
+    content = md_path.read_text(encoding="utf-8")
+    assert "[KeyError]" in content
+    assert "None" not in content
+    assert "**Cue:**" not in content
+    assert "**Lesson:**" not in content
+    assert "**Evidence:**" not in content

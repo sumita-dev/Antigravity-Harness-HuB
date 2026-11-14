@@ -47,6 +47,8 @@ from harness.runners.marketing_runner import MarketingRunner
 
 # Production Hermit Innovation Modules
 from harness.propose_probe_compose import (
+    BlindSelectionResult,
+    BlindSelector,
     ProposeProbeComposeEngine,
     ProposeEngine,
     ProbeEngine,
@@ -548,6 +550,117 @@ def test_adversarial_quality_gate_evaluate_with_ppc():
     )
     assert verdict_t2 == Verdict.APPROVE
     assert prim == var_a
+
+
+def test_ppc_orthogonal_inv_dom_mode():
+    """Kiểm tra tách trục trực giao INV vs DOM qua mode='orthogonal'."""
+    scenario = BENCHMARK_TASKS[6]  # mkt_crypto_audit (has policy + functional criteria)
+    var_inv, var_dom = ProposeEngine.generate_contrastive_proposals(scenario, mode="orthogonal")
+
+    assert var_inv.dimension == "INV"
+    assert var_inv.style == "invariant"
+    assert var_inv.metadata.get("dimension") == "INV"
+
+    assert var_dom.dimension == "DOM"
+    assert var_dom.style == "domain"
+    assert var_dom.metadata.get("dimension") == "DOM"
+    assert "edsa_risk_disclaimer" in var_dom.implemented_features
+
+    score_inv = ProbeEngine.probe_variant(scenario, var_inv)
+    score_dom = ProbeEngine.probe_variant(scenario, var_dom)
+    assert score_inv.conciseness_score == pytest.approx(0.85)
+    assert score_dom.conciseness_score == pytest.approx(0.85)
+
+
+def test_ppc_blind_selector_determinism_and_keep_base():
+    """Kiểm tra BlindSelector.assign_ids tất định và cơ chế KEEP_BASE."""
+    labels = ["task_baseline", "task_variant_a", "task_variant_b", "task_composed"]
+    map_1 = BlindSelector.assign_ids(labels, task_id="t1", k=1, mode="ppc_contrastive")
+    map_2 = BlindSelector.assign_ids(reversed(labels), task_id="t1", k=1, mode="ppc_contrastive")
+    assert map_1 == map_2
+    assert set(map_1.keys()) == {"A", "B", "C", "D"}
+    assert BlindSelector.anon_id(0) == "A"
+    assert BlindSelector.anon_id(26) == "AA"
+
+    scenario = BENCHMARK_TASKS[0]
+    var_a, var_b = ProposeEngine.generate_contrastive_proposals(scenario)
+    score_a = ProbeEngine.probe_variant(scenario, var_a)
+    score_b = ProbeEngine.probe_variant(scenario, var_b)
+    composed = ComposeEngine.compose(scenario, var_a, score_a, var_b, score_b)
+    composed_score = ProbeEngine.probe_variant(scenario, composed)
+
+    # Base variant hoàn chỉnh tất cả criteria và điểm sát composed -> KEEP_BASE
+    strong_base = ProposalVariant(
+        variant_id=f"{scenario.task_id}_base",
+        style="composed",
+        content="# Complete base implementation\ndef run(): return True",
+        implemented_features=list(scenario.required_criteria),
+        dimension="BASE",
+    )
+    strong_base_score = ProbeEngine.probe_variant(scenario, strong_base)
+
+    with pytest.raises(ValueError):
+        BlindSelector.select_best(
+            [composed, var_a, var_b],
+            [composed_score, score_a, score_b],
+            task_id=scenario.task_id,
+            base_variant=strong_base,
+            base_score=None,
+        )
+
+    res_keep = BlindSelector.select_best(
+        [composed, var_a, var_b],
+        [composed_score, score_a, score_b],
+        task_id=scenario.task_id,
+        base_variant=strong_base,
+        base_score=strong_base_score,
+        keep_base_margin=0.02,
+    )
+    assert isinstance(res_keep, BlindSelectionResult)
+    assert res_keep.decision == "KEEP_BASE"
+    assert res_keep.chosen_is_base is True
+    assert res_keep.chosen_label == strong_base.variant_id
+    assert strong_base.variant_id in res_keep.id_map.values()
+
+    # Base variant thiếu blindspot -> không KEEP_BASE, chọn COMPOSE
+    weak_base = ProposeEngine.generate_single_draft(scenario)
+    weak_base_score = ProbeEngine.probe_variant(scenario, weak_base)
+    res_compose = BlindSelector.select_best(
+        [composed, var_a, var_b],
+        [composed_score, score_a, score_b],
+        task_id=scenario.task_id,
+        base_variant=weak_base,
+        base_score=weak_base_score,
+        keep_base_margin=0.02,
+    )
+    assert res_compose.decision == "COMPOSE"
+    assert res_compose.chosen_is_base is False
+    assert res_compose.chosen_label == composed.variant_id
+
+
+def test_ppc_execute_pipeline_keep_base_preserves_caller_contract():
+    """Kiểm tra execute_ppc_pipeline trả về base_variant làm composed khi KEEP_BASE."""
+    engine = ProposeProbeComposeEngine()
+    scenario = BENCHMARK_TASKS[0]
+    strong_base = ProposalVariant(
+        variant_id=f"{scenario.task_id}_base",
+        style="composed",
+        content="# Complete base\ndef ok(): return 1",
+        implemented_features=list(scenario.required_criteria),
+        dimension="BASE",
+    )
+    res = engine.execute_ppc_pipeline(
+        scenario,
+        force_tier_1=True,
+        base_variant=strong_base,
+        keep_base_margin=0.02,
+    )
+    assert res["tier"] == "tier_1"
+    assert res["ppc_active"] is True
+    assert res["decision"] == "KEEP_BASE"
+    assert res["composed"] is strong_base
+    assert isinstance(res["selection"], dict)
+    assert res["selection"]["chosen_is_base"] is True
 
 
 # ==============================================================================

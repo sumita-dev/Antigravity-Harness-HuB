@@ -71,6 +71,24 @@ MAX_GEMINI_BYTES = 24 * 1024       # 24,576 bytes
 MAX_GLOBAL_GEMINI_BYTES = 8 * 1024  # 8,192 bytes
 MAX_SESSIONS_BYTES = 500 * 1024 * 1024  # 524,288,000 bytes (~500MB)
 
+DEFAULT_ALWAYS_ON_WARN_CHARS = 48_000
+DEFAULT_ALWAYS_ON_ERROR_CHARS = 100_000
+ANTIGRAVITY_HOOK_EVENTS = frozenset({
+    "PreInvocation",
+    "PostInvocation",
+    "Stop",
+    "PreToolUse",
+    "PostToolUse",
+    "UserPromptSubmit",
+})
+SKILL_SCRIPT_REF_PATTERN = re.compile(
+    r"(?:plugins/[A-Za-z0-9_.\-]+/skills/[A-Za-z0-9_.\-]+/|skills/[A-Za-z0-9_.\-]+/|\./)?scripts/[A-Za-z0-9_.\-/]+\.py"
+)
+HOOK_PYTHON_CMD_PATTERN = re.compile(
+    r"^\s*(?:python3?|py)\s+(?:-[A-Za-z0-9_]+\s+)*['\"]?([A-Za-z0-9_.\-/\\]+\.py)['\"]?(?:\s|$)"
+)
+SKILL_SCRIPT_PLACEHOLDERS = ("<", ">", "{", "}", "path/to/", "foo.py", "bar.py", "example.py")
+
 FRONTMATTER_PATTERN = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 
 
@@ -249,6 +267,240 @@ class HarnessDoctor:
                     )
                 )
 
+        # 1.4 Kiểm tra tổng dung lượng always_on (GEMINI.md + global_gemini.md + rules/*.md)
+        total_always_on, breakdown = self._measure_always_on_chars()
+        warn_max, err_max = self._load_always_on_thresholds()
+        if total_always_on > err_max:
+            issues.append(
+                DoctorIssue(
+                    code="ERR_ALWAYS_ON_OVERBUDGET",
+                    severity="ERROR",
+                    pillar=pillar,
+                    message=(
+                        f"Tổng dung lượng always_on ({total_always_on:,} chars) vượt ngưỡng lỗi cứng "
+                        f"{err_max:,} chars ({len(breakdown)} files)."
+                    ),
+                    remediation="Cắt gọt GEMINI.md, configs/global_gemini.md hoặc rules/*.md; chuyển bớt sang Skills.",
+                    auto_fixable=False,
+                )
+            )
+        elif total_always_on > warn_max:
+            issues.append(
+                DoctorIssue(
+                    code="WARN_ALWAYS_ON_OVERBUDGET",
+                    severity="WARN",
+                    pillar=pillar,
+                    message=(
+                        f"Tổng dung lượng always_on ({total_always_on:,} chars) vượt ngưỡng cảnh báo "
+                        f"{warn_max:,} chars ({len(breakdown)} files)."
+                    ),
+                    remediation="Cân nhắc cắt tỉa bớt rules/*.md hoặc chuyển sang Skills on-demand.",
+                    auto_fixable=False,
+                )
+            )
+
+        # 1.5 Validate JSON schema của hooks.json & .agents/hooks.json
+        issues.extend(self._validate_hooks_file(self.repo_root / "hooks.json", pillar))
+        issues.extend(self._validate_hooks_file(self.repo_root / ".agents" / "hooks.json", pillar))
+
+        return issues
+
+    def _measure_always_on_chars(self) -> Tuple[int, Dict[str, int]]:
+        """Đo tổng số ký tự always-on (GEMINI.md + configs/global_gemini.md + rules/*.md)."""
+        targets: List[Path] = [
+            self.repo_root / "GEMINI.md",
+            self.repo_root / "configs" / "global_gemini.md",
+        ]
+        rules_dir = self.repo_root / "rules"
+        if rules_dir.is_dir():
+            targets.extend(sorted(rules_dir.glob("*.md")))
+
+        parts: List[str] = []
+        breakdown: Dict[str, int] = {}
+        for path in targets:
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8-sig", errors="replace")
+            rel = path.relative_to(self.repo_root).as_posix()
+            parts.append(text)
+            breakdown[rel] = len(text)
+
+        total = len("\n\n".join(parts)) if parts else 0
+        return total, breakdown
+
+    def _load_always_on_thresholds(self) -> Tuple[int, int]:
+        """Đọc ngưỡng always_on_warn_max / always_on_max từ configs/harness_config.json."""
+        warn_max = DEFAULT_ALWAYS_ON_WARN_CHARS
+        err_max = DEFAULT_ALWAYS_ON_ERROR_CHARS
+        config_path = self.repo_root / "configs" / "harness_config.json"
+        if not config_path.is_file():
+            return warn_max, err_max
+        try:
+            cfg = json.loads(config_path.read_text(encoding="utf-8-sig"))
+        except Exception:
+            return warn_max, err_max
+        if not isinstance(cfg, dict):
+            return warn_max, err_max
+
+        raw_warn = cfg.get("always_on_warn_max")
+        if not isinstance(raw_warn, bool) and isinstance(raw_warn, int) and raw_warn > 0:
+            warn_max = raw_warn
+
+        raw_err = cfg.get("always_on_max")
+        if not isinstance(raw_err, bool) and isinstance(raw_err, int) and raw_err > 0:
+            err_max = raw_err
+
+        return warn_max, err_max
+
+    def _validate_hooks_file(self, hooks_path: Path, pillar: str) -> List[DoctorIssue]:
+        """Validate schema Antigravity 2.0 cho hooks.json / .agents/hooks.json (read-only)."""
+        if not hooks_path.exists():
+            return []
+
+        issues: List[DoctorIssue] = []
+        rel = hooks_path.relative_to(self.repo_root).as_posix()
+        try:
+            data = json.loads(hooks_path.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            issues.append(
+                DoctorIssue(
+                    code="ERR_HOOK_SCHEMA",
+                    severity="ERROR",
+                    pillar=pillar,
+                    message=f"Không thể parse JSON trong {rel}: {exc}",
+                    remediation=f"Sửa cú pháp JSON hợp lệ cho {rel}.",
+                    auto_fixable=False,
+                )
+            )
+            return issues
+
+        if not isinstance(data, dict) or not data:
+            issues.append(
+                DoctorIssue(
+                    code="ERR_HOOK_SCHEMA",
+                    severity="ERROR",
+                    pillar=pillar,
+                    message=f"{rel} phải là JSON object không rỗng theo schema <namespace>.<Event>[].",
+                    remediation=f"Cập nhật {rel} về object chứa ít nhất một namespace hook.",
+                    auto_fixable=False,
+                )
+            )
+            return issues
+
+        for ns, events in data.items():
+            if not isinstance(events, dict):
+                issues.append(
+                    DoctorIssue(
+                        code="ERR_HOOK_SCHEMA",
+                        severity="ERROR",
+                        pillar=pillar,
+                        message=f"{rel}: namespace '{ns}' phải là object ánh xạ <Event> -> list.",
+                        remediation=f"Sửa '{ns}' trong {rel} thành object chứa các event hook.",
+                        auto_fixable=False,
+                    )
+                )
+                continue
+
+            for event_name, entries in events.items():
+                if event_name not in ANTIGRAVITY_HOOK_EVENTS:
+                    issues.append(
+                        DoctorIssue(
+                            code="WARN_HOOK_EVENT",
+                            severity="WARN",
+                            pillar=pillar,
+                            message=(
+                                f"{rel}: event '{ns}.{event_name}' nằm ngoài tập chuẩn "
+                                f"{sorted(ANTIGRAVITY_HOOK_EVENTS)}."
+                            ),
+                            remediation=f"Kiểm tra lại tên event '{event_name}' trong {rel}.",
+                            auto_fixable=False,
+                        )
+                    )
+
+                if not isinstance(entries, list):
+                    issues.append(
+                        DoctorIssue(
+                            code="ERR_HOOK_SCHEMA",
+                            severity="ERROR",
+                            pillar=pillar,
+                            message=f"{rel}: '{ns}.{event_name}' phải là danh sách (list) các hook object.",
+                            remediation=f"Đổi '{ns}.{event_name}' trong {rel} thành mảng [].",
+                            auto_fixable=False,
+                        )
+                    )
+                    continue
+
+                for idx, item in enumerate(entries):
+                    loc = f"{rel} ({ns}.{event_name}[{idx}])"
+                    if not isinstance(item, dict):
+                        issues.append(
+                            DoctorIssue(
+                                code="ERR_HOOK_SCHEMA",
+                                severity="ERROR",
+                                pillar=pillar,
+                                message=f"{loc}: phần tử hook phải là object.",
+                                remediation=f"Sửa phần tử hook tại {loc} thành object hợp lệ.",
+                                auto_fixable=False,
+                            )
+                        )
+                        continue
+
+                    if item.get("type") != "command":
+                        issues.append(
+                            DoctorIssue(
+                                code="ERR_HOOK_SCHEMA",
+                                severity="ERROR",
+                                pillar=pillar,
+                                message=f"{loc}: trường 'type' phải là 'command' (nhận được {item.get('type')!r}).",
+                                remediation=f"Đặt \"type\": \"command\" tại {loc}.",
+                                auto_fixable=False,
+                            )
+                        )
+
+                    cmd = item.get("command")
+                    if not isinstance(cmd, str) or not cmd.strip():
+                        issues.append(
+                            DoctorIssue(
+                                code="ERR_HOOK_SCHEMA",
+                                severity="ERROR",
+                                pillar=pillar,
+                                message=f"{loc}: thiếu hoặc rỗng trường 'command'.",
+                                remediation=f"Bổ sung lệnh thực thi hợp lệ cho 'command' tại {loc}.",
+                                auto_fixable=False,
+                            )
+                        )
+                    else:
+                        match = HOOK_PYTHON_CMD_PATTERN.match(cmd.strip())
+                        if match:
+                            script_rel = match.group(1).replace("\\", "/")
+                            if script_rel.startswith("./"):
+                                script_rel = script_rel[2:]
+                            if not (self.repo_root / script_rel).is_file():
+                                issues.append(
+                                    DoctorIssue(
+                                        code="ERR_HOOK_SCHEMA",
+                                        severity="ERROR",
+                                        pillar=pillar,
+                                        message=f"{loc}: hook command tham chiếu script không tồn tại: {script_rel}.",
+                                        remediation=f"Kiểm tra lại đường dẫn '{script_rel}' hoặc tạo file script tương ứng.",
+                                        auto_fixable=False,
+                                    )
+                                )
+
+                    if "timeout" in item:
+                        timeout = item["timeout"]
+                        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+                            issues.append(
+                                DoctorIssue(
+                                    code="ERR_HOOK_SCHEMA",
+                                    severity="ERROR",
+                                    pillar=pillar,
+                                    message=f"{loc}: trường 'timeout' phải là số > 0 (nhận được {timeout!r}).",
+                                    remediation=f"Đặt 'timeout' thành số dương (giây) tại {loc}.",
+                                    auto_fixable=False,
+                                )
+                            )
+
         return issues
 
     # =========================================================================
@@ -402,6 +654,97 @@ class HarnessDoctor:
                         pillar=pillar,
                         message=f"Lỗi đọc skill_composition trong harness_config.json: {exc}",
                         remediation="Đảm bảo configs/harness_config.json có định dạng JSON hợp lệ.",
+                        auto_fixable=False,
+                    )
+                )
+
+        # 2.4 Kiểm tra tham chiếu scripts/*.py trong SKILL.md
+        issues.extend(self._check_skill_script_refs(pillar))
+
+        # 2.5 Kiểm tra cú pháp Python (compile) cho các script
+        issues.extend(self._check_python_scripts_compile(pillar))
+
+        return issues
+
+    def _check_skill_script_refs(self, pillar: str) -> List[DoctorIssue]:
+        """Quét SKILL.md trong plugins/ và skills/ kiểm tra tham chiếu scripts/*.py tồn tại."""
+        issues: List[DoctorIssue] = []
+        skill_files: List[Path] = []
+        for root_name in ("plugins", "skills"):
+            root_dir = self.repo_root / root_name
+            if not root_dir.is_dir():
+                continue
+            for sf in root_dir.rglob("SKILL.md"):
+                if "node_modules" in sf.parts:
+                    continue
+                skill_files.append(sf)
+
+        for sf in sorted(skill_files):
+            try:
+                text = sf.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError:
+                continue
+
+            seen_refs: Set[str] = set()
+            skill_rel = sf.relative_to(self.repo_root).as_posix()
+            for match in SKILL_SCRIPT_REF_PATTERN.finditer(text):
+                raw_ref = match.group(0)
+                if any(ph in raw_ref for ph in SKILL_SCRIPT_PLACEHOLDERS):
+                    continue
+                norm_ref = raw_ref[2:] if raw_ref.startswith("./") else raw_ref
+                if norm_ref in seen_refs:
+                    continue
+                seen_refs.add(norm_ref)
+
+                if not ((sf.parent / norm_ref).is_file() or (self.repo_root / norm_ref).is_file()):
+                    issues.append(
+                        DoctorIssue(
+                            code="ERR_SKILL_SCRIPT_MISSING",
+                            severity="ERROR",
+                            pillar=pillar,
+                            message=f"{skill_rel} tham chiếu script không tồn tại: {raw_ref}",
+                            remediation=f"Kiểm tra lại đường dẫn '{raw_ref}' hoặc tạo file script tương ứng.",
+                            auto_fixable=False,
+                        )
+                    )
+
+        return issues
+
+    def _check_python_scripts_compile(self, pillar: str) -> List[DoctorIssue]:
+        """Kiểm tra compile() cho toàn bộ .py thuộc scripts/, plugins/**/scripts/, skills/**/scripts/."""
+        issues: List[DoctorIssue] = []
+        py_files: Set[Path] = set()
+
+        root_scripts = self.repo_root / "scripts"
+        if root_scripts.is_dir():
+            for pf in root_scripts.rglob("*.py"):
+                if "__pycache__" not in pf.parts and "node_modules" not in pf.parts:
+                    py_files.add(pf)
+
+        for root_name in ("plugins", "skills"):
+            root_dir = self.repo_root / root_name
+            if not root_dir.is_dir():
+                continue
+            for pf in root_dir.rglob("*.py"):
+                if "__pycache__" in pf.parts or "node_modules" in pf.parts:
+                    continue
+                rel_parts = pf.relative_to(root_dir).parts
+                if "scripts" in rel_parts:
+                    py_files.add(pf)
+
+        for pf in sorted(py_files):
+            rel = pf.relative_to(self.repo_root).as_posix()
+            try:
+                src = pf.read_text(encoding="utf-8-sig")
+                compile(src, rel, "exec")
+            except (SyntaxError, ValueError, UnicodeDecodeError) as exc:
+                issues.append(
+                    DoctorIssue(
+                        code="ERR_SCRIPT_SYNTAX",
+                        severity="ERROR",
+                        pillar=pillar,
+                        message=f"Lỗi cú pháp Python trong {rel}: {exc}",
+                        remediation=f"Sửa lỗi cú pháp trong {rel} và kiểm tra lại bằng py_compile.",
                         auto_fixable=False,
                     )
                 )

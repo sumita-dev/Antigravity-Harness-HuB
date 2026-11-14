@@ -3,6 +3,12 @@ import json
 import subprocess
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from harness.evidence_cache import (
+    EvaluationCache,
+    EvidenceTreeBuilder,
+    call_fingerprint,
+    compute_deliverables_digest,
+)
 from harness.state_machine import HarnessState
 
 _SHORT_MOCK_EXEMPTIONS = frozenset({
@@ -27,11 +33,43 @@ class AdversarialQualityGate:
         max_qa_rounds: int = 2,
         max_total_cycles: int = 3,
         evaluator: Optional[Any] = None,
+        cache: Optional[EvaluationCache] = None,
+        evidence_builder: Optional[EvidenceTreeBuilder] = None,
+        enable_cache: bool = True,
+        evidence_threshold_chars: int = 4000,
     ):
         self.max_rounds = max_rounds
         self.max_qa_rounds = max_qa_rounds
         self.max_total_cycles = max_total_cycles
         self._evaluator = evaluator
+        self.cache = cache if cache is not None else EvaluationCache(enabled=enable_cache)
+        self.evidence_builder = (
+            evidence_builder
+            if evidence_builder is not None
+            else EvidenceTreeBuilder(threshold_chars=evidence_threshold_chars)
+        )
+
+    def _spill_evidence_if_needed(
+        self,
+        task_context: Any,
+        *,
+        stage: str,
+        deliverables: Dict[str, Any],
+        mission_instructions: str = "",
+    ) -> Optional[str]:
+        """Ghi EvidenceTree ra đĩa nếu tổng kích thước vượt ngưỡng, trả về đường dẫn root."""
+        if not self.evidence_builder.should_spill(*deliverables.values()):
+            return None
+        task_id = str(getattr(task_context, "task_id", "task"))
+        branch = str(getattr(task_context, "branch", ""))
+        tree = self.evidence_builder.build(
+            task_id=task_id,
+            task_prompt=f"Branch: {branch} | Stage: {stage}",
+            deliverables=deliverables,
+            stage=stage,
+            mission_instructions=mission_instructions,
+        )
+        return str(tree.root)
 
     @property
     def evaluator(self) -> Any:
@@ -166,16 +204,25 @@ class AdversarialQualityGate:
         base_dir: Optional[Any] = None,
     ) -> Verdict:
         """Đánh giá phản biện từ Critic (soi GAP, logic, edge cases)."""
+        evidence_dir = self._spill_evidence_if_needed(
+            task_context,
+            stage="CRITIC",
+            deliverables={"critic_output": critic_output},
+            mission_instructions="Inspect full critic output in deliverables/critic_output.*",
+        )
         structured = self._try_extract_structured_payload(critic_output)
         if structured is not None:
             from harness.triad_protocol import validate_critique_payload
 
             is_valid, schema_errors = validate_critique_payload(structured)
             if not is_valid:
-                task_context.record_step(
-                    "CRITIC",
-                    {"raw": json.dumps(structured, ensure_ascii=False)[:200], "schema_errors": schema_errors},
-                )
+                step_payload: Dict[str, Any] = {
+                    "raw": json.dumps(structured, ensure_ascii=False)[:200],
+                    "schema_errors": schema_errors,
+                }
+                if evidence_dir:
+                    step_payload["evidence_dir"] = evidence_dir
+                task_context.record_step("CRITIC", step_payload)
                 if not task_context.increment_critique(self.max_rounds):
                     return Verdict.ESCALATE
                 if not task_context.check_total_cycles(self.max_total_cycles):
@@ -221,7 +268,10 @@ class AdversarialQualityGate:
                 task_context.safe_transition(HarnessState.IMPLEMENTATION)
                 return Verdict.REJECT
 
-        task_context.record_step("CRITIC", {"raw": raw_preview})
+        critic_payload: Dict[str, Any] = {"raw": raw_preview}
+        if evidence_dir:
+            critic_payload["evidence_dir"] = evidence_dir
+        task_context.record_step("CRITIC", critic_payload)
         if "VERDICT: APPROVE" in verdict_token:
             task_context.safe_transition(HarnessState.AUDIT)
             return Verdict.APPROVE
@@ -271,6 +321,12 @@ class AdversarialQualityGate:
         base_dir: Optional[Any] = None,
     ) -> Verdict:
         """Đánh giá kiểm định từ QA Auditor (test thật, security scan, health check)."""
+        evidence_dir = self._spill_evidence_if_needed(
+            task_context,
+            stage="AUDIT",
+            deliverables={"checker_output": checker_output},
+            mission_instructions="Inspect full QA checker output in deliverables/checker_output.*",
+        )
         structured = self._try_extract_structured_payload(checker_output)
         extra_exec_logs: Optional[List[Dict[str, Any]]] = None
         if structured is not None:
@@ -278,10 +334,13 @@ class AdversarialQualityGate:
 
             is_valid, schema_errors = validate_audit_payload(structured)
             if not is_valid:
-                task_context.record_step(
-                    "CHECKER",
-                    {"raw": json.dumps(structured, ensure_ascii=False)[:200], "schema_errors": schema_errors},
-                )
+                step_payload: Dict[str, Any] = {
+                    "raw": json.dumps(structured, ensure_ascii=False)[:200],
+                    "schema_errors": schema_errors,
+                }
+                if evidence_dir:
+                    step_payload["evidence_dir"] = evidence_dir
+                task_context.record_step("CHECKER", step_payload)
                 if not task_context.increment_qa(self.max_qa_rounds):
                     return Verdict.ESCALATE
                 if not task_context.check_total_cycles(self.max_total_cycles):
@@ -307,7 +366,10 @@ class AdversarialQualityGate:
         has_exec_fail, exec_exit_code, exec_payload = self._check_latest_execution_step(task_context)
         if "VERDICT: APPROVE" in verdict_token and has_exec_fail:
             reason = f"Rejected: latest EXECUTE step has non-zero exit_code ({exec_exit_code})"
-            task_context.record_step("CHECKER", {"raw": raw_preview, "reason": reason})
+            fail_payload: Dict[str, Any] = {"raw": raw_preview, "reason": reason}
+            if evidence_dir:
+                fail_payload["evidence_dir"] = evidence_dir
+            task_context.record_step("CHECKER", fail_payload)
             already_counted = bool(exec_payload and exec_payload.get("_qa_counted") and not exec_payload.get("_audit_checked"))
             if exec_payload is not None:
                 exec_payload["_audit_checked"] = True
@@ -348,7 +410,10 @@ class AdversarialQualityGate:
                 task_context.safe_transition(HarnessState.IMPLEMENTATION)
                 return Verdict.REJECT
 
-        task_context.record_step("CHECKER", {"raw": raw_preview})
+        checker_payload: Dict[str, Any] = {"raw": raw_preview}
+        if evidence_dir:
+            checker_payload["evidence_dir"] = evidence_dir
+        task_context.record_step("CHECKER", checker_payload)
         if "VERDICT: APPROVE" in verdict_token:
             if getattr(task_context, "state", None) != HarnessState.APPROVED:
                 task_context.transition(HarnessState.APPROVED)
@@ -413,6 +478,8 @@ class AdversarialQualityGate:
             return Verdict.ESCALATE
 
     def evaluate_execution(self, context, test_command: str, timeout: int = 60, expected_exit_code: int = 0) -> Verdict:
+        full_stdout = ""
+        full_stderr = ""
         try:
             result = subprocess.run(
                 test_command,
@@ -423,27 +490,45 @@ class AdversarialQualityGate:
                 timeout=timeout,
             )
             exit_code = result.returncode
-            stdout_str = result.stdout[:500] if result.stdout else ""
-            stderr_str = result.stderr[:500] if result.stderr else ""
+            full_stdout = result.stdout or ""
+            full_stderr = result.stderr or ""
+            stdout_str = full_stdout[:500]
+            stderr_str = full_stderr[:500]
         except subprocess.TimeoutExpired as e:
             exit_code = -1
             stdout_bytes = e.stdout or b""
             stderr_bytes = e.stderr or b""
-            stdout_str = stdout_bytes.decode('utf-8', errors='ignore')[:500] if isinstance(stdout_bytes, bytes) else str(stdout_bytes)[:500]
-            stderr_str = stderr_bytes.decode('utf-8', errors='ignore')[:500] if isinstance(stderr_bytes, bytes) else str(stderr_bytes)[:500]
-            stderr_str += f"\nTimeout after {timeout}s"
+            full_stdout = stdout_bytes.decode('utf-8', errors='ignore') if isinstance(stdout_bytes, bytes) else str(stdout_bytes)
+            full_stderr = stderr_bytes.decode('utf-8', errors='ignore') if isinstance(stderr_bytes, bytes) else str(stderr_bytes)
+            full_stderr += f"\nTimeout after {timeout}s"
+            stdout_str = full_stdout[:500]
+            stderr_str = full_stderr[:500]
         except Exception as e:
             exit_code = -2
+            full_stdout = ""
+            full_stderr = str(e)
             stdout_str = ""
-            stderr_str = str(e)[:500]
+            stderr_str = full_stderr[:500]
 
-        exec_payload = {
+        exec_payload: Dict[str, Any] = {
             "command": test_command,
             "exit_code": exit_code,
             "expected_exit_code": expected_exit_code,
             "stdout": stdout_str,
             "stderr": stderr_str,
         }
+        evidence_dir = self._spill_evidence_if_needed(
+            context,
+            stage="EXECUTE",
+            deliverables={
+                "command.txt": test_command,
+                "stdout.log": full_stdout,
+                "stderr.log": full_stderr,
+            },
+            mission_instructions=f"Command `{test_command}` exited with {exit_code}. Inspect full stdout/stderr in deliverables/.",
+        )
+        if evidence_dir:
+            exec_payload["evidence_dir"] = evidence_dir
         if exit_code != expected_exit_code:
             exec_payload["_qa_counted"] = True
         context.record_step("EXECUTE", exec_payload)
@@ -472,6 +557,24 @@ class AdversarialQualityGate:
         rubric_criteria: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Tính toán bảng điểm định lượng toàn diện kết hợp các metrics Opik."""
+        deliverables_digest = compute_deliverables_digest({"response_text": response_text})
+        fp = call_fingerprint(
+            stage="QUANTITATIVE",
+            task_prompt="",
+            deliverables_digest=deliverables_digest,
+            rubrics=rubric_criteria,
+            extra={
+                "reference_text": reference_text,
+                "planned_steps": planned_steps,
+                "executed_steps": executed_steps,
+                "execution_logs": execution_logs,
+            },
+        )
+        cached = self.cache.get(fp)
+        if cached is not None:
+            cached["cached"] = True
+            return cached
+
         evaluator = self.evaluator
         scores = {}
 
@@ -506,7 +609,7 @@ class AdversarialQualityGate:
             )
 
         composite = evaluator.compute_composite_score(scores)
-        return {
+        result = {
             "composite_score": composite,
             "is_passing": composite >= 0.8,
             "metrics": {
@@ -518,6 +621,8 @@ class AdversarialQualityGate:
                 for k, v in scores.items()
             },
         }
+        self.cache.put(fp, result, stage="QUANTITATIVE")
+        return result
 
     def evaluate_app_quality_gate(
         self,
@@ -534,52 +639,79 @@ class AdversarialQualityGate:
         - Trajectory accuracy (mức độ tuân thủ quy trình các bước)
         - Degeneration check (chống lặp token vô nghĩa)
         """
-        evaluator = self.evaluator
         raw_steps = getattr(task_context, "steps", None) or getattr(task_context, "trace_steps", [])
         executed_steps = [
             s.get("step", str(s)) if isinstance(s, dict) else s
             for s in (raw_steps or [])
         ]
 
-        scores = {
-            "hallucination": evaluator.evaluate_hallucination(
-                text=response_text,
-                execution_logs=execution_logs,
-            ),
-            "degeneration": evaluator.evaluate_degeneration(response_text),
-        }
-
-        if planned_steps:
-            scores["trajectory"] = evaluator.evaluate_trajectory(
-                planned_steps=planned_steps,
-                executed_steps=executed_steps,
-            )
-
-        weights = {"hallucination": 0.5, "trajectory": 0.3, "degeneration": 0.2}
-        composite = evaluator.compute_composite_score(scores, weights=weights)
-
-        details = {
-            "composite_score": composite,
-            "threshold": threshold,
-            "is_passing": (
-                composite >= threshold
-                and scores["hallucination"].value >= threshold
-            ),
-            "metrics": {
-                k: {
-                    "score": v.value,
-                    "reason": v.reason,
-                    "metadata": v.metadata,
-                }
-                for k, v in scores.items()
+        deliverables_digest = compute_deliverables_digest({
+            "response_text": response_text,
+            "execution_logs": execution_logs,
+        })
+        fp = call_fingerprint(
+            stage="APP_QUALITY_GATE",
+            task_prompt="",
+            deliverables_digest=deliverables_digest,
+            rubrics=None,
+            extra={
+                "threshold": threshold,
+                "task_tier": getattr(task_context, "task_tier", None),
+                "planned_steps": planned_steps,
+                "executed_steps": executed_steps,
+                "actual_steps": executed_steps,
+                "compliance_report": getattr(task_context, "compliance_report", None),
             },
-        }
+        )
+        cached_details = self.cache.get(fp)
+        if cached_details is not None:
+            details = cached_details
+            details["cached"] = True
+        else:
+            evaluator = self.evaluator
+            scores = {
+                "hallucination": evaluator.evaluate_hallucination(
+                    text=response_text,
+                    execution_logs=execution_logs,
+                ),
+                "degeneration": evaluator.evaluate_degeneration(response_text),
+            }
+
+            if planned_steps:
+                scores["trajectory"] = evaluator.evaluate_trajectory(
+                    planned_steps=planned_steps,
+                    executed_steps=executed_steps,
+                )
+
+            weights = {"hallucination": 0.5, "trajectory": 0.3, "degeneration": 0.2}
+            composite = evaluator.compute_composite_score(scores, weights=weights)
+
+            details = {
+                "composite_score": composite,
+                "threshold": threshold,
+                "is_passing": (
+                    composite >= threshold
+                    and scores["hallucination"].value >= threshold
+                ),
+                "metrics": {
+                    k: {
+                        "score": v.value,
+                        "reason": v.reason,
+                        "metadata": v.metadata,
+                    }
+                    for k, v in scores.items()
+                },
+            }
+            self.cache.put(fp, details, stage="APP_QUALITY_GATE")
 
         if hasattr(task_context, "record_step"):
-            task_context.record_step(
-                "APP_QUALITY_GATE",
-                {"score": composite, "metrics": details["metrics"]},
-            )
+            step_data: Dict[str, Any] = {
+                "score": details["composite_score"],
+                "metrics": details["metrics"],
+            }
+            if details.get("cached"):
+                step_data["cached"] = True
+            task_context.record_step("APP_QUALITY_GATE", step_data)
 
         if details["is_passing"]:
             if hasattr(task_context, "safe_transition"):
@@ -609,37 +741,61 @@ class AdversarialQualityGate:
         - Degeneration check (chất lượng ngôn từ, chống lặp cụm từ)
         - Hallucination score (đối soát sự thật, trích dẫn nguồn)
         """
-        evaluator = self.evaluator
-        scores = {
-            "degeneration": evaluator.evaluate_degeneration(content_text),
-            "hallucination": evaluator.evaluate_hallucination(content_text),
-        }
-
-        if rubric_criteria:
-            scores["rubric"] = evaluator.evaluate_rubric(content_text, rubric_criteria)
-
-        weights = {"rubric": 0.5, "degeneration": 0.3, "hallucination": 0.2}
-        composite = evaluator.compute_composite_score(scores, weights=weights)
-
-        details = {
-            "composite_score": composite,
-            "threshold": threshold,
-            "is_passing": composite >= threshold,
-            "metrics": {
-                k: {
-                    "score": v.value,
-                    "reason": v.reason,
-                    "metadata": v.metadata,
-                }
-                for k, v in scores.items()
+        actual_steps = getattr(task_context, "steps", None) or getattr(task_context, "trace_steps", None)
+        deliverables_digest = compute_deliverables_digest({"content_text": content_text})
+        fp = call_fingerprint(
+            stage="MARKETING_QUALITY_GATE",
+            task_prompt="",
+            deliverables_digest=deliverables_digest,
+            rubrics=rubric_criteria,
+            extra={
+                "threshold": threshold,
+                "task_tier": getattr(task_context, "task_tier", None),
+                "planned_steps": getattr(task_context, "planned_steps", None),
+                "actual_steps": actual_steps,
+                "compliance_report": getattr(task_context, "compliance_report", None),
             },
-        }
+        )
+        cached_details = self.cache.get(fp)
+        if cached_details is not None:
+            details = cached_details
+            details["cached"] = True
+        else:
+            evaluator = self.evaluator
+            scores = {
+                "degeneration": evaluator.evaluate_degeneration(content_text),
+                "hallucination": evaluator.evaluate_hallucination(content_text),
+            }
+
+            if rubric_criteria:
+                scores["rubric"] = evaluator.evaluate_rubric(content_text, rubric_criteria)
+
+            weights = {"rubric": 0.5, "degeneration": 0.3, "hallucination": 0.2}
+            composite = evaluator.compute_composite_score(scores, weights=weights)
+
+            details = {
+                "composite_score": composite,
+                "threshold": threshold,
+                "is_passing": composite >= threshold,
+                "metrics": {
+                    k: {
+                        "score": v.value,
+                        "reason": v.reason,
+                        "metadata": v.metadata,
+                    }
+                    for k, v in scores.items()
+                },
+            }
+            self.cache.put(fp, details, stage="MARKETING_QUALITY_GATE")
 
         if hasattr(task_context, "record_step"):
-            task_context.record_step(
-                "MARKETING_QUALITY_GATE",
-                {"score": composite, "metrics": details["metrics"]},
-            )
+            step_data: Dict[str, Any] = {
+                "score": details["composite_score"],
+                "metrics": details["metrics"],
+            }
+            if details.get("cached"):
+                step_data["cached"] = True
+            task_context.record_step("MARKETING_QUALITY_GATE", step_data)
 
         if details["is_passing"]:
             if hasattr(task_context, "safe_transition"):
@@ -671,7 +827,7 @@ class AdversarialQualityGate:
         - Tier 2: bỏ qua PPC, chuyển thẳng bản nháp đơn lẻ sang QA/Checker.
         """
         from harness.propose_probe_compose import ProposeProbeComposeEngine
-        engine = ProposeProbeComposeEngine()
+        engine = ProposeProbeComposeEngine(cache=self.cache)
 
         # Kiểm tra Tier
         is_tier_1 = kwargs.get("enable_ppc", False) or engine.is_tier_1(task_context)

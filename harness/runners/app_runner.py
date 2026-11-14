@@ -25,22 +25,41 @@ class AppRunner:
             enable_ppc = kwargs.get("enable_ppc", False) or task_tier == "tier_1"
             if enable_ppc:
                 from harness.propose_probe_compose import ProposeProbeComposeEngine
-                ppc_engine = ProposeProbeComposeEngine()
+                ppc_engine = ProposeProbeComposeEngine(cache=getattr(self.quality_gate, "cache", None))
                 ppc_res = ppc_engine.execute_ppc_pipeline(context, prompt=task_description, force_tier_1=True, **kwargs)
                 context.record_step("PPC_SYNTHESIS", {
                     "tier": "tier_1",
                     "variant_id": getattr(ppc_res.get("composed"), "variant_id", "composed"),
                     "features": getattr(ppc_res.get("composed"), "implemented_features", []),
+                    **({"cached": True} if ppc_res.get("cached") else {}),
                 })
                 if implementation_artifacts is None:
                     implementation_artifacts = {}
                 implementation_artifacts["ppc_composed"] = getattr(ppc_res.get("composed"), "content", "")
                 implementation_artifacts["status"] = "code_composed_ppc"
 
-            context.record_step(
-                "IMPLEMENTATION",
-                {"actor": "builder", "artifacts": implementation_artifacts or {"status": "code_implemented"}},
-            )
+            impl_payload = {
+                "actor": "builder",
+                "artifacts": implementation_artifacts or {"status": "code_implemented"},
+            }
+            evidence_builder = getattr(self.quality_gate, "evidence_builder", None)
+            if evidence_builder is not None and evidence_builder.should_spill(
+                spec or "",
+                implementation_artifacts or {},
+            ):
+                tree = evidence_builder.build(
+                    task_id=str(getattr(context, "task_id", "app_task")),
+                    task_prompt=task_description,
+                    deliverables={
+                        "spec.md": spec or "",
+                        "implementation_artifacts": implementation_artifacts or {},
+                    },
+                    stage="IMPLEMENTATION",
+                    mission_instructions="Inspect full app implementation artifacts in deliverables/.",
+                )
+                impl_payload["evidence_dir"] = str(tree.root)
+
+            context.record_step("IMPLEMENTATION", impl_payload)
         if context.state == HarnessState.IMPLEMENTATION:
             if kwargs.get("fast_track", False):
                 context.transition(HarnessState.AUDIT)  # Fast-Track: Maker -> QA
