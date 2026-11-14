@@ -203,8 +203,11 @@ class CleanStateVerifier:
         compiled_count = 0
         for py_file in py_files:
             try:
+                compile_target = str(py_file.resolve())
+                if os.name == "nt" and not compile_target.startswith("\\\\?\\"):
+                    compile_target = "\\\\?\\" + compile_target
                 # doraise=True đảm bảo quăng PyCompileError nếu có lỗi cú pháp
-                py_compile.compile(str(py_file), doraise=True)
+                py_compile.compile(compile_target, doraise=True)
                 compiled_count += 1
             except py_compile.PyCompileError as exc:
                 rel = py_file.relative_to(self.project_root).as_posix()
