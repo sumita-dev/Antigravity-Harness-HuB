@@ -10,6 +10,7 @@ Kiểm tra nghiêm ngặt 5 chiều chất lượng trước khi bàn giao (Cloc
 
 from __future__ import annotations
 
+import ast
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -203,12 +204,22 @@ class CleanStateVerifier:
         compiled_count = 0
         for py_file in py_files:
             try:
-                compile_target = str(py_file.resolve())
-                if os.name == "nt" and not compile_target.startswith("\\\\?\\"):
-                    compile_target = "\\\\?\\" + compile_target
-                # doraise=True đảm bảo quăng PyCompileError nếu có lỗi cú pháp
-                py_compile.compile(compile_target, doraise=True)
+                rel_parts = py_file.relative_to(self.project_root).parts
+                if "workflows" in rel_parts:
+                    source = py_file.read_text(encoding="utf-8")
+                    compile(source, str(py_file), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+                else:
+                    compile_target = str(py_file.resolve())
+                    if os.name == "nt" and not compile_target.startswith("\\\\?\\"):
+                        compile_target = "\\\\?\\" + compile_target
+                    # doraise=True đảm bảo quăng PyCompileError nếu có lỗi cú pháp
+                    py_compile.compile(compile_target, doraise=True)
                 compiled_count += 1
+            except SyntaxError as exc:
+                rel = py_file.relative_to(self.project_root).as_posix()
+                err_msg = f"{rel}: Syntax error - {exc.msg}"
+                violations.append(err_msg)
+                details["errors"].append({"file": rel, "error": str(exc.msg)})
             except py_compile.PyCompileError as exc:
                 rel = py_file.relative_to(self.project_root).as_posix()
                 err_msg = f"{rel}: Syntax error - {exc.msg}"
