@@ -209,7 +209,7 @@ def test_gap05_subagent_message_without_report_path_blocked(tmp_path: Path) -> N
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -258,7 +258,7 @@ def test_gap06_skimmed_report_read_blocked_and_full_read_allowed(tmp_path: Path)
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -305,7 +305,7 @@ def test_gap06_skimmed_report_read_blocked_and_full_read_allowed(tmp_path: Path)
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -371,7 +371,7 @@ def test_gap07_extended_extensions_and_downstream_prompt_context(tmp_path: Path)
                 "tool_calls": [
                     {
                         "name": "invoke_subagent",
-                        "args": {"TypeName": "self", "Role": "Code Critic", "Prompt": "Review the code."},
+                        "args": {"TypeName": "research", "Role": "Code Critic", "Prompt": "Review the code."},
                     }
                 ],
             },
@@ -433,7 +433,7 @@ def test_gap07_extended_extensions_and_downstream_prompt_context(tmp_path: Path)
                     {
                         "name": "invoke_subagent",
                         "args": {
-                            "TypeName": "self",
+                            "TypeName": "research",
                             "Role": "Code Critic",
                             "Prompt": f"Review changes and {builder_log.as_posix()}",
                         },

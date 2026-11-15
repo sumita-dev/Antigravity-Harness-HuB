@@ -217,3 +217,9 @@ Task Board tùy chọn dùng `rubrics/task-board-design-profile.md`: CRUD/filter
 Probe local task riêng: Builder trước signoff, cùng actor Maker/Checker, source/untracked/log đổi, duplicate/unknown AC và hai REJECT đều phải bị chặn theo hợp đồng. Probe không thay browser acceptance.
 
 Stop hook pytest chỉ kiểm harness, không thay app test/build/browser. Bàn giao nêu URL/cách chạy, hashes, command logs, AC results, seed data, health check và giới hạn. Antigravity E2E chưa được quan sát phải ghi NOT_VERIFIED. Xem smoke marketing tại `docs/marketing-workflow-guide.md`.
+
+## Chuẩn Chuyển Giao Không Tóm Tắt Mù (Zero-Paraphrase Handoff) & Strict Audit
+
+1. **Zero-Paraphrase Handoff:** Tại các cổng quyết định (`SIGN_OFF` Spec, `CRITIQUE`, `AUDIT`), Quản đốc **cấm chỉ tóm tắt bằng lời**. Bắt buộc đính kèm link file artifact gốc và trích nguyên văn bảng `AC`, danh sách `REJECT/GAP` (nếu có) và `execution_receipt` (exit code, test count, URL) từ tác tử kiểm định để Sếp đối soát trực tiếp.
+2. **Strict Audit cho sản phẩm thật:** Mọi ứng dụng thực tế/production phải chạy `run_harness.py` để khóa cứng `spec_sha256` và `manifest_sha256` xuyên suốt từ `SIGN_OFF` đến `AUDIT`.
+3. **Phân quyền Sandbox cứng trên Antigravity 2.0:** `Design_Reviewer`, `Code_Critic`, `E2E_Critic`, `Content_Critic`, `Compliance_Critic` bắt buộc gọi bằng `TypeName="research"` (read-only sandbox) hoặc `define_subagent(EnableWriteTools=False)`; `Builder` dùng `Workspace="share"` khi repo có git checkout; `browser` subagent giữ idle để tái sử dụng, miễn `manage_subagents(Action="kill_all")`.

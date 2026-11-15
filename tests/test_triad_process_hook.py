@@ -53,7 +53,8 @@ def test_hooks_json_registers_triad_process_hook_at_stop_3() -> None:
         data = json.loads(cfg_path.read_text(encoding="utf-8"))
         stop_list = data["auto-code-harvester"]["Stop"]
         assert len(stop_list) == 1
-        assert "scripts/unified_stop_pipeline.py" in stop_list[0]["command"]
+        normalized_cmd = stop_list[0]["command"].replace("\\", "/")
+        assert "scripts/unified_stop_pipeline.py" in normalized_cmd
         assert stop_list[0]["timeout"] == 60
 
 
@@ -333,7 +334,7 @@ def test_check_2_allows_complete_tier1_tier2_and_marketing_triads_with_kill_all(
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
             {
@@ -427,7 +428,7 @@ def test_check_2_allows_complete_tier1_tier2_and_marketing_triads_with_kill_all(
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Compliance Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Compliance Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Approved."},
             {
@@ -483,7 +484,7 @@ def test_rule_1_11_allows_critic_inherit_blocks_qa_inherit(tmp_path: Path) -> No
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic", "Model": "inherit"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic", "Model": "inherit"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -516,7 +517,7 @@ def test_rule_1_11_allows_critic_inherit_blocks_qa_inherit(tmp_path: Path) -> No
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic", "Model": "inherit"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic", "Model": "inherit"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -559,7 +560,7 @@ def test_rule_1_11_blocks_critic_flash_or_flash_lite_allows_inherit(
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": critic_role, "Model": bad_model}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": critic_role, "Model": bad_model}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -582,7 +583,7 @@ def test_rule_1_11_blocks_critic_flash_or_flash_lite_allows_inherit(
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": critic_role, "Model": "inherit"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": critic_role, "Model": "inherit"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -615,7 +616,7 @@ def test_fix_a_design_reviewer_with_auditor_role_allows_inherit_model(tmp_path: 
                     {
                         "name": "invoke_subagent",
                         "args": {
-                            "TypeName": "self",
+                            "TypeName": "research",
                             "Role": "Design_Reviewer - Independent Spec Auditor",
                             "Model": "inherit",
                         },
@@ -661,7 +662,7 @@ def test_fix_b_schedule_before_subagent_to_monitor_run_command_allowed(tmp_path:
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
             {
@@ -700,7 +701,7 @@ def test_gap1_dr03_subagent_report_path_must_be_read_by_orchestrator(tmp_path: P
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -741,7 +742,7 @@ def test_gap1_dr03_subagent_report_path_must_be_read_by_orchestrator(tmp_path: P
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -795,7 +796,7 @@ def test_gap2_dr02_precision_role_classification_and_marketing_audit(tmp_path: P
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Content Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Content Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Angle approved."},
             {
@@ -817,7 +818,7 @@ def test_gap2_dr02_precision_role_classification_and_marketing_audit(tmp_path: P
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Design Reviewer"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Design Reviewer"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Spec approved."},
             {
@@ -865,7 +866,7 @@ def test_gap4_dr04_branch_blindness_vuln05_detection_and_resolution(tmp_path: Pa
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
             {
@@ -915,7 +916,7 @@ def test_gap4_dr04_branch_blindness_vuln05_detection_and_resolution(tmp_path: Pa
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic approved."},
             {
@@ -959,7 +960,7 @@ def test_content_critic_does_not_satisfy_code_critic_in_app_triad(tmp_path: Path
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Content Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Content Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Content reviewed."},
             {
@@ -1000,7 +1001,7 @@ def test_fix_b_edge_case_schedule_before_subagent_without_run_command_flagged(tm
             {
                 "type": "PLANNER_RESPONSE",
                 "content": "",
-                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic"}}],
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
             },
             {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
             {
@@ -1019,5 +1020,125 @@ def test_fix_b_edge_case_schedule_before_subagent_without_run_command_flagged(tm
     res = _run_hook_cli({"transcriptPath": str(t_sched_no_cmd), "terminationReason": "NO_TOOL_CALL"})
     assert res["decision"] == "block"
     assert "Zero-Polling" in res["reason"]
+
+
+def test_check_1_blocks_shell_file_mutation_without_subagent(tmp_path: Path) -> None:
+    """run_command writing project files directly without invoke_subagent must be blocked by Check 1."""
+    t_shell = _write_transcript(
+        tmp_path / "t_shell_mut.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Fix app.py"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "run_command",
+                        "args": {"CommandLine": "Set-Content -Path src/app.py -Value 'print(1)'"},
+                    }
+                ],
+            },
+        ],
+    )
+    res = evaluate_hook_payload({"transcriptPath": str(t_shell)})
+    assert res["decision"] == "continue"
+    assert "Quy tắc 1.6" in res["reason"]
+
+    # Exempt .brain/ writes via run_command
+    t_brain_shell = _write_transcript(
+        tmp_path / "t_brain_shell.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Save note"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "run_command",
+                        "args": {"CommandLine": "Set-Content -Path .brain/note.md -Value 'ok'"},
+                    }
+                ],
+            },
+        ],
+    )
+    res_ok = evaluate_hook_payload({"transcriptPath": str(t_brain_shell)})
+    assert res_ok["decision"] == "allow"
+
+
+def test_browser_subagent_exempt_from_kill_all(tmp_path: Path) -> None:
+    """Completed browser subagent stays idle without requiring manage_subagents(kill_all)."""
+    t_browser = _write_transcript(
+        tmp_path / "t_browser_idle.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Open dashboard in browser"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"TypeName": "browser", "Role": "Browser Preview", "Prompt": "Check UI"},
+                    }
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "[Message] sender=browser-1 UI verified."},
+            {"type": "PLANNER_RESPONSE", "content": "Done checking UI."},
+        ],
+    )
+    res = evaluate_hook_payload({"transcriptPath": str(t_browser)})
+    assert res["decision"] == "allow"
+
+
+def test_pre_invocation_injects_sandbox_guard_when_workspace_lacks_triad(tmp_path: Path) -> None:
+    """auto_skill_router_hook injects workspace_triad=MISSING_LOCAL_GEMINI when GEMINI.md has no Triad."""
+    from scripts.auto_skill_router_hook import evaluate_pre_invocation_payload
+
+    ws_empty = tmp_path / "fresh_project"
+    ws_empty.mkdir()
+    resp = evaluate_pre_invocation_payload(
+        {
+            "invocationNum": 1,
+            "lastUserInput": "Xây app quản lý công việc",
+            "workspaceRoot": str(ws_empty),
+        }
+    )
+    msg = resp["injectSteps"][0]["ephemeralMessage"]
+    assert "workspace_triad=MISSING_LOCAL_GEMINI" in msg
+    assert "TypeName='research'" in msg
+
+
+def test_critic_with_self_typename_is_blocked(tmp_path: Path) -> None:
+    """Critic/Reviewer invoked with TypeName='self' must be blocked by sandbox guard."""
+    t_bad = _write_transcript(
+        tmp_path / "t_critic_self.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build feature"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Code Critic", "Model": "inherit"}}
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "QA done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_bad = evaluate_hook_payload({"transcriptPath": str(t_bad)})
+    assert res_bad["decision"] == "block"
+    assert "TypeName='self'" in res_bad["reason"]
+
+
 
 

@@ -31,6 +31,11 @@ Architect khác Reviewer; Builder khác QA; Researcher/Creator khác Critic. Act
 
 Frontmatter `enable_write_tools`, `enable_mcp_tools`, `workspace`, `model` là cấu hình khai báo. File-write, terminal execution và MCP/browser là các capability khác nhau; quyền ghi file không tự cấp quyền terminal. Cho phép ghi artifact không cho phép sửa source. Khi runtime không có sandbox theo đường dẫn, hạn chế này chỉ được nhắc bằng prompt và kiểm bằng diff/manifest, không được claim đã cưỡng chế.
 
+**Chuẩn Sandbox Antigravity 2.0 bắt buộc khi gọi `invoke_subagent`:**
+- Các vai trò chỉ đọc (`Design_Reviewer`, `Code_Critic`, `E2E_Critic`, `Content_Critic`, `Compliance_Critic`) **bắt buộc** dùng `TypeName="research"` (read-only sandbox gốc) hoặc `define_subagent(EnableWriteTools=False)`; **cấm dùng `TypeName="self"`**.
+- Vai trò `Builder` chạy với `Workspace="share"` để cô lập working copy trước khi QA kiểm tra.
+- `TypeName="browser"` giữ trạng thái idle để tái sử dụng qua `send_message`, miễn `manage_subagents(Action="kill_all")`.
+
 Kiểm từng capability theo trạng thái OBSERVED / DECLARED / UNAVAILABLE / NOT_VERIFIED trong `docs/native-readiness.md`. Thiếu browser không cho phép tự nhận UI PASS; QA hợp lệ có thể nộp PARTIAL_APPROVE và giữ AUDIT_PENDING_BROWSER theo hợp đồng app.
 
 Model tiers trong `configs/harness_config.json` giữ lựa chọn hiện hữu; chưa có adapter resolve/gọi model và không đảm bảo model khả dụng.

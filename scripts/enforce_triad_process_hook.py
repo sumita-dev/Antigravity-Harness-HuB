@@ -165,6 +165,26 @@ FIXED_PREFIX_BLOCK_RE = re.compile(
 PATCH_FILE_HEADER_RE = re.compile(
     r"(?m)^(?:\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*|(?:\+\+\+|---)\s+[ab]/)([^\r\n]+)"
 )
+SHELL_MUTATION_RE = re.compile(
+    r"(?:\b(?:Set-Content|Out-File|Add-Content|WriteAllText|WriteAllLines|git\s+apply|tee)\b|"
+    r"\bsed\s+-i\b|\bopen\([^)]*['\"][wa]\+?['\"]|\.(?:write_text|write_bytes)\s*\()",
+    re.IGNORECASE,
+)
+
+
+SHELL_EXEMPT_PATH_RE = re.compile(
+    r"(?:^|[\s\"'\\/])(?:\.brain|brain|obsidian|wiki|memory)[\\/]",
+    re.IGNORECASE,
+)
+
+
+def _is_shell_file_mutation(cmd_line: str) -> bool:
+    """Detect direct file-writing patterns inside run_command outside exempt paths."""
+    if not cmd_line or not SHELL_MUTATION_RE.search(cmd_line):
+        return False
+    if SHELL_EXEMPT_PATH_RE.search(cmd_line):
+        return False
+    return True
 
 
 def _clean_arg_val(val: Any) -> str:
@@ -714,6 +734,8 @@ def evaluate_transcript(
                 cmd_line = _clean_arg_val(tc_args.get("CommandLine") or tc_args.get("command") or "")
                 if WORKSPACE_SYNC_CMD_RE.search(cmd_line):
                     has_workspace_sync = True
+                if _is_shell_file_mutation(cmd_line) and "<shell_mutation>" not in non_exempt_mutations:
+                    non_exempt_mutations.append("<shell_mutation>")
             elif tc_name in ("sync_workspace_for_qa", "sync_qa_branch", "sync_qa_workspace"):
                 has_workspace_sync = True
             elif tc_name == "schedule":
@@ -876,8 +898,16 @@ def evaluate_transcript(
         if not has_compliance_critic:
             missing_roles.append("Compliance Critic")
 
-    last_subagent_invoke_idx = subagent_invocations[-1][0]
-    kill_all_missing = last_kill_all_idx < last_subagent_invoke_idx
+    non_browser_invocations = [
+        (idx, args)
+        for idx, args in subagent_invocations
+        if _clean_arg_val(args.get("TypeName") or args.get("type_name")).lower() != "browser"
+    ]
+    if non_browser_invocations:
+        last_non_browser_invoke_idx = non_browser_invocations[-1][0]
+        kill_all_missing = last_kill_all_idx < last_non_browser_invoke_idx
+    else:
+        kill_all_missing = False
 
     # Check 2b (BUG-08): Chronological ordering (post-QA/Critic Maker mutations),
     # Rule 1.11 (Explicit Model Tiering), and Rule 1.10 (schedule timer alongside SubAgent)
@@ -907,8 +937,10 @@ def evaluate_transcript(
             )
 
     model_tier_violations: list[str] = []
+    sandbox_violations: list[str] = []
     for (_, tc_args), c in zip(subagent_invocations, classified):
         model_val = _clean_arg_val(tc_args.get("Model") or tc_args.get("model")).lower()
+        type_val = _clean_arg_val(tc_args.get("TypeName") or tc_args.get("type_name")).lower()
         is_deep_critic = (
             c["is_code_critic"]
             or c["is_design_reviewer"]
@@ -916,6 +948,11 @@ def evaluate_transcript(
             or c["is_content_critic"]
             or c["is_e2e_critic"]
         )
+        if is_deep_critic and type_val == "self":
+            role_label = c["role"] or "Critic/Reviewer"
+            sandbox_violations.append(
+                f"Vi phạm phân quyền Sandbox: Cấm dùng TypeName='self' cho {role_label} (bắt buộc dùng TypeName='research' hoặc subagent read-only)"
+            )
         if c["is_qa"] and model_val == "inherit":
             role_label = c["role"] or "QA Auditor"
             model_tier_violations.append(
@@ -947,8 +984,8 @@ def evaluate_transcript(
                     )
                     break
 
-    if unreviewed_maker_violations or model_tier_violations or schedule_violations:
-        block_issues = unreviewed_maker_violations + model_tier_violations + schedule_violations
+    if unreviewed_maker_violations or model_tier_violations or sandbox_violations or schedule_violations:
+        block_issues = unreviewed_maker_violations + model_tier_violations + sandbox_violations + schedule_violations
         if missing_roles:
             block_issues.append(
                 f"Thiếu bước kiểm định độc lập bắt buộc trong Dynamic Triad: {', '.join(missing_roles)}"

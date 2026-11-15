@@ -92,6 +92,24 @@ def route_user_prompt(
     }
 
 
+def _workspace_has_triad_rules(payload: dict[str, Any]) -> bool | None:
+    """Return True if workspace GEMINI.md defines Triad rules, False if missing, None if no workspace provided."""
+    raw_ws = payload.get("workspaceRoot") or payload.get("workspace") or payload.get("cwd")
+    if not raw_ws:
+        return None
+    ws_path = Path(str(raw_ws))
+    if not ws_path.is_dir():
+        return False
+    gemini_md = ws_path / "GEMINI.md"
+    if not gemini_md.is_file():
+        return False
+    try:
+        content = gemini_md.read_text(encoding="utf-8", errors="ignore").lower()
+    except OSError:
+        return False
+    return "triad" in content or "dynamic triad" in content
+
+
 def evaluate_pre_invocation_payload(
     payload: dict[str, Any],
     *,
@@ -142,9 +160,18 @@ def evaluate_pre_invocation_payload(
     else:
         directive = f"No specific skill keyword matched; follow branch '{branch}' Dynamic Triad [{triad}]."
 
+    ws_has_triad = _workspace_has_triad_rules(payload)
+    extra_guard = ""
+    if ws_has_triad is False:
+        extra_guard = (
+            " | workspace_triad=MISSING_LOCAL_GEMINI"
+            " | sandbox_guard=Reviewer/Critic MUST use TypeName='research' (read-only),"
+            " Builder use Workspace='share', keep 'browser' idle, Zero-Paraphrase Handoff"
+        )
+
     directive_msg = (
         f"{ROUTER_MARKER} branch={branch} | skill={skill} | "
-        f"skill_path={skill_path} | triad={triad} | directive={directive}"
+        f"skill_path={skill_path} | triad={triad} | directive={directive}{extra_guard}"
     )
     return {
         "injectSteps": [
