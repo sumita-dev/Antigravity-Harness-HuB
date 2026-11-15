@@ -41,7 +41,7 @@
 - **Skills (`plugins/<plugin>/skills/<skill>/SKILL.md`):**
   - *Core App & Dev:* `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`, `/sdd-spec-kit`.
   - *GitNexus & UI/A11y:* `/gitnexus-plan`, `/gitnexus-work`, `/gitnexus-review`, `/impeccable`, `/verify-ui`, `/accessibility`, `/apple-inspired-design`.
-  - *Hệ Thống & Second Brain:* `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`, `/setup-second-brain`, `/karpathy-second-brain`, `/ingest-source`, `/query-wiki`, `/lint-wiki`, `/second-brain-memory`, `/obsidian-markdown`, `/obsidian-bases`, `/json-canvas`.
+  - *Hệ Thống & Second Brain:* `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`, `/bootstrap-second-brain`, `/setup-second-brain`, `/karpathy-second-brain`, `/ingest-source`, `/query-wiki`, `/lint-wiki`, `/second-brain-memory`, `/obsidian-markdown`, `/obsidian-bases`, `/json-canvas`.
 
 ---
 
