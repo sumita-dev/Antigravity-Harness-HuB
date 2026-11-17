@@ -12,15 +12,26 @@ from typing import Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "harness_config.json"
-DEFAULT_SKILL_DIRS = (
-    REPO_ROOT / "plugins" / "code" / "skills",
-    REPO_ROOT / "plugins" / "marketing" / "skills",
-    REPO_ROOT / "plugins" / "impeccable" / "skills",
-    REPO_ROOT / "plugins" / "apple-inspired-design" / "skills",
-    REPO_ROOT / "plugins" / "second-brain" / "skills",
-    REPO_ROOT / "plugins" / "computer" / "skills",
-    REPO_ROOT / "skills",
-)
+def _discover_default_skill_dirs() -> tuple[Path, ...]:
+    preferred = [
+        REPO_ROOT / "plugins" / "code" / "skills",
+        REPO_ROOT / "plugins" / "marketing" / "skills",
+        REPO_ROOT / "plugins" / "impeccable" / "skills",
+        REPO_ROOT / "plugins" / "apple-inspired-design" / "skills",
+        REPO_ROOT / "plugins" / "second-brain" / "skills",
+        REPO_ROOT / "plugins" / "computer" / "skills",
+        REPO_ROOT / "plugins" / "bla-shield" / "skills",
+    ]
+    plugins_dir = REPO_ROOT / "plugins"
+    if plugins_dir.is_dir():
+        for plugin_skills in sorted(plugins_dir.glob("*/skills")):
+            if plugin_skills.is_dir() and plugin_skills not in preferred:
+                preferred.append(plugin_skills)
+    preferred.append(REPO_ROOT / "skills")
+    return tuple(preferred)
+
+
+DEFAULT_SKILL_DIRS = _discover_default_skill_dirs()
 
 # Dùng khi không khớp skill cụ thể nào
 MARKETING_HINTS = ("marketing", "sale", "content", "story", "ads", "seo",
@@ -146,7 +157,7 @@ class SkillLoader:
         if search_dirs:
             self.search_dirs = [Path(d) for d in search_dirs]
         else:
-            self.search_dirs = [d for d in DEFAULT_SKILL_DIRS if d.is_dir()]
+            self.search_dirs = [d for d in _discover_default_skill_dirs() if d.is_dir()]
             self.search_dirs.append(Path(skills_dir))
         self.aliases = aliases or {}
         if not self.aliases and DEFAULT_CONFIG.exists():
