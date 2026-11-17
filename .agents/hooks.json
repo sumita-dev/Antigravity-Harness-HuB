@@ -18,14 +18,10 @@
   "universal-quality-gate": {
     "PostToolUse": [
       {
-        "matcher": "write_file|edit_file|run_command",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python scripts/gate_tracker.py",
-            "timeout": 5
-          }
-        ]
+        "type": "command",
+        "command": "python scripts/gate_tracker.py",
+        "timeout": 5,
+        "matcher": "write_file|edit_file|run_command"
       }
     ],
     "Stop": [
