@@ -32,10 +32,16 @@ Kích hoạt khi người dùng yêu cầu:
 ## Quy trình Tiêu hoá bằng Ingestion Agentic RAG
 
 ### Bước 1: Inspect & Partition (Kiểm tra & Phân loại)
-1. **Kiểm tra trạng thái**: Đọc frontmatter của source. Nếu `status: processed` -> Dừng lại và hỏi người dùng có muốn re-ingest không.
-2. **Phân loại độ dài & Ngân sách context**:
-   - Nếu source dài (>= 10.000 dòng hoặc sách lớn): Áp dụng 3-pass (Đọc lướt lập outline -> Đọc sâu từng đoạn 1.000-1.500 dòng và viết wiki ngay -> Đặt 5 câu hỏi kiểm tra độ phủ).
-   - Đẩy tác vụ đọc nặng sang Subagent chuyên trách (`Model: "flash"`) nếu tài liệu thô > 2.000 dòng.
+1. **Kiểm tra trạng thái & Bất biến Raw:** Đọc thông tin nguồn. Tuân thủ nghiêm ngặt quy tắc `Raw/` là **Read-only** nếu `AI_RULES.md` của Vault quy định nguồn thô bất biến.
+2. **Phân loại quy mô nguồn & Chọn luồng thực thi:**
+   - **Nguồn nhỏ (`<= 15` tệp và `< 150 KB`, `< 2.000` dòng):** Đọc trực tiếp hoặc giao 1 subagent (`Model: "flash"`).
+   - **Nguồn lớn (`> 15` tệp hoặc `>= 150 KB`):** Bắt buộc kích hoạt **Luồng Hybrid (Deterministic Script + `run_workflow`)** để chống quá tải ngữ cảnh, chống sót số liệu và chống lệch đường dẫn:
+     1. Chạy tiền xử lý (0 token LLM) bằng `scripts/ingest_ops.py` trong thư mục skill `ingest-source`:
+        ```bash
+        python "<skill_dir>/scripts/ingest_ops.py" prepare --source "<Vault>/Raw/<ThuMuc>" --vault "<Vault>" --out "<Scratch>/ingest_manifest.json"
+        ```
+        *(Tự động khử trùng lặp SHA-256, quét secret, tách file stub và chia shard cân bằng `<= 15 tệp` và `<= 150 KB / shard`.)*
+     2. Chạy `run_workflow` với `ScriptPath: "<skill_dir>/scripts/ingest_workflow.py"` và `Args: {"manifest_path": "<Scratch>/ingest_manifest.json", "vault_path": "<Vault>", "topic_hint": "<Chủ đề>"}` để Map song song từng shard ra JSON cấu trúc và Reduce đối soát chéo với `wiki/_index.md`.
 
 ### Bước 2: Extraction & Decomposition (Bóc tách luận điểm & thực thể)
 Trích xuất từ tài liệu thô:
@@ -67,8 +73,12 @@ source: "[[Tên Source]]"
 - Nội dung chi tiết có dẫn chứng `[[Nguồn]]`.
 - Các liên kết hai chiều `[[wikilink]]` đến các trang cha / trang anh em.
 
-### Bước 5: Indexing & Nhật ký bàn giao
-1. Thêm dòng tóm tắt vào `wiki/index.md` và `wiki/_index.md`.
-2. Cập nhật frontmatter source: `status: processed`, `processed_at: YYYY-MM-DD`, `wiki_links: [...]`.
-3. Ghi nhật ký vào `wiki/log.md`: `## [YYYY-MM-DD] ingest | [[Tên Source]] -> [[Trang Wiki]]`.
-4. Báo cáo ngắn gọn cho Sếp: danh sách các trang đã tạo/sửa, các điểm mâu thuẫn được phát hiện (nếu có) và trích dẫn kiểm chứng.
+### Bước 5: Verification, Indexing & Nhật ký bàn giao
+1. **Hậu kiểm cứng (Bắt buộc với nguồn lớn hoặc nhiều trang):** Chạy script kiểm chứng để đảm bảo 0% trích dẫn ma (`Missing Raw refs`), 0% liên kết gãy, đúng YAML frontmatter UTF-8 No-BOM và kiểm tra độ phủ:
+   ```bash
+   python "<skill_dir>/scripts/ingest_ops.py" verify --vault "<Vault>" --files "wiki/<prefix>-*.md" --manifest "<Scratch>/ingest_manifest.json"
+   ```
+2. Thêm dòng tóm tắt vào `wiki/_index.md` (và `wiki/index.md` nếu cần).
+3. Ghi nhật ký vào `wiki/log.md`: `## [YYYY-MM-DD] ingest | <Tiêu đề> -> [[Trang Wiki]]`.
+4. Nếu phát hiện khoảng trống dữ liệu hoặc mâu thuẫn, ghi vào `wiki/_open-questions.md`.
+5. Báo cáo ngắn gọn cho Sếp: danh sách trang đã tạo/sửa, kết quả `verify` (`PASS/FAIL`, tỷ lệ phủ) và các điểm mâu thuẫn/khoảng trống (nếu có).
