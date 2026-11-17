@@ -729,6 +729,21 @@
         "lỗ hổng bảo mật"
       ]
     },
+    "blind-llm-agents": {
+      "branch": "app",
+      "keywords": [
+        "blind-llm-agents",
+        "bla-shield",
+        "bla_harden",
+        "bla harden",
+        "bla_lint",
+        "counter-rea",
+        "anti-rea",
+        "harden software",
+        "chống dịch ngược ai",
+        "bảo vệ bản build"
+      ]
+    },
     "loop-circuit-breaker": {
       "branch": "app",
       "keywords": [

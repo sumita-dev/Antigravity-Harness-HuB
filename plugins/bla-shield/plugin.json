@@ -1,0 +1,20 @@
+{
+  "name": "bla-shield",
+  "displayName": "BLA Shield (Blind LLM Agents)",
+  "version": "3.4.2",
+  "description": "Counter-REA Blue Defense MCP server and 4-stage hardening playbook for protecting source code and 26+ artifact formats against AI reverse-engineering agents.",
+  "logo": "assets/logo.png",
+  "suggestedPrompts": [
+    "Harden my software against AI reverse-engineering agents",
+    "Run bla_lint and bla_weave_plan on this project to find packaging footguns",
+    "Audit and verify Counter-REA protection on ./dist"
+  ],
+  "author": {
+    "name": "BLA Contributors"
+  },
+  "homepage": "https://bla.tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qybaihe/bla.git"
+  }
+}
