@@ -145,6 +145,13 @@ def cmd_prepare(args: argparse.Namespace) -> int:
 
     summary = {k: v for k, v in manifest.items() if k not in ("shards", "duplicates")}
     summary["manifest_path"] = str(out_path)
+
+    tmpl_path = Path(__file__).resolve().with_name("ingest_workflow.tmpl")
+    if tmpl_path.exists():
+        wf_out = out_path.parent / "workflow_run.py"
+        wf_out.write_text(tmpl_path.read_text(encoding="utf-8"), encoding="utf-8")
+        summary["workflow_script"] = str(wf_out)
+
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 

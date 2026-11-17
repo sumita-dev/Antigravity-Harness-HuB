@@ -40,8 +40,8 @@ Kích hoạt khi người dùng yêu cầu:
         ```bash
         python "<skill_dir>/scripts/ingest_ops.py" prepare --source "<Vault>/Raw/<ThuMuc>" --vault "<Vault>" --out "<Scratch>/ingest_manifest.json"
         ```
-        *(Tự động khử trùng lặp SHA-256, quét secret, tách file stub và chia shard cân bằng `<= 15 tệp` và `<= 150 KB / shard`.)*
-     2. Chạy `run_workflow` với `ScriptPath: "<skill_dir>/scripts/ingest_workflow.py"` và `Args: {"manifest_path": "<Scratch>/ingest_manifest.json", "vault_path": "<Vault>", "topic_hint": "<Chủ đề>"}` để Map song song từng shard ra JSON cấu trúc và Reduce đối soát chéo với `wiki/_index.md`.
+        *(Tự động khử trùng lặp SHA-256, quét secret, tách file stub, chia shard cân bằng `<= 15 tệp` và `<= 150 KB / shard`, và sinh sẵn script workflow từ `scripts/ingest_workflow.tmpl` tại trường `workflow_script` trong JSON output.)*
+     2. Chạy `run_workflow` với `ScriptPath` là giá trị `workflow_script` từ bước 1 và `Args: {"manifest_path": "<Scratch>/ingest_manifest.json", "vault_path": "<Vault>", "topic_hint": "<Chủ đề>"}` để Map song song từng shard ra JSON cấu trúc và Reduce đối soát chéo với `wiki/_index.md`.
 
 ### Bước 2: Extraction & Decomposition (Bóc tách luận điểm & thực thể)
 Trích xuất từ tài liệu thô:
