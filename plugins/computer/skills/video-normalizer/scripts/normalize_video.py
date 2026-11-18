@@ -151,9 +151,11 @@ def process_single_video(
     src_h = int(v_stream["height"])
     src_fps = parse_fps(v_stream.get("r_frame_rate", "30/1"))
 
-    out_w = src_w if args.keep_resolution else TARGET_W
-    out_h = src_h if args.keep_resolution else TARGET_H
+    keep_res = not args.scale_1080p
+    out_w = src_w if keep_res else TARGET_W
+    out_h = src_h if keep_res else TARGET_H
     out_fps = resolve_target_fps(src_fps, args.fps)
+    h264_level = "5.1" if max(out_w, out_h) > 1920 else "4.1"
 
     delogo_rect = None
     if not args.no_delogo:
@@ -169,7 +171,7 @@ def process_single_video(
 
     if args.preview_box:
         vf_chain = build_vf_chain(
-            out_w, out_h, args.keep_resolution, delogo_rect, preview_box=True
+            out_w, out_h, keep_res, delogo_rect, preview_box=True
         )
         preview_out = Path(args.preview_box)
         preview_out.parent.mkdir(parents=True, exist_ok=True)
@@ -200,7 +202,7 @@ def process_single_video(
         return
 
     vf_chain = build_vf_chain(
-        out_w, out_h, args.keep_resolution, delogo_rect, preview_box=False
+        out_w, out_h, keep_res, delogo_rect, preview_box=False
     )
     base_dt = (
         datetime.fromisoformat(args.creation_time.replace("Z", "+00:00"))
@@ -232,7 +234,7 @@ def process_single_video(
             "-profile:v",
             "high",
             "-level:v",
-            "4.1",
+            h264_level,
             "-crf",
             str(args.crf),
             "-preset",
@@ -323,7 +325,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-delogo", action="store_true", help="Bỏ qua xóa watermark.")
     parser.add_argument("--fps", choices=["auto", "30", "60"], default="auto", help="FPS đầu ra.")
     parser.add_argument("--crf", type=int, default=18, help="Chất lượng H.264 CRF (mặc định 18).")
-    parser.add_argument("--keep-resolution", action="store_true", help="Giữ nguyên độ phân giải gốc.")
+    parser.add_argument("--scale-1080p", action="store_true", help="Hạ/ép độ phân giải về 1080x1920 (mặc định giữ nguyên độ phân giải gốc, vd 4K 2160x3840).")
     parser.add_argument("--android-version", default="13", help="Phiên bản Android (mặc định 13).")
     parser.add_argument("--creation-time", help="ISO 8601 UTC (vd: 2026-11-17T09:15:00Z).")
     parser.add_argument("--location", help="Tọa độ GPS ISO 6709 (vd: +10.7769+106.7009/).")
