@@ -90,7 +90,6 @@ EXEMPT_PATH_SEGMENTS = (
     "/obsidian/",
     "/wiki/",
     "/memory/",
-    "/scratch/",
 )
 
 

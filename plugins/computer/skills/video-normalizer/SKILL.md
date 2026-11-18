@@ -22,14 +22,14 @@ Skill chuẩn hóa video dọc `9:16` phục vụ 2 tác vụ cốt lõi thông 
 
 ### 1. Xử lý 1 file đơn lẻ
 ```powershell
-python "C:\Users\Trong\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
+python "$env:USERPROFILE\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
   --input "D:\videos\raw.mp4" `
   --output "D:\videos\clean_pixel4xl.mp4"
 ```
 
 ### 2. Xử lý hàng loạt (Batch cả thư mục)
 ```powershell
-python "C:\Users\Trong\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
+python "$env:USERPROFILE\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
   --input "D:\videos\input_dir" `
   --output "D:\videos\output_dir"
 ```
@@ -38,7 +38,7 @@ python "C:\Users\Trong\.gemini\config\skills\video-normalizer\scripts\normalize_
 ### 3. Xem trước vùng `delogo` trước khi render hàng loạt
 Nếu watermark có kích thước đặc thù, xuất 1 frame ảnh có khung đỏ đánh dấu vùng `delogo` để kiểm tra:
 ```powershell
-python "C:\Users\Trong\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
+python "$env:USERPROFILE\.gemini\config\skills\video-normalizer\scripts\normalize_video.py" `
   --input "D:\videos\raw.mp4" `
   --preview-box "D:\videos\preview_box.jpg"
 ```
