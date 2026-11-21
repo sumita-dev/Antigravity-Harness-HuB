@@ -21,8 +21,10 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
-TARGET_W = 1080
-TARGET_H = 1920
+TARGET_4K_W = 2160
+TARGET_4K_H = 3840
+TARGET_1080_W = 1080
+TARGET_1080_H = 1920
 
 
 def ensure_binaries() -> None:
@@ -103,17 +105,18 @@ def resolve_target_fps(src_fps: float, fps_opt: str) -> int:
 
 
 def build_vf_chain(
+    src_w: int,
+    src_h: int,
     target_w: int,
     target_h: int,
-    keep_resolution: bool,
     delogo_rect: tuple[int, int, int, int] | None,
     preview_box: bool = False,
 ) -> str:
     """Build FFmpeg video filter chain."""
     filters: list[str] = []
-    if not keep_resolution:
+    if src_w != target_w or src_h != target_h:
         filters.append(
-            f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase:flags=lanczos,"
             f"crop={target_w}:{target_h}"
         )
     if delogo_rect is not None:
@@ -151,9 +154,12 @@ def process_single_video(
     src_h = int(v_stream["height"])
     src_fps = parse_fps(v_stream.get("r_frame_rate", "30/1"))
 
-    keep_res = not args.scale_1080p
-    out_w = src_w if keep_res else TARGET_W
-    out_h = src_h if keep_res else TARGET_H
+    if args.scale_1080p:
+        out_w, out_h = TARGET_1080_W, TARGET_1080_H
+    elif args.keep_resolution:
+        out_w, out_h = src_w, src_h
+    else:
+        out_w, out_h = TARGET_4K_W, TARGET_4K_H
     out_fps = resolve_target_fps(src_fps, args.fps)
     h264_level = "5.1" if max(out_w, out_h) > 1920 else "4.1"
 
@@ -171,7 +177,7 @@ def process_single_video(
 
     if args.preview_box:
         vf_chain = build_vf_chain(
-            out_w, out_h, keep_res, delogo_rect, preview_box=True
+            src_w, src_h, out_w, out_h, delogo_rect, preview_box=True
         )
         preview_out = Path(args.preview_box)
         preview_out.parent.mkdir(parents=True, exist_ok=True)
@@ -202,7 +208,7 @@ def process_single_video(
         return
 
     vf_chain = build_vf_chain(
-        out_w, out_h, keep_res, delogo_rect, preview_box=False
+        src_w, src_h, out_w, out_h, delogo_rect, preview_box=False
     )
     base_dt = (
         datetime.fromisoformat(args.creation_time.replace("Z", "+00:00"))
@@ -324,8 +330,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wm-mb-pct", type=float, default=0.02, help="Lề dưới theo tỷ lệ (mặc định 0.02).")
     parser.add_argument("--no-delogo", action="store_true", help="Bỏ qua xóa watermark.")
     parser.add_argument("--fps", choices=["auto", "30", "60"], default="auto", help="FPS đầu ra.")
-    parser.add_argument("--crf", type=int, default=18, help="Chất lượng H.264 CRF (mặc định 18).")
-    parser.add_argument("--scale-1080p", action="store_true", help="Hạ/ép độ phân giải về 1080x1920 (mặc định giữ nguyên độ phân giải gốc, vd 4K 2160x3840).")
+    parser.add_argument("--crf", type=int, default=14, help="Chất lượng H.264 CRF (mặc định 14).")
+    res_group = parser.add_mutually_exclusive_group()
+    res_group.add_argument("--scale-1080p", action="store_true", help="Hạ/ép độ phân giải về 1080x1920 (mặc định luôn xuất 4K 2160x3840).")
+    res_group.add_argument("--keep-resolution", action="store_true", help="Giữ nguyên độ phân giải gốc thay vì ép 4K 2160x3840.")
     parser.add_argument("--android-version", default="13", help="Phiên bản Android (mặc định 13).")
     parser.add_argument("--creation-time", help="ISO 8601 UTC (vd: 2026-11-17T09:15:00Z).")
     parser.add_argument("--location", help="Tọa độ GPS ISO 6709 (vd: +10.7769+106.7009/).")
