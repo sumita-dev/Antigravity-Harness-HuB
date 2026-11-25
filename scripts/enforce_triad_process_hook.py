@@ -532,6 +532,31 @@ def _parse_optional_int(val: Any) -> int | None:
         return None
 
 
+def _is_token_report_artifact(path_str: str) -> bool:
+    """Return True if a backtick/quote token path looks like a report/artifact rather than raw data."""
+    norm = path_str.replace("\\", "/").lower()
+    basename = Path(path_str).name.lower()
+    if "/raw/" in norm:
+        return False
+    padded = "/" + norm.lstrip("/")
+    if any(
+        seg in padded
+        for seg in (
+            "/.gemini/antigravity/brain/",
+            "/antigravity/brain/",
+            "/.brain/",
+            "/artifacts/",
+        )
+    ):
+        return True
+    if re.search(
+        r"(?:report|audit|review|verdict|handoff|spec|summary|evidence|critique|qa[_-]|output)",
+        basename,
+    ):
+        return True
+    return False
+
+
 def _is_report_sufficiently_read(
     cand_resolved: Path,
     read_ranges: list[tuple[int | None, int | None]] | None,
@@ -809,11 +834,19 @@ def evaluate_transcript(
         s_text = f"{content}\n{_step_text(step)}"
         if "[Message]" in s_text and not is_planner and not any(m in s_text for m in OTHER_HOOK_MARKERS):
             has_subagent_message = True
-            for regex in (REPORT_PATH_KV_RE, REPORT_PATH_LINK_RE, REPORT_PATH_TOKEN_RE):
+            for regex in (REPORT_PATH_KV_RE, REPORT_PATH_LINK_RE):
                 for match in regex.finditer(s_text):
                     cand_path = match.group(1).strip()
                     if cand_path and cand_path not in candidate_report_paths:
                         candidate_report_paths.append(cand_path)
+            for match in REPORT_PATH_TOKEN_RE.finditer(s_text):
+                cand_path = match.group(1).strip()
+                if (
+                    cand_path
+                    and _is_token_report_artifact(cand_path)
+                    and cand_path not in candidate_report_paths
+                ):
+                    candidate_report_paths.append(cand_path)
 
         step_tool = _normalize_tool_name(step.get("tool") or step.get("name") or "")
         if step_tool in MUTATION_TOOL_NAMES:
@@ -1078,24 +1111,35 @@ def evaluate_transcript(
         elif not is_read:
             unread_reports.append(cand_raw)
 
-    if skimmed_reports:
-        return {
-            "decision": "continue",
-            "reason": (
-                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chống đọc lướt Artifact): "
-                f"Quản đốc chỉ đọc lướt một phần nhỏ (< 20 dòng) của báo cáo '{skimmed_reports[0]}'. "
-                "Yêu cầu gọi read_file đọc đầy đủ nội dung báo cáo trước khi kết thúc lượt."
-            ),
-        }
+    if skimmed_reports or unread_reports:
+        if len(unread_reports) == 1 and not skimmed_reports:
+            return {
+                "decision": "continue",
+                "reason": (
+                    f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chốt chặn đọc Artifact): "
+                    f"Quản đốc chưa đọc báo cáo đầy đủ tại '{unread_reports[0]}' do SubAgent cung cấp. "
+                    "Yêu cầu gọi read_file kiểm tra nội dung trước khi kết thúc lượt."
+                ),
+            }
 
-    if unread_reports:
+        rule_1_12_reasons: list[str] = []
+        if skimmed_reports:
+            skimmed_list = ", ".join(f"'{p}'" for p in skimmed_reports)
+            rule_1_12_reasons.append(
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chống đọc lướt Artifact): "
+                f"Quản đốc chỉ đọc lướt một phần nhỏ (< 20 dòng) của báo cáo {skimmed_list}. "
+                "Yêu cầu gọi read_file đọc đầy đủ nội dung báo cáo trước khi kết thúc lượt."
+            )
+        if unread_reports:
+            unread_list = ", ".join(f"'{p}'" for p in unread_reports)
+            rule_1_12_reasons.append(
+                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chốt chặn đọc Artifact): "
+                f"Quản đốc chưa đọc báo cáo đầy đủ tại {unread_list} do SubAgent cung cấp. "
+                "Yêu cầu gọi read_file kiểm tra nội dung trước khi kết thúc lượt."
+            )
         return {
             "decision": "continue",
-            "reason": (
-                f"{GUARD_MARKER} Vi phạm Quy tắc 1.12 (Chốt chặn đọc Artifact): "
-                f"Quản đốc chưa đọc báo cáo đầy đủ tại '{unread_reports[0]}' do SubAgent cung cấp. "
-                "Yêu cầu gọi read_file kiểm tra nội dung trước khi kết thúc lượt."
-            ),
+            "reason": "\n".join(rule_1_12_reasons),
         }
 
     return {"decision": "allow"}

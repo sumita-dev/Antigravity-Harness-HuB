@@ -585,6 +585,17 @@ def verify_file_paths(
             if is_file_uri or has_sep:
                 missing.append(cleaned)
 
+    verified_norm = [v.replace("\\", "/").lower() for v in verified]
+    remaining_missing: List[str] = []
+    for m in missing:
+        if not Path(m).is_absolute() and not m.lower().startswith("file://") and ("/" in m or "\\" in m):
+            m_suffix = "/" + m.replace("\\", "/").lstrip("./").lower()
+            if any(v_norm.endswith(m_suffix) for v_norm in verified_norm):
+                verified.append(m)
+                continue
+        remaining_missing.append(m)
+    missing = remaining_missing
+
     return {
         "valid": len(missing) == 0,
         "verified_paths": verified,

@@ -1140,5 +1140,132 @@ def test_critic_with_self_typename_is_blocked(tmp_path: Path) -> None:
     assert "TypeName='self'" in res_bad["reason"]
 
 
+def test_rule_1_12_ignores_raw_data_tokens_and_batches_multiple_unread_reports(tmp_path: Path) -> None:
+    """Rule 1.12 ignores /raw/ token paths and batches all skimmed/unread reports into one continue."""
+    from scripts.enforce_triad_process_hook import _is_token_report_artifact
+
+    assert _is_token_report_artifact("D:/proj/raw/payload.json") is False
+    assert _is_token_report_artifact("D:/proj/.brain/notes.md") is True
+    assert _is_token_report_artifact("D:/proj/artifacts/out.md") is True
+    assert _is_token_report_artifact("D:/proj/data/audit_summary.md") is True
+    assert _is_token_report_artifact("D:/proj/data/plain_notes.txt") is False
+
+    raw_file = tmp_path / "raw" / "dump.json"
+    raw_file.parent.mkdir(parents=True, exist_ok=True)
+    raw_file.write_text('{"ok": true}\n', encoding="utf-8")
+
+    report_1 = tmp_path / "critic_report.md"
+    report_1.write_text("# Critic Report\nAll clear.\n", encoding="utf-8")
+    report_2 = tmp_path / "qa_report.md"
+    report_2.write_text("# QA Report\nPass.\n", encoding="utf-8")
+    skimmed_report = tmp_path / "audit_skimmed.md"
+    skimmed_report.write_text("\n".join(f"Line {i}" for i in range(1, 45)) + "\n", encoding="utf-8")
+
+    # 1. /raw/ token is ignored when valid report_path is read -> allow
+    t_raw_ignored = _write_transcript(
+        tmp_path / "t_raw_ignored.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm thử"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": (
+                    f"[Message] sender=conv-qa content=Saved raw `{raw_file}` and report_path={report_2.as_posix()}"
+                ),
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "read_file", "args": {"Path": str(report_2)}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "# QA Report\nPass.\n"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_raw = evaluate_hook_payload({"transcriptPath": str(t_raw_ignored), "workspacePaths": [str(tmp_path)]})
+    assert res_raw["decision"] == "allow"
+
+    # 2. Multiple unread reports + skimmed report batched into a single continue response
+    t_batched = _write_transcript(
+        tmp_path / "t_batched_reports.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm thử batch"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": f"[Message] sender=conv-critic report_path={report_1.as_posix()}",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {
+                            "TypeName": "self",
+                            "Role": "QA Auditor",
+                            "Model": "flash",
+                            "Prompt": f"Inspect {report_1.as_posix()}",
+                        },
+                    }
+                ],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": (
+                    f"[Message] sender=conv-qa report_path={report_2.as_posix()} "
+                    f"and `{skimmed_report}`"
+                ),
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {"name": "read_file", "args": {"Path": str(skimmed_report), "StartLine": 1, "EndLine": 5}}
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Line 1\nLine 2\n"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_batched = evaluate_hook_payload({"transcriptPath": str(t_batched), "workspacePaths": [str(tmp_path)]})
+    assert res_batched["decision"] == "continue"
+    assert "Quy tắc 1.12 (Chống đọc lướt Artifact)" in res_batched["reason"]
+    assert "Quy tắc 1.12 (Chốt chặn đọc Artifact)" in res_batched["reason"]
+    assert str(skimmed_report) in res_batched["reason"]
+    assert report_1.as_posix() in res_batched["reason"]
+    assert report_2.as_posix() in res_batched["reason"]
+
+
+
 
 

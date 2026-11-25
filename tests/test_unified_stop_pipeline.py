@@ -173,3 +173,48 @@ def test_unified_pipeline_latency_under_200ms(tmp_path: Path) -> None:
 
     assert res["decision"] in ("allow", "continue")
     assert elapsed < 0.20, f"Unified stop pipeline took {elapsed:.4f}s >= 0.2s target"
+
+
+def test_unified_pipeline_aggregates_multiple_gate_violations_in_single_response(tmp_path: Path) -> None:
+    """All three blocking gates run in one pass and merge violations into one response."""
+    t = _write_transcript(
+        tmp_path / "t_multi_gate.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Sửa code và chạy test"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [
+                    {"name": "write_file", "args": {"Path": str(tmp_path / "app.py"), "Content": "x = 1\n"}}
+                ],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "File written."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "",
+                "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest -q"}}],
+            },
+            {
+                "type": "GENERIC",
+                "status": "ERROR",
+                "content": "=== FAILURES ===\nFAILED tests/test_foo.py::test_bar - AssertionError\n1 failed",
+                "exit_code": 1,
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Chắc là hệ thống hoạt động ổn định, giả thuyết của anh hoàn toàn đúng.",
+            },
+        ],
+    )
+    payload = {
+        "conversationId": "conv-test-multi-gate",
+        "transcriptPath": str(t),
+        "workspacePaths": [str(tmp_path)],
+        "terminationReason": "NO_TOOL_CALL",
+    }
+    res = run_unified_stop_pipeline(payload)
+    assert res["decision"] == "continue"
+    assert "ANTI-HALLUCINATION-GUARD" in res["reason"]
+    assert "PRE-HANDOFF-GATE" in res["reason"]
+    assert "TRIAD-PROCESS-GATE" in res["reason"]
+

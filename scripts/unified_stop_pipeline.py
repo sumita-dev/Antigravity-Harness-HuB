@@ -150,40 +150,56 @@ def run_unified_stop_pipeline(
         except Exception:
             pass
 
-        # 2. Enforce Anti-Hallucination & Definition of Done Guard
-        try:
-            anti_res = enforce_anti_hallucination_hook.evaluate_hook_payload(
-                payload,
-                max_retries=max_retries,
-            )
-            if isinstance(anti_res, dict) and anti_res.get("decision") not in (None, "allow"):
-                return anti_res
-        except Exception:
-            pass
+        # 2-4. Run all three blocking gates and aggregate violations
+        blocking_results: list[dict[str, str]] = []
+        for gate in (
+            enforce_anti_hallucination_hook,
+            verify_before_handoff_hook,
+            enforce_triad_process_hook,
+        ):
+            try:
+                gate_res = gate.evaluate_hook_payload(
+                    payload,
+                    max_retries=max_retries,
+                )
+                if isinstance(gate_res, dict) and gate_res.get("decision") not in (None, "allow"):
+                    blocking_results.append(gate_res)
+            except Exception:
+                pass
 
-        # 3. Enforce Pre-Handoff Verification Gate (CleanState & Targeted Tests)
-        try:
-            veri_res = verify_before_handoff_hook.evaluate_hook_payload(
-                payload,
-                max_retries=max_retries,
-            )
-            if isinstance(veri_res, dict) and veri_res.get("decision") not in (None, "allow"):
-                return veri_res
-        except Exception:
-            pass
+        if not blocking_results:
+            return {"decision": "allow"}
+        if len(blocking_results) == 1:
+            return blocking_results[0]
 
-        # 4. Enforce SubAgent Triad Process Gate
-        try:
-            triad_res = enforce_triad_process_hook.evaluate_hook_payload(
-                payload,
-                max_retries=max_retries,
-            )
-            if isinstance(triad_res, dict) and triad_res.get("decision") not in (None, "allow"):
-                return triad_res
-        except Exception:
-            pass
-
-    return {"decision": "allow"}
+        merged_decision = (
+            "block"
+            if any(res.get("decision") == "block" for res in blocking_results)
+            else "continue"
+        )
+        reasons = [
+            str(res.get("reason") or "").strip()
+            for res in blocking_results
+            if str(res.get("reason") or "").strip()
+        ]
+        merged_reason = "\n".join(reasons)
+        merged: dict[str, str] = {
+            "decision": merged_decision,
+            "reason": merged_reason,
+        }
+        has_escalated = any(
+            "[ESCALATED_HARD_STOP]" in str(res.get("system_instruction") or "")
+            or "[ESCALATED_HARD_STOP]" in str(res.get("reason") or "")
+            for res in blocking_results
+        )
+        if has_escalated:
+            sys_parts = [
+                str(res.get("system_instruction") or "").strip()
+                for res in blocking_results
+                if str(res.get("system_instruction") or "").strip()
+            ]
+            merged["system_instruction"] = "\n".join(sys_parts) if sys_parts else merged_reason
+        return merged
 
 
 def main() -> None:

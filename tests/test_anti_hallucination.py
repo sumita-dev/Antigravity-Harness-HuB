@@ -433,3 +433,32 @@ def test_extract_evidence_tuple_key_value_and_table():
     assert "https://example.com/old-page" in tbl_tuple["target_url"]
     assert "curl" in tbl_tuple["probe_cmd"]
     assert "404" in tbl_tuple["raw_status"]
+
+
+def test_verify_file_paths_relative_suffix_grounded_by_verified_absolute_path(tmp_path: Path) -> None:
+    """Relative paths matching the suffix of a verified absolute path in the same text are grounded."""
+    repo_root = tmp_path / "repo"
+    target_file = repo_root / "scripts" / "sample_worker.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    target_file.write_text("print('ok')\n", encoding="utf-8")
+
+    unrelated_cwd = tmp_path / "unrelated_cwd"
+    unrelated_cwd.mkdir(parents=True, exist_ok=True)
+
+    text_ok = (
+        f"Đã kiểm tra tệp `{target_file}` và đối chiếu đường dẫn tương đối "
+        "`scripts/sample_worker.py` cùng `./scripts/sample_worker.py`."
+    )
+    res_ok = verify_file_paths(text_ok, base_dir=unrelated_cwd)
+    assert res_ok["valid"] is True
+    assert res_ok["missing_paths"] == []
+    assert "scripts/sample_worker.py" in res_ok["verified_paths"]
+    assert "./scripts/sample_worker.py" in res_ok["verified_paths"]
+
+    text_bad = (
+        f"Đã kiểm tra `{target_file}` nhưng bịa thêm `scripts/ghost_worker.py`."
+    )
+    res_bad = verify_file_paths(text_bad, base_dir=unrelated_cwd)
+    assert res_bad["valid"] is False
+    assert "scripts/ghost_worker.py" in res_bad["missing_paths"]
+
