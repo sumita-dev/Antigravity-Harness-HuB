@@ -1266,6 +1266,59 @@ def test_rule_1_12_ignores_raw_data_tokens_and_batches_multiple_unread_reports(t
     assert report_2.as_posix() in res_batched["reason"]
 
 
+def test_rule_1_12_raw_variants_brain_segments_and_deduplicates_paths(tmp_path: Path) -> None:
+    """Exclude raw_data/raw_dumps, detect brain/ artifacts, and deduplicate equivalent slash variants."""
+    from scripts.enforce_triad_process_hook import _is_token_report_artifact
+
+    assert _is_token_report_artifact("D:/proj/raw_data/items.json") is False
+    assert _is_token_report_artifact("D:/proj/raw_dumps/trace.json") is False
+    assert _is_token_report_artifact("raw_data/items.json") is False
+    assert _is_token_report_artifact("raw_dumps/trace.json") is False
+    assert _is_token_report_artifact("D:\\proj\\brain\\conv-1\\notes.md") is True
+    assert _is_token_report_artifact("brain/conv-1/notes.md") is True
+
+    dup_report = tmp_path / "dup_report.md"
+    dup_report.write_text("# Duplicate Report\nDone.\n", encoding="utf-8")
+    win_style = str(dup_report).replace("/", "\\")
+    posix_style = dup_report.as_posix()
+
+    t_dup = _write_transcript(
+        tmp_path / "t_dup_reports.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra dedup"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "Builder"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Builder done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "research", "Role": "Code Critic"}}],
+            },
+            {"type": "GENERIC", "status": "DONE", "content": "Critic done."},
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"TypeName": "self", "Role": "QA Auditor", "Model": "flash"}}],
+            },
+            {
+                "type": "SYSTEM_MESSAGE",
+                "source": "SYSTEM",
+                "content": f"[Message] sender=conv-qa report_path={win_style} and `{posix_style}`",
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Hoàn tất.",
+                "tool_calls": [{"name": "manage_subagents", "args": {"Action": "kill_all"}}],
+            },
+        ],
+    )
+    res_dup = evaluate_hook_payload({"transcriptPath": str(t_dup), "workspacePaths": [str(tmp_path)]})
+    assert res_dup["decision"] == "continue"
+    # Should emit the single-report message rather than repeating the same resolved path twice
+    assert "Quản đốc chưa đọc báo cáo đầy đủ tại" in res_dup["reason"]
+    assert res_dup["reason"].count("dup_report.md") == 1
+
+
 
 
 

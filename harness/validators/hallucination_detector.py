@@ -585,13 +585,40 @@ def verify_file_paths(
             if is_file_uri or has_sep:
                 missing.append(cleaned)
 
-    verified_norm = [v.replace("\\", "/").lower() for v in verified]
+    _draft_artifact_markers = ("/.brain/", "/scratch/", "/.gemini/antigravity/brain/")
+    verified_abs_norm: List[str] = []
+    for v in verified:
+        expanded_v = (
+            os.path.expanduser(v)
+            if v.startswith(("~", "~/", "~\\"))
+            else v
+        )
+        if not Path(expanded_v).is_absolute():
+            continue
+        v_norm = expanded_v.replace("\\", "/").lower()
+        if any(marker in v_norm for marker in _draft_artifact_markers):
+            continue
+        verified_abs_norm.append(v_norm)
+
     remaining_missing: List[str] = []
     for m in missing:
-        if not Path(m).is_absolute() and not m.lower().startswith("file://") and ("/" in m or "\\" in m):
-            m_suffix = "/" + m.replace("\\", "/").lstrip("./").lower()
-            if any(v_norm.endswith(m_suffix) for v_norm in verified_norm):
-                verified.append(m)
+        m_low = m.lower()
+        if (
+            not Path(m).is_absolute()
+            and not m_low.startswith("file://")
+            and not m.startswith(("/", "\\", ".."))
+            and ("/" in m or "\\" in m)
+        ):
+            m_norm = m.replace("\\", "/").lower()
+            while m_norm.startswith("./"):
+                m_norm = m_norm[2:]
+            if not m_norm or m_norm.startswith((".", "/", "..")) or "/../" in m_norm:
+                remaining_missing.append(m)
+                continue
+            m_suffix = "/" + m_norm
+            if any(v_norm.endswith(m_suffix) for v_norm in verified_abs_norm):
+                if m not in verified:
+                    verified.append(m)
                 continue
         remaining_missing.append(m)
     missing = remaining_missing

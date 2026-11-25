@@ -10,7 +10,7 @@ Optimizes Stop Hook execution latency on Antigravity 2.0 by combining:
 
 All four gates execute in-process with a SINGLE in-memory transcript parse,
 eliminating redundant subprocess spawns, repeated JSON disk reads, and process startup latency.
-Returns the first blocking decision ("continue") or {"decision": "allow"}.
+Aggregates all blocking/continue violations from all three enforcement gates or returns {"decision": "allow"}.
 """
 
 from __future__ import annotations
@@ -147,8 +147,8 @@ def run_unified_stop_pipeline(
         try:
             conv_id = str(payload.get("conversationId") or "")
             auto_harvest_global.harvest_from_transcript(t_path, conversation_id=conv_id)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[unified_stop_pipeline] gate warning: {exc}", file=sys.stderr)
 
         # 2-4. Run all three blocking gates and aggregate violations
         blocking_results: list[dict[str, str]] = []
@@ -164,8 +164,8 @@ def run_unified_stop_pipeline(
                 )
                 if isinstance(gate_res, dict) and gate_res.get("decision") not in (None, "allow"):
                     blocking_results.append(gate_res)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[unified_stop_pipeline] gate warning: {exc}", file=sys.stderr)
 
         if not blocking_results:
             return {"decision": "allow"}

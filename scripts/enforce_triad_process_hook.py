@@ -535,19 +535,21 @@ def _parse_optional_int(val: Any) -> int | None:
 def _is_token_report_artifact(path_str: str) -> bool:
     """Return True if a backtick/quote token path looks like a report/artifact rather than raw data."""
     norm = path_str.replace("\\", "/").lower()
-    basename = Path(path_str).name.lower()
-    if "/raw/" in norm:
+    basename = Path(norm).name.lower()
+    if any(seg in norm for seg in ("/raw/", "/raw_data/", "/raw_dumps/")) or norm.startswith(
+        ("raw/", "raw_data/", "raw_dumps/")
+    ):
         return False
-    padded = "/" + norm.lstrip("/")
     if any(
-        seg in padded
+        seg in norm
         for seg in (
             "/.gemini/antigravity/brain/",
             "/antigravity/brain/",
+            "/brain/",
             "/.brain/",
             "/artifacts/",
         )
-    ):
+    ) or norm.startswith(("brain/", ".brain/", "artifacts/")):
         return True
     if re.search(
         r"(?:report|audit|review|verdict|handoff|spec|summary|evidence|critique|qa[_-]|output)",
@@ -726,6 +728,7 @@ def evaluate_transcript(
     schedule_steps: list[int] = []
     read_file_calls: dict[str, list[tuple[int | None, int | None]]] = {}
     candidate_report_paths: list[str] = []
+    seen_candidate_norms: set[str] = set()
     has_subagent_message = False
     missing_handoff_context_violations: list[str] = []
     has_workspace_sync = False
@@ -834,19 +837,23 @@ def evaluate_transcript(
         s_text = f"{content}\n{_step_text(step)}"
         if "[Message]" in s_text and not is_planner and not any(m in s_text for m in OTHER_HOOK_MARKERS):
             has_subagent_message = True
+
+            def _add_candidate_report(raw_cand: str) -> None:
+                cand_clean = raw_cand.strip()
+                if not cand_clean:
+                    return
+                cand_key = _resolve_candidate_report_path(cand_clean, eff_payload).as_posix().lower()
+                if cand_key not in seen_candidate_norms:
+                    seen_candidate_norms.add(cand_key)
+                    candidate_report_paths.append(cand_clean)
+
             for regex in (REPORT_PATH_KV_RE, REPORT_PATH_LINK_RE):
                 for match in regex.finditer(s_text):
-                    cand_path = match.group(1).strip()
-                    if cand_path and cand_path not in candidate_report_paths:
-                        candidate_report_paths.append(cand_path)
+                    _add_candidate_report(match.group(1))
             for match in REPORT_PATH_TOKEN_RE.finditer(s_text):
                 cand_path = match.group(1).strip()
-                if (
-                    cand_path
-                    and _is_token_report_artifact(cand_path)
-                    and cand_path not in candidate_report_paths
-                ):
-                    candidate_report_paths.append(cand_path)
+                if cand_path and _is_token_report_artifact(cand_path):
+                    _add_candidate_report(cand_path)
 
         step_tool = _normalize_tool_name(step.get("tool") or step.get("name") or "")
         if step_tool in MUTATION_TOOL_NAMES:

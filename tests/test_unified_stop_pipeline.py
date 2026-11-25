@@ -218,3 +218,40 @@ def test_unified_pipeline_aggregates_multiple_gate_violations_in_single_response
     assert "PRE-HANDOFF-GATE" in res["reason"]
     assert "TRIAD-PROCESS-GATE" in res["reason"]
 
+
+def test_unified_pipeline_logs_gate_warnings_to_stderr_on_exception(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Failsafe gate exceptions emit a concise warning to stderr without crashing the hook."""
+    from scripts import auto_harvest_global, enforce_anti_hallucination_hook
+
+    t = _write_transcript(
+        tmp_path / "t_warn.jsonl",
+        [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Kiểm tra cảnh báo"},
+            {"type": "PLANNER_RESPONSE", "content": "Hoàn tất kiểm tra."},
+        ],
+    )
+
+    def _boom_harvest(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("harvest failed")
+
+    def _boom_gate(*args: Any, **kwargs: Any) -> dict[str, str]:
+        raise RuntimeError("gate failed")
+
+    monkeypatch.setattr(auto_harvest_global, "harvest_from_transcript", _boom_harvest)
+    monkeypatch.setattr(enforce_anti_hallucination_hook, "evaluate_hook_payload", _boom_gate)
+
+    res = run_unified_stop_pipeline(
+        {
+            "conversationId": "conv-warn",
+            "transcriptPath": str(t),
+            "workspacePaths": [str(tmp_path)],
+            "terminationReason": "NO_TOOL_CALL",
+        }
+    )
+    assert res == {"decision": "allow"}
+    captured = capsys.readouterr()
+    assert "[unified_stop_pipeline] gate warning: harvest failed" in captured.err
+    assert "[unified_stop_pipeline] gate warning: gate failed" in captured.err
+

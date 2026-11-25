@@ -462,3 +462,47 @@ def test_verify_file_paths_relative_suffix_grounded_by_verified_absolute_path(tm
     assert res_bad["valid"] is False
     assert "scripts/ghost_worker.py" in res_bad["missing_paths"]
 
+
+def test_verify_file_paths_blocks_relative_suffix_bypasses_and_draft_dirs(tmp_path: Path) -> None:
+    """Reject traversal/hidden/leading-slash suffixes and do not ground via scratch/ or .brain/ paths."""
+    repo_root = tmp_path / "repo"
+    target_file = repo_root / "scripts" / "sample_worker.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    target_file.write_text("print('ok')\n", encoding="utf-8")
+
+    hidden_target = repo_root / "hidden" / "doc.md"
+    hidden_target.parent.mkdir(parents=True, exist_ok=True)
+    hidden_target.write_text("# Doc\n", encoding="utf-8")
+
+    scratch_file = tmp_path / "scratch" / "repo" / "scripts" / "draft_only.py"
+    scratch_file.parent.mkdir(parents=True, exist_ok=True)
+    scratch_file.write_text("print('draft')\n", encoding="utf-8")
+
+    brain_file = tmp_path / ".brain" / "repo" / "scripts" / "brain_only.py"
+    brain_file.parent.mkdir(parents=True, exist_ok=True)
+    brain_file.write_text("print('brain')\n", encoding="utf-8")
+
+    unrelated_cwd = tmp_path / "unrelated_cwd"
+    unrelated_cwd.mkdir(parents=True, exist_ok=True)
+
+    bypass_text = (
+        f"Thực chứng `{target_file}`, `{hidden_target}`, `{scratch_file}`, `{brain_file}`.\n"
+        "Thử bypass: `.hidden/doc.md`, `./.hidden/doc.md`, `../scripts/sample_worker.py`, "
+        "`./../scripts/sample_worker.py`, `scripts/../scripts/sample_worker.py`, "
+        "`/scripts/sample_worker.py`, `scripts/draft_only.py`, `scripts/brain_only.py`."
+    )
+    res = verify_file_paths(bypass_text, base_dir=unrelated_cwd)
+    assert res["valid"] is False
+    for blocked in (
+        ".hidden/doc.md",
+        "./.hidden/doc.md",
+        "../scripts/sample_worker.py",
+        "./../scripts/sample_worker.py",
+        "scripts/../scripts/sample_worker.py",
+        "/scripts/sample_worker.py",
+        "scripts/draft_only.py",
+        "scripts/brain_only.py",
+    ):
+        assert blocked in res["missing_paths"], f"Expected {blocked} to stay in missing_paths"
+        assert blocked not in res["verified_paths"]
+
