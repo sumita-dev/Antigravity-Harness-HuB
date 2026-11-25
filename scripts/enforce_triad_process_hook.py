@@ -607,7 +607,7 @@ def _resolve_candidate_report_path(raw_path: str, payload: dict[str, Any] | None
         cleaned = cleaned[8:]
     elif cleaned.lower().startswith("file://"):
         cleaned = cleaned[7:]
-    cleaned = urllib.parse.unquote(cleaned).strip()
+    cleaned = urllib.parse.unquote(cleaned).strip().replace("\\", "/")
     p = Path(cleaned)
     return p.resolve() if p.is_absolute() else (base_dir / p).resolve()
 
