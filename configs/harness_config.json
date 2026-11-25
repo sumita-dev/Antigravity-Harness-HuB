@@ -1122,6 +1122,78 @@
         "tạo đặc tả kỹ thuật sdd",
         "hiến pháp dự án sdd"
       ]
+    },
+    "xk-dinh-huong": {
+      "branch": "marketing",
+      "keywords": [
+        "xk-dinh-huong",
+        "bắt đầu xây kênh",
+        "mình mới làm kênh",
+        "định hướng kênh",
+        "kênh mình nên làm gì",
+        "mình không biết quay gì",
+        "chốt định vị",
+        "làm lại hồ sơ kênh",
+        "hồ sơ kênh",
+        "xây kênh sau giờ làm"
+      ]
+    },
+    "xk-y-tuong": {
+      "branch": "marketing",
+      "keywords": [
+        "xk-y-tuong",
+        "lên 15 video đầu",
+        "lên 3 video đầu",
+        "lên 15 video tiếp",
+        "cho mình ý tưởng",
+        "tuần này quay gì",
+        "hết ý tưởng",
+        "mình nên quay dạng gì",
+        "sợ camera thì quay sao",
+        "nghiên cứu kênh cùng ngách",
+        "bí ý tưởng",
+        "video mẫu để học",
+        "tìm trên douyin",
+        "video này nên dài bao lâu"
+      ]
+    },
+    "xk-kich-ban": {
+      "branch": "marketing",
+      "keywords": [
+        "xk-kich-ban",
+        "viết kịch bản video",
+        "lời thoại video này",
+        "chữ trên video ghi gì",
+        "câu mở đầu sao cho giữ người",
+        "danh sách cảnh cần quay",
+        "kịch bản video số"
+      ]
+    },
+    "xk-edit": {
+      "branch": "marketing",
+      "keywords": [
+        "xk-edit",
+        "edit video này",
+        "cắt giúp mình",
+        "dựng video",
+        "làm kế hoạch edit capcut",
+        "kế hoạch edit capcut",
+        "viết câu lệnh cho ai capcut",
+        "video mình bị chán, sửa nhịp",
+        "chữ trên video đặt sao",
+        "editpilot"
+      ]
+    },
+    "xk-xem-lai": {
+      "branch": "marketing",
+      "keywords": [
+        "xk-xem-lai",
+        "xem lại kênh",
+        "đăng được 10 video rồi",
+        "sao video ít view",
+        "kênh mình có đi đúng không",
+        "tháng này nên đổi gì"
+      ]
     }
   },
   "runtime_policy": {

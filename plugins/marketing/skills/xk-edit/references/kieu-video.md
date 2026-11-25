@@ -1,0 +1,16 @@
+# 7 kiểu video và cách edit
+
+Con số về chữ, độ dài cảnh theo **Bảng số chuẩn** ở đầu `luat-edit-chung.md` (phụ đề 1 dòng 3–8 chữ; tiêu đề 3–5 giây với video không lời, tối đa 10 giây với video nói).
+
+| # | Kiểu video | Cách edit | Hợp với nhóm |
+|---|---|---|---|
+| A | **Nói trước camera: kiến thức, liệt kê** | Phụ đề theo kiểu chữ kênh hình mẫu, tô màu 1 từ khóa mỗi câu (con số, ý chốt). Zoom nhảy (phóng to đột ngột ở chỗ cắt) nhẹ (100% ↔ 110%) ở mỗi chỗ cắt để che vết cắt. Tiêu đề tối đa 10 giây đầu. Hộp chữ cho công thức / các bước, đánh số rõ. Chèn ảnh hoặc cảnh minh họa cho ý đang nói (không để 15 giây chỉ có mặt). Nhạc nhẹ dưới giọng | C có chuyên môn; người chia sẻ kiến thức nghề |
+| B | **Trả lời bình luận / gợi ý ý tưởng** | Mở bằng mặt người nói + ảnh chụp bình luận đặt trên đầu làm tiêu đề (chụp to, đọc được trên điện thoại). Liệt kê "một là, hai là…" thì hộp chữ hiện dần từng dòng đúng lúc nói. Chèn video ví dụ có tiếng gốc + nhãn nguồn. Nhạc tắt khi chèn video có tiếng | Mọi nhóm, khi kênh bắt đầu có bình luận hỏi |
+| C | **Tâm sự, chuyện phiếm, kể hành trình** | Tối giản: chỉ cắt sạch vấp và lặp, thêm phụ đề. Không zoom, không cảnh chèn, nhạc rất nhỏ hoặc không. Giữ nhịp nói tự nhiên. Câu chốt cuối là thứ người xem chia sẻ. Giọng phải to rõ, phụ đề phải sửa | B đang làm lại; C kể chuyện khởi nghiệp |
+| D | **Vlog một việc / một khung giờ** | Khuôn cố định cả series: cùng góc máy, cùng câu mở, cùng kiểu chữ, "Phần X / Ngày X" ở góc. Mở bằng kết quả đẹp nhất hoặc nỗi mệt rồi phần thưởng. 6 giây đầu 3–5 cảnh, thân 2–3 giây/cảnh, cảnh không lời ≤ 5 giây; không lời thì được cắt theo nhịp nhạc (mỗi cảnh 2–4 phách). Tiêu đề 3–5 giây. Mốc giờ to + 1 dòng ngắn mỗi cảnh. Tiếng tại chỗ nhỏ làm nền. Kết bằng thành phẩm, dừng | A, B, D |
+| E | **POV / hậu trường công việc** | Chữ "POV: …" hoặc câu thoại thật của khách / đồng nghiệp in to ở 3–5 giây đầu. Máy kẹp ngực hoặc góc cố định thấy tay. Nhãn 2–5 chữ khi cầm món / dụng cụ lên. Tên tiệm nằm trong hình (tường, bao bì), không cần đọc. Series "khách thứ X/100", "đơn thứ X". Kết bằng thành phẩm / khách hài lòng + 1 câu | C |
+| F | **Giới thiệu sản phẩm, bán hàng, booking** | Mở bằng nỗi khổ / tình huống thật, không mở bằng sản phẩm. Sản phẩm vào sớm như lời giải, mỗi tính năng là một tình huống dùng thật. Tên hãng nói tối đa 1 lần hoặc chỉ để logo trong tay. Bài thử thật (lau, rửa, đổ nước, để qua đêm, vận động) ở khoảng 3/4 video. Kết bằng câu quay về câu mở. Đoạn chốt nói liền, không khoảng chờ. Ảnh thật (bình luận hỏi giá, đơn) đã che tên khách. Thêm "kết quả mỗi người khác nhau" khi nói kết quả | Mọi nhóm, khi gắn giỏ, affiliate, booking |
+| G | **Gia đình** | Mở bằng phản ứng / kết quả (con mở hộp cơm, vợ nếm món). Một việc làm cho người thân, quá trình ngắn có chú thích (món, giá, thời gian). Giữ tiếng gốc, phản ứng thật. Có thể không lời, chỉ chữ + nhạc. Kiểm kỹ an toàn trẻ em | D |
+
+## Thêm: trước – sau không lời (dùng chung)
+Dưới 30 giây. Câu móc bỏ lửng chỉ hiện 3–5 giây ("khi mình làm việc này mỗi ngày, mình nhận được…"). "Trước" → quá trình nén nhanh (tua 2–4 lần), cắt theo nhịp nhạc (mỗi cảnh 2–4 phách, cao trào 1–2 phách) → "sau" giữ 2–3 giây. Quay cùng góc, cùng chỗ mỗi ngày vài giây, cuối tuần ghép lại.

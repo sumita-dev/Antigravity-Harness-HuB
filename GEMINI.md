@@ -32,7 +32,7 @@
 
 ## 2. Kỹ Năng & Quy Trình Nhánh Marketing
 - **Dynamic Marketing Triad 100%:** Mọi yêu cầu content/kịch bản bắt buộc qua `Researcher ➔ Creator ➔ Critic` (Pipeline, Research-Only, hoặc Revision). Dùng `workflows/marketing_triad.py` cho `run_workflow`; chi tiết quy trình xem [marketing-workflow-guide.md](docs/marketing-workflow-guide.md).
-- **Skills (`plugins/marketing/skills/<skill>/SKILL.md`):** `/alex-hormozi-money-models`, `/alex-hormozi-offer-builder`, `/boc-phot-storytelling`, `/check-youtube-policy`, `/cong-thuc-viet-content-by-noti-v4`, `/fb-admin`, `/flowkit`, `/framework-marketing-da-kenh`, `/kahneman-creative-ads`, `/meta-ad-scout`, `/meta-ads-analyzer-mod-by-noti`, `/paid-media-auditor`, `/short-video-storytelling`, `/social-reach`, `/steve-jobs-product-launch`, `/traffic-secrets-playbook`, `/us-finance-script-auditor`, `/viet-content-seo-geo-v5`, `/youtube-keyword-intelligence`, `/youtube-suggest`, `/yt-competitor-analyzer`.
+- **Skills (`plugins/marketing/skills/<skill>/SKILL.md`):** `/alex-hormozi-money-models`, `/alex-hormozi-offer-builder`, `/boc-phot-storytelling`, `/check-youtube-policy`, `/cong-thuc-viet-content-by-noti-v4`, `/fb-admin`, `/flowkit`, `/framework-marketing-da-kenh`, `/kahneman-creative-ads`, `/meta-ad-scout`, `/meta-ads-analyzer-mod-by-noti`, `/paid-media-auditor`, `/short-video-storytelling`, `/social-reach`, `/steve-jobs-product-launch`, `/traffic-secrets-playbook`, `/us-finance-script-auditor`, `/viet-content-seo-geo-v5`, `/youtube-keyword-intelligence`, `/youtube-suggest`, `/yt-competitor-analyzer`, `/xk-dinh-huong`, `/xk-edit`, `/xk-kich-ban`, `/xk-xem-lai`, `/xk-y-tuong`.
 
 ---
 
