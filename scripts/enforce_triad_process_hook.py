@@ -752,8 +752,6 @@ def evaluate_transcript(
                 retry_count += 1
         else:
             last_planner_step = step
-            if content.strip():
-                tier2_text_fragments.append(content)
 
         step_tcs = _extract_step_tool_calls(step)
         for tc_name, tc_args in step_tcs:
@@ -799,13 +797,7 @@ def evaluate_transcript(
                             non_exempt_mutations.append(p)
             elif tc_name == "invoke_subagent":
                 subagent_invocations.append((step_idx, tc_args))
-                role_val = _clean_arg_val(tc_args.get("Role") or tc_args.get("role"))
-                if role_val:
-                    tier2_text_fragments.append(role_val)
                 prompt_val = _clean_arg_val(tc_args.get("Prompt") or tc_args.get("prompt"))
-                if prompt_val:
-                    stripped_prompt = FIXED_PREFIX_BLOCK_RE.sub("", prompt_val)
-                    tier2_text_fragments.append(stripped_prompt)
                 if candidate_report_paths:
                     role_info = classify_subagent_role(tc_args)
                     is_downstream = (

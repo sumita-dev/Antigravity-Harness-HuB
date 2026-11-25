@@ -178,8 +178,8 @@ RAW_HTTP_PATTERNS = [
 NETWORK_ROUTING_CLAIM_PATTERNS = [
     # Tiếng Việt: Các tuyên bố phủ định / lỗi điều hướng / sập hệ thống (Negative / Routing / Failure claims)
     r"(?:bị\s+)?chuyển\s+hướng\s+về",
-    r"(?:bị\s+)?fallback(?:\s+về)?",
-    r"(?:bị\s+)?redirect(?:\s+về)?",
+    r"(?:\bbị\s+fallback(?:\s+về)?(?!\s+(?:sang|về|tới)?\s*(?:nhánh|local|cache|mock|default|timeout|python|pip|path|chế\s+độ|mode|thư\s+mục|file|tệp)\b)|\bfallback\s+(?:về|sang|tới|ra|to)\s+(?:\b(?:trang\s+chủ|homepage|home|root|index(?:\.html)?|404|login|url|trang|page|route|endpoint)\b|/\S*))",
+    r"(?<!\bio\s)(?<!\bi/o\s)(?<!\bstream\s)(?<!\bstdin\s)(?<!\bstdout\s)(?<!\bstderr\s)(?<!\boutput\s)(?<!\binput\s)(?<!\bpipe\s)(?<!\bluồng\s)(?:bị\s+)?\bredirect(?:\s+(?:về|sang|tới|ra))?(?!\s+(?:về|sang|tới|ra)?\s*(?:stdin|stdout|stderr|pipe|io|i/o|output|input|log|console|nul|/dev/null|luồng|đầu\s+ra|đầu\s+vào|file|tệp)\b)",
     r"(?:mã\s+)?lỗi\s+404\b",
     r"rewrite\s+về(?:\s+trang\s+chủ)?",
     r"không\s+truy\s+cập\s+được(?:\s+(?:trang|link|url|web|domain|site|endpoint))?",

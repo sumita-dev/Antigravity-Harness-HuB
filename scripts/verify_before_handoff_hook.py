@@ -27,9 +27,11 @@ import argparse
 import json
 import os
 from pathlib import Path
+import py_compile
 import re
 import subprocess
 import sys
+import tempfile
 from typing import Any
 import urllib.parse
 
@@ -50,7 +52,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from harness.validators.clean_state_verifier import (  # noqa: E402
     CleanStateVerifier,
+    DEBUG_PATTERNS_JS,
+    DEBUG_PATTERNS_PYTHON,
     DimensionStatus,
+    STRAY_FILE_PATTERNS,
 )
 
 GATE_MARKER = "[PRE-HANDOFF-GATE]"
@@ -588,6 +593,122 @@ def _resolve_workspace_root(
     return REPO_ROOT
 
 
+_BROAD_HOME_SUBDIRS = (
+    "Desktop",
+    "Documents",
+    "Downloads",
+    "Pictures",
+    "Videos",
+    "Music",
+    "OneDrive",
+)
+
+_LOOSE_SOURCE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs"}
+
+
+def _is_broad_non_project_dir(path: Path) -> bool:
+    """Return True if path is a drive root or a broad user/temp directory (exact match only)."""
+    try:
+        resolved = path.resolve()
+    except OSError:
+        resolved = Path(os.path.abspath(str(path)))
+
+    if resolved == resolved.parent:
+        return True
+
+    norm_target = os.path.normcase(str(resolved))
+
+    home = Path.home()
+    broad_candidates: list[Path] = [
+        home,
+        *(home / name for name in _BROAD_HOME_SUBDIRS),
+        home / "OneDrive" / "Desktop",
+        home / "OneDrive" / "Documents",
+        Path(tempfile.gettempdir()),
+    ]
+
+    for cand in broad_candidates:
+        try:
+            cand_norm = os.path.normcase(str(cand.resolve()))
+        except OSError:
+            cand_norm = os.path.normcase(os.path.abspath(str(cand)))
+        if norm_target == cand_norm:
+            return True
+
+    return False
+
+
+def _audit_loose_mutated_files(
+    mutated_files: list[str],
+    workspace_root: Path | None = None,
+) -> list[str]:
+    """Run targeted D1 (py_compile) and D4 (stray/debug patterns) only on existing mutated files."""
+    violations: list[str] = []
+    seen: set[str] = set()
+
+    for raw_path in mutated_files:
+        if not raw_path or is_exempt_path(raw_path):
+            continue
+
+        p = Path(raw_path)
+        if not p.is_absolute() and workspace_root is not None:
+            p = workspace_root / p
+        try:
+            resolved = p.resolve()
+        except OSError:
+            continue
+
+        key = os.path.normcase(str(resolved))
+        if key in seen or not resolved.is_file():
+            continue
+        seen.add(key)
+
+        name = resolved.name
+        ext = resolved.suffix.lower()
+
+        # D4a: Stray file name check
+        for pattern in STRAY_FILE_PATTERNS:
+            if pattern.match(name):
+                violations.append(f"Stray file detected: {name}")
+                break
+
+        # D1: Syntax check for Python files only
+        if ext == ".py":
+            try:
+                compile_target = str(resolved)
+                if os.name == "nt" and not compile_target.startswith("\\\\?\\"):
+                    compile_target = "\\\\?\\" + compile_target
+                py_compile.compile(compile_target, doraise=True)
+            except (py_compile.PyCompileError, SyntaxError) as exc:
+                msg = getattr(exc, "msg", None) or str(exc)
+                violations.append(f"{name}: Syntax error - {msg}")
+            except Exception as exc:
+                violations.append(f"{name}: Compilation error: {exc}")
+
+        # D4b: Debug pattern check for supported source extensions only (skip .cmd, .bat, etc.)
+        if ext not in _LOOSE_SOURCE_EXTS:
+            continue
+
+        try:
+            content = resolved.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        if "# noqa: debug-artifact-file" in content or "// noqa: debug-artifact-file" in content:
+            continue
+
+        patterns = DEBUG_PATTERNS_PYTHON if ext == ".py" else DEBUG_PATTERNS_JS
+        for line_no, line in enumerate(content.splitlines(), start=1):
+            if "# noqa: debug-artifact" in line or "// noqa: debug-artifact" in line or "# noqa" in line:
+                continue
+            for regex, v_type in patterns:
+                if regex.search(line):
+                    snippet = line.strip()[:80]
+                    violations.append(f"{name}:L{line_no}: [{v_type}] {snippet}")
+
+    return violations
+
+
 def _resolve_modified_test_files(
     workspace_root: Path,
     mutated_files: list[str],
@@ -794,23 +915,30 @@ def evaluate_transcript(
         transcript_path=transcript_path,
         mutated_files=ctx["mutated_files"],
     )
+    is_broad_dir = _is_broad_non_project_dir(workspace_root)
 
     # -------------------------------------------------------------------------
     # Check B: CleanStateVerifier Fast Audit (D1 Syntax & D4 Zero Debug)
     # -------------------------------------------------------------------------
     if ctx["has_code_mutation"] or check_clean_state:
-        verifier = CleanStateVerifier(
-            project_root=workspace_root,
-            config={"fast_mode": True},
-        )
-        d1_res = verifier.check_d1_build_type()
-        d4_res = verifier.check_d4_zero_debug()
-
         violations: list[str] = []
-        if d1_res.status == DimensionStatus.FAIL:
-            violations.extend(d1_res.violations[:3] or [d1_res.message])
-        if d4_res.status == DimensionStatus.FAIL:
-            violations.extend(d4_res.violations[:3] or [d4_res.message])
+        if is_broad_dir:
+            violations = _audit_loose_mutated_files(
+                ctx["mutated_files"],
+                workspace_root=workspace_root,
+            )[:6]
+        else:
+            verifier = CleanStateVerifier(
+                project_root=workspace_root,
+                config={"fast_mode": True},
+            )
+            d1_res = verifier.check_d1_build_type()
+            d4_res = verifier.check_d4_zero_debug()
+
+            if d1_res.status == DimensionStatus.FAIL:
+                violations.extend(d1_res.violations[:3] or [d1_res.message])
+            if d4_res.status == DimensionStatus.FAIL:
+                violations.extend(d4_res.violations[:3] or [d4_res.message])
 
         if violations:
             v_str = "; ".join(violations)
@@ -836,7 +964,8 @@ def evaluate_transcript(
     )
 
     if (
-        ctx["last_non_test_py_mutation_idx"] >= 0
+        not is_broad_dir
+        and ctx["last_non_test_py_mutation_idx"] >= 0
         and ctx["last_passing_pytest_idx"] < ctx["last_non_test_py_mutation_idx"]
     ):
         discovered = discover_tests_for_source_mutations(
