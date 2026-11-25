@@ -100,7 +100,7 @@ REPORT_PATH_LINK_RE = re.compile(
     re.IGNORECASE,
 )
 REPORT_PATH_TOKEN_RE = re.compile(
-    r"[`\"']((?:[A-Za-z]:[\\/]|(?:\.gemini|brain|\.brain|artifacts)[\\/])[^\s`\"'\r\n]+(?:\.md|\.json|\.txt|\.log|\.html|\.csv))[`\"']",
+    r"[`\"']((?:[A-Za-z]:[\\/]|/|(?:\.gemini|brain|\.brain|artifacts)[\\/])[^\s`\"'\r\n]+(?:\.md|\.json|\.txt|\.log|\.html|\.csv))[`\"']",
     re.IGNORECASE,
 )
 
