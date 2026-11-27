@@ -730,7 +730,7 @@ def evaluate_transcript(
     candidate_report_paths: list[str] = []
     seen_candidate_norms: set[str] = set()
     has_subagent_message = False
-    missing_handoff_context_violations: list[str] = []
+    handoff_violations_by_role: dict[str, str] = {}
     has_workspace_sync = False
     last_kill_all_idx = -1
     tier2_text_fragments: list[str] = []
@@ -810,15 +810,32 @@ def evaluate_transcript(
                         or role_info["is_mkt_creator"]
                     )
                     if is_downstream:
+                        rk = (
+                            "qa"
+                            if role_info["is_qa"]
+                            else "code_critic"
+                            if role_info["is_code_critic"]
+                            else "compliance_critic"
+                            if role_info["is_compliance_critic"]
+                            else "e2e_critic"
+                            if role_info["is_e2e_critic"]
+                            else "content_critic"
+                            if role_info["is_content_critic"]
+                            else "design_reviewer"
+                            if role_info["is_design_reviewer"]
+                            else "mkt_creator"
+                        )
                         has_ref = any(
                             (rp in prompt_val)
                             or (rp.replace("\\", "/") in prompt_val)
                             or (Path(rp).name in prompt_val)
                             for rp in candidate_report_paths
                         )
-                        if not has_ref:
+                        if has_ref:
+                            handoff_violations_by_role.pop(rk, None)
+                        else:
                             role_label = role_info["role"] or "SubAgent"
-                            missing_handoff_context_violations.append(
+                            handoff_violations_by_role[rk] = (
                                 f"Prompt của {role_label} chưa tham chiếu report_path từ bước trước ({Path(candidate_report_paths[-1]).name})"
                             )
             elif tc_name == "manage_subagents":
@@ -968,8 +985,8 @@ def evaluate_transcript(
                 "Vi phạm thứ tự Dynamic Marketing Triad (Rule 3): Lần gọi Creator cuối cùng diễn ra SAU Compliance Critic và chưa được thẩm định lại"
             )
 
-    model_tier_violations: list[str] = []
-    sandbox_violations: list[str] = []
+    model_tier_violations_by_role: dict[str, str] = {}
+    sandbox_violations_by_role: dict[str, str] = {}
     for (_, tc_args), c in zip(subagent_invocations, classified):
         model_val = _clean_arg_val(tc_args.get("Model") or tc_args.get("model")).lower()
         type_val = _clean_arg_val(tc_args.get("TypeName") or tc_args.get("type_name")).lower()
@@ -980,21 +997,48 @@ def evaluate_transcript(
             or c["is_content_critic"]
             or c["is_e2e_critic"]
         )
-        if is_deep_critic and type_val == "self":
-            role_label = c["role"] or "Critic/Reviewer"
-            sandbox_violations.append(
-                f"Vi phạm phân quyền Sandbox: Cấm dùng TypeName='self' cho {role_label} (bắt buộc dùng TypeName='research' hoặc subagent read-only)"
-            )
-        if c["is_qa"] and model_val == "inherit":
-            role_label = c["role"] or "QA Auditor"
-            model_tier_violations.append(
-                f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='inherit' cho {role_label}"
-            )
-        elif is_deep_critic and model_val in ("flash", "flash_lite"):
-            role_label = c["role"] or "Critic"
-            model_tier_violations.append(
-                f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='{model_val}' cho {role_label} (phải dùng Model='inherit')"
-            )
+        rk = (
+            "qa"
+            if c["is_qa"]
+            else "code_critic"
+            if c["is_code_critic"]
+            else "design_reviewer"
+            if c["is_design_reviewer"]
+            else "compliance_critic"
+            if c["is_compliance_critic"]
+            else "content_critic"
+            if c["is_content_critic"]
+            else "e2e_critic"
+            if c["is_e2e_critic"]
+            else (c["role"] or "other").lower()
+        )
+        if is_deep_critic:
+            if type_val == "self":
+                role_label = c["role"] or "Critic/Reviewer"
+                sandbox_violations_by_role[rk] = (
+                    f"Vi phạm phân quyền Sandbox: Cấm dùng TypeName='self' cho {role_label} (bắt buộc dùng TypeName='research' hoặc subagent read-only)"
+                )
+            else:
+                sandbox_violations_by_role.pop(rk, None)
+        if c["is_qa"]:
+            if model_val == "inherit":
+                role_label = c["role"] or "QA Auditor"
+                model_tier_violations_by_role[rk] = (
+                    f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='inherit' cho {role_label}"
+                )
+            else:
+                model_tier_violations_by_role.pop(rk, None)
+        elif is_deep_critic:
+            if model_val in ("flash", "flash_lite"):
+                role_label = c["role"] or "Critic"
+                model_tier_violations_by_role[rk] = (
+                    f"Vi phạm Quy tắc 1.11 (Explicit Model Tiering): Cấm dùng Model='{model_val}' cho {role_label} (phải dùng Model='inherit')"
+                )
+            else:
+                model_tier_violations_by_role.pop(rk, None)
+    model_tier_violations = list(model_tier_violations_by_role.values())
+    sandbox_violations = list(sandbox_violations_by_role.values())
+    missing_handoff_context_violations = list(handoff_violations_by_role.values())
 
     schedule_violations: list[str] = []
     first_subagent_idx = subagent_invocations[0][0] if subagent_invocations else None
