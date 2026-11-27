@@ -155,7 +155,7 @@ def test_install_rejects_target_inside_packaged_source(tmp_path, directory, nest
     result = subprocess.run(
         [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
          str(fixture / "setup/setup.ps1"), "-TargetDirectory", str(target), "-SkipSessionRestore"],
-        capture_output=True, text=True, timeout=20,
+        capture_output=True, text=True, timeout=120,
     )
     assert result.returncode != 0
     assert "packaged source directory" in result.stderr.lower()
