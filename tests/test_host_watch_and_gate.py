@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import types
 from pathlib import Path
@@ -398,39 +399,41 @@ def test_host_gate_cli_execution_busy_75_and_shim_anti_recursion(
 
 def test_prune_dev_cache_lru_and_git_safety(tmp_path: Path) -> None:
     """Verify prune_dev_cache_lru enforces max_age_days and max_bytes while keeping newest files."""
-    cache_dir = tmp_path / "go_cache"
-    cache_dir.mkdir(parents=True)
-    now = host_watch.time.time()
+    # Use OS temp dir so repo-local --basetemp=.pytest_temp_run does not trigger ancestor .git safety guard.
+    with tempfile.TemporaryDirectory(prefix="ag_cache_lru_") as td:
+        cache_dir = Path(td) / "go_cache"
+        cache_dir.mkdir(parents=True)
+        now = host_watch.time.time()
 
-    expired = cache_dir / "a_expired.bin"
-    older = cache_dir / "b_older.bin"
-    newer = cache_dir / "c_newer.bin"
-    newest = cache_dir / "d_newest.bin"
+        expired = cache_dir / "a_expired.bin"
+        older = cache_dir / "b_older.bin"
+        newer = cache_dir / "c_newer.bin"
+        newest = cache_dir / "d_newest.bin"
 
-    expired.write_bytes(b"x" * 100)
-    older.write_bytes(b"x" * 200)
-    newer.write_bytes(b"x" * 200)
-    newest.write_bytes(b"x" * 200)
+        expired.write_bytes(b"x" * 100)
+        older.write_bytes(b"x" * 200)
+        newer.write_bytes(b"x" * 200)
+        newest.write_bytes(b"x" * 200)
 
-    os.utime(expired, (now - 10 * 86400, now - 10 * 86400))
-    os.utime(older, (now - 2 * 86400, now - 2 * 86400))
-    os.utime(newer, (now - 3600, now - 3600))
-    os.utime(newest, (now - 10, now - 10))
+        os.utime(expired, (now - 10 * 86400, now - 10 * 86400))
+        os.utime(older, (now - 2 * 86400, now - 2 * 86400))
+        os.utime(newer, (now - 3600, now - 3600))
+        os.utime(newest, (now - 10, now - 10))
 
-    # Dry run preserves all files
-    dry = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=450, max_age_days=7, dry_run=True)
-    assert dry["deleted_count"] == 2
-    assert dry["freed_bytes"] == 300
-    assert dry["after_bytes"] == 400
-    assert expired.exists() and older.exists() and newer.exists() and newest.exists()
+        # Dry run preserves all files
+        dry = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=450, max_age_days=7, dry_run=True)
+        assert dry["deleted_count"] == 2
+        assert dry["freed_bytes"] == 300
+        assert dry["after_bytes"] == 400
+        assert expired.exists() and older.exists() and newer.exists() and newest.exists()
 
-    # Real run deletes expired + older, keeps newer + newest
-    real = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=450, max_age_days=7, dry_run=False)
-    assert real["deleted_count"] == 2
-    assert not expired.exists()
-    assert not older.exists()
-    assert newer.exists()
-    assert newest.exists()
+        # Real run deletes expired + older, keeps newer + newest
+        real = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=450, max_age_days=7, dry_run=False)
+        assert real["deleted_count"] == 2
+        assert not expired.exists()
+        assert not older.exists()
+        assert newer.exists()
+        assert newest.exists()
 
     # Safety guard: refuses .git repository
     git_dir = tmp_path / "repo"
@@ -791,51 +794,54 @@ def test_prune_dev_cache_lru_ancestor_git_symlinks_and_nested_empty_dirs(
     assert sub_file.exists()
 
     # 2. Skips symlinks/junctions and removes nested emptied directories
-    cache_dir = tmp_path / "cache_root"
-    nested_dir = cache_dir / "lvl1" / "lvl2" / "lvl3"
-    nested_dir.mkdir(parents=True)
-    old_file = nested_dir / "expired.bin"
-    old_file.write_bytes(b"x" * 64)
-    now = host_watch.time.time()
-    os.utime(old_file, (now - 10 * 86400, now - 10 * 86400))
+    # Use OS temp dir so repo-local --basetemp=.pytest_temp_run does not trigger ancestor .git safety guard.
+    with tempfile.TemporaryDirectory(prefix="ag_cache_sym_") as td:
+        sym_root = Path(td)
+        cache_dir = sym_root / "cache_root"
+        nested_dir = cache_dir / "lvl1" / "lvl2" / "lvl3"
+        nested_dir.mkdir(parents=True)
+        old_file = nested_dir / "expired.bin"
+        old_file.write_bytes(b"x" * 64)
+        now = host_watch.time.time()
+        os.utime(old_file, (now - 10 * 86400, now - 10 * 86400))
 
-    outside_dir = tmp_path / "outside_target"
-    outside_dir.mkdir()
-    outside_file = outside_dir / "must_survive.bin"
-    outside_file.write_bytes(b"safe")
+        outside_dir = sym_root / "outside_target"
+        outside_dir.mkdir()
+        outside_file = outside_dir / "must_survive.bin"
+        outside_file.write_bytes(b"safe")
 
-    link_dir = cache_dir / "link_dir"
-    created_link = False
-    try:
-        os.symlink(outside_dir, link_dir, target_is_directory=True)
-        created_link = True
-    except OSError:
-        if os.name == "nt":
-            mk = subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(link_dir), str(outside_dir)],
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
+        link_dir = cache_dir / "link_dir"
+        created_link = False
+        try:
+            os.symlink(outside_dir, link_dir, target_is_directory=True)
+            created_link = True
+        except OSError:
+            if os.name == "nt":
+                mk = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(link_dir), str(outside_dir)],
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                )
+                created_link = mk.returncode == 0
+
+        if not created_link:
+            # Unprivileged fallback: verify symlink/reparse skip via explicit sentinel directory
+            fake_link = cache_dir / "reparse_dir"
+            fake_link.mkdir()
+            (fake_link / "protected.bin").write_bytes(b"keep")
+            orig_reparse = host_watch._is_reparse_or_symlink
+            monkeypatch.setattr(
+                host_watch,
+                "_is_reparse_or_symlink",
+                lambda p: True if Path(p) == fake_link else orig_reparse(p),
             )
-            created_link = mk.returncode == 0
 
-    if not created_link:
-        # Unprivileged fallback: verify symlink/reparse skip via explicit sentinel directory
-        fake_link = cache_dir / "reparse_dir"
-        fake_link.mkdir()
-        (fake_link / "protected.bin").write_bytes(b"keep")
-        orig_reparse = host_watch._is_reparse_or_symlink
-        monkeypatch.setattr(
-            host_watch,
-            "_is_reparse_or_symlink",
-            lambda p: True if Path(p) == fake_link else orig_reparse(p),
-        )
-
-    res = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=0, max_age_days=0, dry_run=False)
-    assert res["deleted_count"] == 1
-    assert not old_file.exists()
-    assert not (cache_dir / "lvl1").exists()
-    assert cache_dir.exists()
-    assert outside_file.exists()
-    if not created_link:
-        assert (cache_dir / "reparse_dir" / "protected.bin").exists()
+        res = host_watch.prune_dev_cache_lru(cache_dir, max_bytes=0, max_age_days=0, dry_run=False)
+        assert res["deleted_count"] == 1
+        assert not old_file.exists()
+        assert not (cache_dir / "lvl1").exists()
+        assert cache_dir.exists()
+        assert outside_file.exists()
+        if not created_link:
+            assert (cache_dir / "reparse_dir" / "protected.bin").exists()
