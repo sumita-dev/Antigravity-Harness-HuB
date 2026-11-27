@@ -47,6 +47,7 @@
 3. **Lean Handoff Payload & Chốt Chặn Đọc Artifact:** Subagent gửi `digest <= 100 từ` theo Structured Envelope (`Verdict | Exit Code | Key Findings | report_path`) kèm `report_path` (bắt buộc non-empty) và `hash`. Log dài ghi ra disk/artifact; Quản đốc BẮT BUỘC đọc đầy đủ file `report_path` của Critic/QA (cấm đọc lướt) trước khi báo cáo Sếp.
 4. **Session Rollover Enforcer:** Khi chạm 35-40 turns hoặc transcript > 200KB, tự xuất tiến độ sang `$OBSIDIAN_VAULT_PATH/wiki/_session-handoff.md` và hướng dẫn Sếp gõ `/compact` hoặc mở phiên mới. Telemetry hiển thị khi YELLOW (35-40 turns, 180-240KB) hoặc RED (> 40 turns, > 250KB).
 5. **Context Budget Economics:** Trần `always_on_max` phải được bảo vệ; chuyển chi tiết vào Skill/Script/SubAgent on-demand.
+6. **Host I/O Gate:** Bọc lệnh nặng (`install`, `worktree`, `build`, `test`) qua `scripts/host_gate.py` (IO_VERYLOW, pool cap `1/2`, timeout `45s`).
 
 ---
 

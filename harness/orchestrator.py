@@ -151,11 +151,30 @@ class ChiefOrchestrator:
         if not task_list:
             return []
 
-        concurrency = max(1, min(max_concurrency, len(task_list)))
+        effective_concurrency = max_concurrency
+        admission_info: Optional[dict] = None
+        try:
+            from harness.host_watch import get_fan_out_admission
+
+            recommended, status = get_fan_out_admission(max_concurrency)
+            if isinstance(recommended, int) and recommended >= 1:
+                effective_concurrency = recommended
+                if effective_concurrency < max_concurrency:
+                    admission_info = {
+                        "requested": max_concurrency,
+                        "effective": effective_concurrency,
+                        "level": status.get("level", "UNKNOWN"),
+                    }
+        except Exception:
+            effective_concurrency = max_concurrency
+
+        concurrency = max(1, min(effective_concurrency, len(task_list)))
         results: list[tuple[TaskContext, Verdict]] = []
 
         def _execute_single(sub_task_desc: str):
             sub_ctx = TaskContext(task_id=str(uuid.uuid4()), branch=branch)
+            if admission_info is not None:
+                sub_ctx.record_step("HOST_ADMISSION", dict(admission_info))
             return self.process_task(
                 task_description=sub_task_desc,
                 branch=branch,

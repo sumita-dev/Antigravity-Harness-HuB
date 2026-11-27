@@ -169,6 +169,16 @@ def evaluate_pre_invocation_payload(
             " Builder use Workspace='share', keep 'browser' idle, Zero-Paraphrase Handoff"
         )
 
+    conversation_id = str(payload.get("conversationId") or payload.get("conversation_id") or "")
+    try:
+        from harness.host_watch import get_pre_invocation_host_notice
+
+        host_notice = get_pre_invocation_host_notice(conversation_id=conversation_id)
+    except Exception:
+        host_notice = None
+    if host_notice:
+        extra_guard += f" | host_io={host_notice}"
+
     directive_msg = (
         f"{ROUTER_MARKER} branch={branch} | skill={skill} | "
         f"skill_path={skill_path} | triad={triad} | directive={directive}{extra_guard}"

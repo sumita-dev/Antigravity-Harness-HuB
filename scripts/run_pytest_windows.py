@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import uuid
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 # Đảm bảo UTF-8 cho Windows console
 if hasattr(sys.stdout, "reconfigure"):
@@ -96,12 +97,30 @@ def main() -> int:
     cwd = str(Path.cwd().resolve())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
+
+    if os.environ.get("ANTIGRAVITY_NO_LOW_IO") != "1":
+        try:
+            repo_root = Path(__file__).resolve().parents[1]
+            if str(repo_root) not in sys.path:
+                sys.path.insert(0, str(repo_root))
+            from harness.host_watch import apply_low_io_priority
+            apply_low_io_priority(os.getpid())
+        except Exception:
+            pass
+
     tier, args = resolve_tier_args(sys.argv[1:])
+    auto_basetemp: Optional[Path] = None
     if not any(arg == "--basetemp" or arg.startswith("--basetemp=") for arg in args):
         temp_root = Path(os.environ.get("TEMP") or os.environ.get("TMP") or Path.cwd())
-        args.extend(["--basetemp", str(temp_root / f"antigravity-pytest-{uuid.uuid4().hex}")])
+        auto_basetemp = temp_root / f"antigravity-pytest-{uuid.uuid4().hex}"
+        args.extend(["--basetemp", str(auto_basetemp)])
+
     import pytest
-    return int(pytest.main(args))
+    try:
+        return int(pytest.main(args))
+    finally:
+        if auto_basetemp is not None and auto_basetemp.exists():
+            shutil.rmtree(auto_basetemp, ignore_errors=True)
 
 
 if __name__ == "__main__":

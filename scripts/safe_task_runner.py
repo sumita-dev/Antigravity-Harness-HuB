@@ -28,7 +28,13 @@ from typing import Dict, Any, List, Optional
 
 
 TIMEOUT_EXIT_CODE = 124
+GATE_BUSY_EXIT_CODE = 75
 DEFAULT_TIMEOUT_SECONDS = 180
+DEFAULT_GATE_WAIT_TIMEOUT = 45.0
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 # Các flag nhận đối số giá trị của rg và grep
 STREAM_OPTIONS_WITH_ARGS = {
@@ -162,42 +168,25 @@ def kill_process_tree(pid: int, cleanup_names: Optional[List[str]] = None) -> No
                 pass
 
 
-def run_command_with_timeout(
+def _execute_popen(
     cmd: List[str] | str,
-    timeout_sec: float = DEFAULT_TIMEOUT_SECONDS,
-    shell: bool = False,
-    cwd: Optional[str] = None,
-    cleanup_names: Optional[List[str]] = None,
-    env: Optional[Dict[str, str]] = None,
-    stdin: Any = subprocess.DEVNULL
+    timeout_sec: float,
+    shell: bool,
+    cwd: Optional[str],
+    cleanup_names: Optional[List[str]],
+    env: Optional[Dict[str, str]],
+    stdin: Any,
+    low_io_priority: bool,
+    start_time: float,
 ) -> Dict[str, Any]:
-    """
-    Chạy lệnh với hard timeout và bảo vệ STDIN stream.
-    Trả về dict:
-    {
-        "status": "SUCCESS" | "TIMEOUT" | "ERROR",
-        "exit_code": int,
-        "elapsed_sec": float,
-        "stdout": str,
-        "stderr": str,
-        "timed_out": bool
-    }
-    """
-    start_time = time.time()
     result = {
         "status": "SUCCESS",
         "exit_code": 0,
         "elapsed_sec": 0.0,
         "stdout": "",
         "stderr": "",
-        "timed_out": False
+        "timed_out": False,
     }
-
-    if stdin is None:
-        stdin = subprocess.DEVNULL
-
-    cmd = sanitize_stream_command(cmd)
-
     try:
         proc = subprocess.Popen(
             cmd,
@@ -213,6 +202,13 @@ def run_command_with_timeout(
             start_new_session=os.name != "nt",
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
+
+        if low_io_priority:
+            try:
+                from harness.host_watch import apply_low_io_priority
+                apply_low_io_priority(proc.pid)
+            except Exception:
+                pass
 
         try:
             stdout, stderr = proc.communicate(timeout=timeout_sec)
@@ -253,6 +249,89 @@ def run_command_with_timeout(
         return result
 
 
+def run_command_with_timeout(
+    cmd: List[str] | str,
+    timeout_sec: float = DEFAULT_TIMEOUT_SECONDS,
+    shell: bool = False,
+    cwd: Optional[str] = None,
+    cleanup_names: Optional[List[str]] = None,
+    env: Optional[Dict[str, str]] = None,
+    stdin: Any = subprocess.DEVNULL,
+    low_io_priority: bool = True,
+    gate_category: Optional[str] = None,
+    wait_timeout_sec: float = DEFAULT_GATE_WAIT_TIMEOUT,
+) -> Dict[str, Any]:
+    """
+    Chạy lệnh với hard timeout, bảo vệ STDIN stream, hạ ưu tiên I/O và tùy chọn Host Gate slot.
+    Trả về dict:
+    {
+        "status": "SUCCESS" | "TIMEOUT" | "ERROR" | "BUSY",
+        "exit_code": int,
+        "elapsed_sec": float,
+        "stdout": str,
+        "stderr": str,
+        "timed_out": bool
+    }
+    """
+    start_time = time.time()
+    if stdin is None:
+        stdin = subprocess.DEVNULL
+
+    cmd = sanitize_stream_command(cmd)
+
+    if gate_category is not None:
+        try:
+            from harness.host_watch import HostGateBusyError, acquire_host_slot, resolve_pool
+        except ImportError:
+            acquire_host_slot = None
+            HostGateBusyError = None  # type: ignore[assignment,misc]
+            resolve_pool = None
+
+        if acquire_host_slot is not None and HostGateBusyError is not None and resolve_pool is not None:
+            effective_env = dict(env) if env is not None else os.environ.copy()
+            held_raw = str(effective_env.get("ANTIGRAVITY_HELD_POOLS", ""))
+            held_pools = {p.strip() for p in held_raw.split(",") if p.strip()}
+            target_pool = resolve_pool(gate_category, cmd=cmd)
+
+            if target_pool is not None and target_pool in held_pools:
+                effective_env["ANTIGRAVITY_SHIM_ACTIVE"] = "1"
+                return _execute_popen(
+                    cmd, timeout_sec, shell, cwd, cleanup_names,
+                    effective_env, stdin, low_io_priority, start_time,
+                )
+
+            try:
+                with acquire_host_slot(
+                    gate_category,
+                    wait_timeout=wait_timeout_sec,
+                    cmd=cmd,
+                ) as slot:
+                    child_env = env
+                    if slot is not None:
+                        child_env = dict(effective_env)
+                        child_env["ANTIGRAVITY_SHIM_ACTIVE"] = "1"
+                        child_env["ANTIGRAVITY_HELD_POOLS"] = ",".join(sorted(held_pools | {slot.pool}))
+                    return _execute_popen(
+                        cmd, timeout_sec, shell, cwd, cleanup_names,
+                        child_env, stdin, low_io_priority, start_time,
+                    )
+            except HostGateBusyError as exc:
+                return {
+                    "status": "BUSY",
+                    "exit_code": GATE_BUSY_EXIT_CODE,
+                    "elapsed_sec": round(time.time() - start_time, 3),
+                    "stdout": "",
+                    "stderr": f"[HOST-GATE-BUSY] {exc}",
+                    "timed_out": False,
+                    "gate_busy": True,
+                }
+
+    return _execute_popen(
+        cmd, timeout_sec, shell, cwd, cleanup_names,
+        env, stdin, low_io_priority, start_time,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Safe Task Runner: Bọc thực thi với hard timeout và auto-kill cây tiến trình."
@@ -268,6 +347,28 @@ def main():
         action="append",
         default=["WINWORD.EXE", "EXCEL.EXE"],
         help="Tên tiến trình mồ côi cần dọn sạch nếu timeout (có thể lặp lại)"
+    )
+    parser.add_argument(
+        "--host-gate",
+        action="store_true",
+        help="Bọc lệnh qua Host Gate concurrency slot (auto-classify nếu không chỉ định --gate-category)"
+    )
+    parser.add_argument(
+        "--gate-category",
+        choices=["auto", "io_heavy", "compute_io", "install", "worktree", "build", "test"],
+        default=None,
+        help="Phân loại pool cho Host Gate"
+    )
+    parser.add_argument(
+        "--wait-timeout",
+        type=float,
+        default=DEFAULT_GATE_WAIT_TIMEOUT,
+        help=f"Thời gian chờ slot Host Gate tối đa (mặc định: {DEFAULT_GATE_WAIT_TIMEOUT}s)"
+    )
+    parser.add_argument(
+        "--no-low-prio",
+        action="store_true",
+        help="Không hạ mức ưu tiên CPU/Disk I/O của tiến trình con"
     )
     parser.add_argument(
         "--json",
@@ -295,10 +396,15 @@ def main():
         print("[ERROR] Không tìm thấy lệnh thực thi hợp lệ.", file=sys.stderr)
         sys.exit(1)
 
+    gate_category = args.gate_category or ("auto" if args.host_gate else None)
+
     res = run_command_with_timeout(
         cmd=cmd_to_run,
         timeout_sec=args.timeout,
-        cleanup_names=args.cleanup_proc
+        cleanup_names=args.cleanup_proc,
+        low_io_priority=not args.no_low_prio,
+        gate_category=gate_category,
+        wait_timeout_sec=args.wait_timeout,
     )
 
     if args.json:

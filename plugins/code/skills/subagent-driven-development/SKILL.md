@@ -58,3 +58,10 @@ Khi khôi phục phiên sau compaction: Đọc trực tiếp sổ cái `progress
 5. **Nghiệm Thu Toàn Nhánh (Whole-Branch Final Review):**
    - Khi tất cả các task đã `complete`, kích hoạt đợt review toàn diện trên toàn bộ nhánh so với base branch bằng model mạnh nhất.
    - Nếu có phát hiện lỗi, gom thành MỘT đợt sửa duy nhất (single fix wave) để tối ưu chi phí.
+
+## Kỷ Luật Worktree & Disk I/O Đa Tác Tử (Multi-Agent Worktree & Disk I/O Hygiene)
+
+Khi khởi tạo nhiều worktree hoặc điều phối subagent song song:
+- **Tắt `gc.auto` trên worktree:** Luôn đặt `git config gc.auto 0` (hoặc tạo bằng `git -c gc.auto=0 worktree add ...`) để ngăn các tiến trình Git chạy nén đối tượng nền đồng thời gây nghẽn SSD.
+- **Dùng chung package store (read-mostly):** Giữ nguyên `GOMODCACHE` và `pnpm` store / `npm` cache dùng chung thay vì nhân bản cache cho từng worktree.
+- **Bọc lệnh nặng qua Host Gate:** Mọi bước `install`, `worktree`, `build`, `test` nặng chạy qua `scripts/host_gate.py` (giới hạn pool `io_heavy=1`, `compute_io=2` và hạ mức ưu tiên Disk I/O).

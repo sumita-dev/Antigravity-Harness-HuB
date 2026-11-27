@@ -41,7 +41,7 @@
 - **Skills (`plugins/<plugin>/skills/<skill>/SKILL.md`):**
   - *Core App & Dev:* `/app`, `/test-driven-development`, `/systematic-debugging`, `/karpathy-coder`, `/security-review`, `/database-migrations`, `/forensics`, `/why`, `/arena`, `/hillclimb`, `/domain-modeling`, `/verification-before-completion`, `/advisor`, `/loop-circuit-breaker`, `/subagent-driven-development`, `/receiving-code-review`, `/finishing-a-development-branch`, `/diagnosing-harness`, `/anti-hallucination-guard`, `/testcontainers`, `/gemini-sdk`, `/interview-me`, `/source-driven-development`, `/doubt-driven-development`, `/webperf`, `/ponytail-review`, `/reverse-lab`, `/blind-llm-agents`, `/sdd-spec-kit`.
   - *GitNexus & UI/A11y:* `/gitnexus-plan`, `/gitnexus-work`, `/gitnexus-review`, `/impeccable`, `/verify-ui`, `/accessibility`, `/apple-inspired-design`.
-  - *Hệ Thống & Second Brain:* `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`, `/video-normalizer`, `/bootstrap-second-brain`, `/setup-second-brain`, `/karpathy-second-brain`, `/ingest-source`, `/query-wiki`, `/lint-wiki`, `/second-brain-memory`, `/obsidian-markdown`, `/obsidian-bases`, `/json-canvas`.
+  - *Hệ Thống & Second Brain:* `/agy-doctor`, `/browser-hygiene`, `/cham-soc-may-tinh`, `/doc-to-markdown`, `/host-watch`, `/video-normalizer`, `/bootstrap-second-brain`, `/setup-second-brain`, `/karpathy-second-brain`, `/ingest-source`, `/query-wiki`, `/lint-wiki`, `/second-brain-memory`, `/obsidian-markdown`, `/obsidian-bases`, `/json-canvas`.
 
 ---
 
@@ -49,5 +49,6 @@
 - **Giao tiếp:** Gọi "Sếp" (hoặc "anh"), xưng "em"; tiếng Việt chuẩn; đi thẳng vào vấn đề, không khen ngợi, không văn mẫu điều phối; bảo toàn mã lệnh/log/path.
 - **Pre-Delivery Output Schema:** Báo cáo hoàn thành gồm 4 phần: (1) Kết quả & Thay đổi thực tế, (2) Phản biện tự thân (giả định/edge-case/điểm mù), (3) Bằng chứng thực chứng (lệnh, exit code, log/path), (4) Phạm vi chưa kiểm chứng / Rủi ro.
 - **Lớp Code (`harness/`):** `harness/app_workflow.py` (schema 3), `harness/orchestrator.py`, `python run_harness.py --task "<mô tả>"`. Bất biến: không hardcode secret, không commit `.brain/`, giữ `pytest -q` xanh 100%, khai báo đủ `requirements.txt`.
+- **Host Watch & Disk I/O Gate:** Bọc lệnh nặng (`install`, `worktree`, `build`, `test`) qua `scripts/host_gate.py` để giữ I/O hạ ưu tiên và giới hạn concurrency theo pool.
 - **Thêm Skill & Pre-Push Gate:** Khi thêm/cập nhật skill mới trong `plugins/<plugin>/skills/<skill>/`, bắt buộc thực hiện đủ 3 điểm chạm: (1) `SKILL.md` sạch secret/cache, (2) đăng ký phân loại trong `configs/harness_config.json` (`skill_routing` hoặc `skill_direct_only`), (3) ghi `/<skill>` vào `GEMINI.md`. Bắt buộc chạy `python scripts/lint_harness_skills.py` và `python -m pytest tests/test_repo_integrity.py tests/test_skill_integrity.py tests/test_skill_router.py -q` đạt `exit code 0` trước khi `git push`.
 - **Second Brain:** Tự động Auto-Query (`wiki/index.md`), Auto-Ingest, Memory Reflection (`cue/lesson/evidence`), Gap Detection (`_open-questions.md`). Chi tiết xem [second-brain-protocol.md](docs/second-brain-protocol.md).

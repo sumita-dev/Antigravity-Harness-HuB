@@ -403,6 +403,20 @@
         "xóa logo góc dưới phải"
       ]
     },
+    "host-watch": {
+      "branch": "app",
+      "keywords": [
+        "host-watch",
+        "host watch",
+        "host gate",
+        "disk io",
+        "disk active time",
+        "nghẽn disk",
+        "chống nghẽn io",
+        "quá tải ổ cứng",
+        "tỉa cache"
+      ]
+    },
     "flowkit": {
       "branch": "marketing",
       "keywords": [

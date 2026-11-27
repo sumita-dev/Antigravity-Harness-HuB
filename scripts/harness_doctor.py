@@ -1064,6 +1064,64 @@ class HarnessDoctor:
             if self.verbose:
                 print(f"[VERBOSE] Không thể kiểm tra session health: {exc}")
 
+        # 5.4 Kiểm tra áp lực Disk I/O từ Host Watch
+        try:
+            from harness.host_watch import audit_dev_caches, read_host_status
+
+            host_status = read_host_status()
+            if str(host_status.get("level", "GREEN")).upper() == "RED":
+                ema_mb = float(host_status.get("ema_bytes_per_sec", 0.0) or 0.0) / (1024 * 1024)
+                ema_lat = float(host_status.get("ema_avg_latency_ms", 0.0) or 0.0)
+                issues.append(
+                    DoctorIssue(
+                        code="WARN_HOST_DISK_IO",
+                        severity="WARN",
+                        pillar=pillar,
+                        message=(
+                            f"Host Watch ghi nhận áp lực Disk I/O mức RED "
+                            f"(EMA={ema_mb:.1f} MB/s, latency={ema_lat:.1f} ms)."
+                        ),
+                        remediation="Giảm fan-out concurrency và bọc lệnh build/install/test qua 'python scripts/host_gate.py -- <cmd>'.",
+                        auto_fixable=False,
+                    )
+                )
+
+            # 5.5 Kiểm tra phình dev cache (antigravity-pytest-* & GOCACHE > 30GB)
+            cache_audit = audit_dev_caches()
+            stale_cnt = int(cache_audit.get("pytest_stale_count", 0) or 0)
+            pytest_bytes = int(cache_audit.get("pytest_temp_bytes", 0) or 0)
+            if stale_cnt > 20 or pytest_bytes > 500 * 1024 * 1024:
+                pytest_mb = pytest_bytes / (1024 * 1024)
+                issues.append(
+                    DoctorIssue(
+                        code="WARN_DEV_CACHE_BLOAT",
+                        severity="WARN",
+                        pillar=pillar,
+                        message=(
+                            f"Thư mục tạm antigravity-pytest-* tồn đọng ({stale_cnt} thư mục cũ, "
+                            f"{pytest_mb:.1f} MB)."
+                        ),
+                        remediation="Chạy 'python scripts/host_gate.py --prune-caches' hoặc 'python run_harness.py --doctor-fix' để dọn các thư mục pytest > 1 giờ.",
+                        auto_fixable=True,
+                    )
+                )
+
+            if cache_audit.get("go_cache_over_budget"):
+                go_gb = float(cache_audit.get("go_cache_bytes", 0) or 0) / (1024**3)
+                issues.append(
+                    DoctorIssue(
+                        code="WARN_DEV_CACHE_BLOAT",
+                        severity="WARN",
+                        pillar=pillar,
+                        message=f"Dung lượng GOCACHE ({go_gb:.2f} GB) vượt ngưỡng 30 GB.",
+                        remediation="Chạy 'python scripts/host_gate.py --prune-caches --dry-run' rồi '--prune-caches' để tỉa GOCACHE theo LRU.",
+                        auto_fixable=False,
+                    )
+                )
+        except Exception as exc:
+            if self.verbose:
+                print(f"[VERBOSE] Không thể kiểm tra Host Watch / dev cache: {exc}")
+
         return issues
 
     # =========================================================================
@@ -1111,6 +1169,19 @@ class HarnessDoctor:
                     fixed_count += 1
                 except Exception as exc:
                     issue.message += f" (Dọn tiến trình COM thất bại: {exc})"
+
+            # Fix 4: Dọn dẹp thư mục antigravity-pytest-* cũ hơn 1 giờ
+            elif issue.code == "WARN_DEV_CACHE_BLOAT":
+                try:
+                    from harness.host_watch import prune_stale_pytest_temps
+                    prune_res = prune_stale_pytest_temps(max_age_sec=3600.0, dry_run=False)
+                    if not prune_res.get("errors"):
+                        issue.fixed = True
+                        fixed_count += 1
+                    else:
+                        issue.message += f" (Dọn pytest temp còn lỗi: {'; '.join(prune_res['errors'])})"
+                except Exception as exc:
+                    issue.message += f" (Dọn pytest temp thất bại: {exc})"
 
         return fixed_count
 
